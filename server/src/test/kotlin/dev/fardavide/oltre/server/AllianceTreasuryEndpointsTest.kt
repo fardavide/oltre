@@ -185,6 +185,49 @@ class AllianceTreasuryEndpointsTest {
         assertEquals(ApiError.StaleAlliance, answer.error())
     }
 
+    // An alliance disbanded between the read and the tap. A 404 rather than a 409, on the same
+    // division as `NotInAnAlliance`: the thing being spent does not exist, which is a different
+    // sentence from *the pool is short*.
+    @Test
+    fun `an alliance that has gone is not found rather than conflicted`() = runTest {
+        val davide = givenAPlayer()
+
+        val answer = readTreasury(VanishedAllianceRepository(), authenticator, clock, credentials(davide)).status
+
+        assertEquals(HttpStatusCode.NotFound, answer)
+    }
+
+    @Test
+    fun `buying with no session is refused before anything is read`() = runTest {
+        val answer = buyAllianceProject(alliances, authenticator, clock, Credentials(null, null), "{}")
+
+        assertEquals(HttpStatusCode.Unauthorized, answer.status)
+    }
+
+    // **A row that is stale every time it is read never gets to assert a version**, so the loop runs
+    // out rather than buying against a price nobody saw — and the answer is the same one a lost
+    // compare-and-set gives.
+    @Test
+    fun `a treasury that is stale on every read gives up rather than guessing`() = runTest {
+        val davide = givenAPlayer()
+        val unsettled = UnsettledAllianceRepository()
+
+        val answer = buyAllianceProject(
+            unsettled,
+            authenticator,
+            clock,
+            credentials(davide),
+            Protocol.json.encodeToString(
+                BuyProjectRequest.serializer(),
+                BuyProjectRequest(ApiVersion.CURRENT, AllianceProject.CHARTER_EXPANSION),
+            ),
+        )
+
+        assertEquals(HttpStatusCode.Conflict, answer.status)
+        assertEquals(ApiError.StaleAlliance, answer.error())
+        assertEquals(WRITE_ATTEMPTS, unsettled.reads)
+    }
+
     @Test
     fun `a caller with no seat buys nothing`() = runTest {
         val davide = givenAPlayer()
@@ -214,6 +257,68 @@ class AllianceTreasuryEndpointsTest {
 
         val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
         assertEquals(Resources.of(), answer.response.pool)
+    }
+
+    // **The in-memory store's own half of the cross-row write.** In Postgres the colony and the pool
+    // are one transaction; here they are two locks taken in one order, and this is what says the
+    // credit actually lands when the compare-and-set wins.
+    @Test
+    fun `a colony write carrying a credit moves the pool with it`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        val seat = assertIs<Affiliation.Enlisted>(alliances.allianceOf(davide, TEST_NOW)).seat
+        val colony = checkNotNull(colonies.colonyOf(davide))
+        val paid = Resources.of(metal = 4_210, crystal = 960)
+
+        val written = colonies.write(
+            player = davide,
+            snapshot = colony.snapshot,
+            applied = emptySet(),
+            expected = colony.version,
+            credit = PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
+        )
+
+        assertEquals(WriteResult.WRITTEN, written)
+        val read = assertIs<TreasuryRead.Present>(alliances.treasuryOf(davide, TEST_NOW))
+        assertEquals(paid, read.alliance.pool)
+        assertEquals(AllianceBalance.award(paid), read.contributed)
+    }
+
+    // **A colony store with no alliance store beside it takes the credit and drops it**, which is
+    // the shape every test that is not about an alliance constructs. It must not raise: a unit test
+    // of the sync pair has no pool and is not asking for one.
+    @Test
+    fun `a credit with no pool store wired anywhere is dropped rather than raised`() = runTest {
+        val alone = InMemoryColonyRepository()
+        val davide = PlayerId("nobody")
+        val colony = alone.found(davide, freshColony()).colony
+
+        val written = alone.write(
+            player = davide,
+            snapshot = colony.snapshot,
+            applied = emptySet(),
+            expected = colony.version,
+            credit = PoolCredit(
+                alliance = dev.fardavide.oltre.protocol.AllianceId("ferro"),
+                member = dev.fardavide.oltre.protocol.AllianceMemberId("seat"),
+                amount = Resources.of(metal = 10),
+                experience = 10,
+            ),
+        )
+
+        assertEquals(WriteResult.WRITTEN, written)
+    }
+
+    // A write with nothing to contribute takes no second lock at all, which is the common case: most
+    // syncs never touch an alliance.
+    @Test
+    fun `a colony write with no credit leaves the pool alone`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        val colony = checkNotNull(colonies.colonyOf(davide))
+
+        colonies.write(davide, colony.snapshot, emptySet(), colony.version, credit = null)
+
+        val read = assertIs<TreasuryRead.Present>(alliances.treasuryOf(davide, TEST_NOW))
+        assertEquals(Resources.of(), read.alliance.pool)
     }
 
     // ── The harness ──────────────────────────────────────────────────────────────────────────

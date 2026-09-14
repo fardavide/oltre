@@ -59,9 +59,10 @@ fun AllianceScreen(
     // **The `All` chip's two-step face, in the flow rather than over it.** The delete face is a
     // sheet because it is reached from a sheet; this is reached from a chip halfway down a scrolling
     // destination, and a modal over it would take the pool figures the question is about off screen.
+    // **One parameter, not three.** The face and its two answers have no meaning apart — there is no
+    // confirm without a way to say yes and a way to say no — and three parameters that are always
+    // passed together are three chances to pass two of them.
     confirm: ContributeConfirmUiState? = null,
-    onConfirmContribute: () -> Unit = {},
-    onKeepContribute: () -> Unit = {},
     // **Red rather than amber, and that is the whole of what look-don't-act means here.** Amber
     // promises the tap will happen when the network is back; this game does not make that promise
     // about a pool somebody else is also paying into. The chips keep full strength and go on
@@ -78,7 +79,7 @@ fun AllianceScreen(
             .verticalScroll(scrollState)
             .padding(16.dp),
     ) {
-        confirm?.let { ContributeConfirm(it, onConfirmContribute, onKeepContribute) }
+        confirm?.let { ContributeConfirm(it, actions.onConfirmContribute, actions.onKeepContribute) }
         refusal?.let { RefusalBlock(lead = it.lead, body = it.body) }
         when (state) {
             AllianceUiState.Held -> HeldFace()
@@ -108,6 +109,11 @@ data class AllianceActions(
     val onContribute: (ContributeChipUiState) -> Unit = {},
     val onBuy: (ProjectRowUiState) -> Unit = {},
     val onDepart: () -> Unit = {},
+    // The two answers to the `All` chip's question, here rather than beside it on the screen's own
+    // parameter list: every other tap this destination makes is on this record, and a control whose
+    // callback lives somewhere else is the one that gets forgotten.
+    val onConfirmContribute: () -> Unit = {},
+    val onKeepContribute: () -> Unit = {},
 )
 
 // **The whole face, not a dimming of another one.** The alliance is entirely server-side, so with no
@@ -195,7 +201,7 @@ private fun SearchRow(row: SearchRowUiState, index: Int, actions: AllianceAction
 private fun FoundingFace(state: FoundingUiState, actions: AllianceActions) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(state.label)
-        Note(state.body, tag = null)
+        Note(state.body)
         Caption(state.nameLabel)
         Field(state.name, actions.onNameChange, AllianceTestTags.FOUND_NAME, refused = state.nameRefusal != null)
         state.nameRefusal?.let { Refusal(it, AllianceTestTags.FOUND_NAME_REFUSAL) }
@@ -223,7 +229,7 @@ private fun WaitingFace(state: AllianceUiState.Waiting, actions: AllianceActions
             )
             Tag(state.tag)
         }
-        Note(state.body, tag = null)
+        Note(state.body)
         Ghost(state.withdraw, onClick = actions.onWithdraw, tag = AllianceTestTags.WITHDRAW)
     }
 }
@@ -354,7 +360,7 @@ private fun Treasury(state: TreasuryUiState, actions: AllianceActions) {
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.testTag(AllianceTestTags.TREASURY_RULE),
         )
-        state.unread?.let { Note(it, tag = null) }
+        state.unread?.let { Note(it) }
         Column(modifier = Modifier.fillMaxWidth().oltreCard(OltreCardState.ACTIONABLE)) {
             state.pool.forEachIndexed { index, row ->
                 Row(
@@ -390,7 +396,7 @@ private fun Treasury(state: TreasuryUiState, actions: AllianceActions) {
         }
         SectionLabel(state.projectsLabel)
         if (state.projects.isEmpty()) {
-            Note(state.projectsEmpty, tag = null, full = true)
+            Note(state.projectsEmpty, full = true)
         } else {
             state.projects.forEachIndexed { index, project -> ProjectRow(project, index, actions) }
         }
@@ -443,7 +449,7 @@ private fun ProjectRow(row: ProjectRowUiState, index: Int, actions: AllianceActi
             Title(row.name, modifier = Modifier.weight(1f))
             row.bought?.let { Badge(it) }
         }
-        Note(row.effect, tag = null)
+        Note(row.effect)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = row.cost.resolve(),
@@ -462,7 +468,7 @@ private fun ProjectRow(row: ProjectRowUiState, index: Int, actions: AllianceActi
                 )
             }
         }
-        if (!row.affordable) Note(row.shortLine, tag = null)
+        if (!row.affordable) Note(row.shortLine)
     }
 }
 
@@ -502,15 +508,19 @@ private fun Refusal(text: TextRes, tag: String) {
     )
 }
 
+// **Every one of these takes a tag rather than a nullable one**, and the reason is not the tag: an
+// optional tag is a branch, and a branch only one caller ever takes is a branch nothing can cover.
+// `AllianceTestTags.UNNAMED` is what an element nobody drives carries, which keeps the helpers
+// straight-line and leaves the tag list honest about what a robot can reach.
 @Composable
-private fun Note(text: TextRes, tag: String?, full: Boolean = false) {
+private fun Note(text: TextRes, tag: String = AllianceTestTags.UNNAMED, full: Boolean = false) {
     Text(
         text = text.resolve(),
         color = if (full) OltreColors.text else OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 11.sp,
         lineHeight = 17.sp,
-        modifier = if (tag == null) Modifier else Modifier.testTag(tag),
+        modifier = Modifier.testTag(tag),
     )
 }
 
@@ -527,14 +537,14 @@ private fun Title(text: TextRes, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Caption(text: TextRes, modifier: Modifier = Modifier, tag: String? = null) {
+private fun Caption(text: TextRes, modifier: Modifier = Modifier, tag: String = AllianceTestTags.UNNAMED) {
     Text(
         text = text.resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.sp,
         letterSpacing = 0.8.sp,
-        modifier = if (tag == null) modifier else modifier.testTag(tag),
+        modifier = modifier.testTag(tag),
     )
 }
 
@@ -551,7 +561,7 @@ private fun Tag(text: TextRes) {
 }
 
 @Composable
-private fun Badge(text: TextRes, tag: String? = null) {
+private fun Badge(text: TextRes, tag: String = AllianceTestTags.UNNAMED) {
     Text(
         text = text.resolve(),
         color = OltreColors.textSecondary,
@@ -559,7 +569,7 @@ private fun Badge(text: TextRes, tag: String? = null) {
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.2.sp,
-        modifier = (if (tag == null) Modifier else Modifier.testTag(tag)).padding(horizontal = 7.dp),
+        modifier = Modifier.testTag(tag).padding(horizontal = 7.dp),
     )
 }
 
@@ -568,7 +578,7 @@ private fun Ghost(
     text: TextRes,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tag: String? = null,
+    tag: String = AllianceTestTags.UNNAMED,
     danger: Boolean = false,
 ) {
     val ink = if (danger) OltreColors.danger else OltreColors.text
@@ -579,7 +589,7 @@ private fun Ghost(
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         textAlign = TextAlign.Center,
-        modifier = (if (tag == null) modifier else modifier.testTag(tag))
+        modifier = modifier.testTag(tag)
             .heightIn(min = 44.dp)
             .pressable(shape = oltreActionShape, onClick = onClick)
             .border(1.dp, ink.copy(alpha = 0.45f), oltreActionShape)
@@ -588,7 +598,12 @@ private fun Ghost(
 }
 
 @Composable
-private fun Filled(text: TextRes, onClick: () -> Unit, modifier: Modifier = Modifier, tag: String? = null) {
+private fun Filled(
+    text: TextRes,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tag: String = AllianceTestTags.UNNAMED,
+) {
     Text(
         text = text.resolve(),
         color = OltreColors.background,
@@ -596,7 +611,7 @@ private fun Filled(text: TextRes, onClick: () -> Unit, modifier: Modifier = Modi
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         textAlign = TextAlign.Center,
-        modifier = (if (tag == null) modifier else modifier.testTag(tag))
+        modifier = modifier.testTag(tag)
             .heightIn(min = 44.dp)
             .pressable(shape = oltreActionShape, onClick = onClick)
             .background(OltreColors.accent, oltreActionShape)
@@ -623,7 +638,7 @@ fun ContributeConfirm(state: ContributeConfirmUiState, onConfirm: () -> Unit, on
             fontSize = 13.5.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        Note(state.body, tag = null)
+        Note(state.body)
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Ghost(state.keep, onClick = onKeep, tag = AllianceTestTags.KEEP_CONTRIBUTE, modifier = Modifier.weight(1f))
             Text(

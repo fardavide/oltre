@@ -2094,13 +2094,13 @@ fun App(
                                     },
                                     onBuy = { row -> buyProject(row.project) },
                                     onDepart = { actOnAlliance { alliances.leaveAlliance(it) } },
+                                    onConfirmContribute = {
+                                        confirming?.let { dispatch(ClientVerb.Contribute(it.basket())) }
+                                        confirming = null
+                                    },
+                                    onKeepContribute = { confirming = null },
                                 ),
                                 confirm = confirming?.let { contributeConfirmUiState() },
-                                onConfirmContribute = {
-                                    confirming?.let { dispatch(ClientVerb.Contribute(it.basket())) }
-                                    confirming = null
-                                },
-                                onKeepContribute = { confirming = null },
                                 refusal = contributionRefusal,
                                 scrollState = scroll,
                             )

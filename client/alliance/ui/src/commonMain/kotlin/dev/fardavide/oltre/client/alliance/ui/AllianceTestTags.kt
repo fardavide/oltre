@@ -44,6 +44,12 @@ object AllianceTestTags {
     // ── The whole face with no signal ────────────────────────────────────────────────────────
     const val HELD = "alliance-held"
 
+    // **What an element nobody drives carries.** The small helpers on this screen take a tag rather
+    // than a nullable one, because an optional tag is a branch and a branch only one caller ever
+    // takes is a branch nothing can cover — so every element gets a tag and the ones that are not
+    // targets say so by sharing this one.
+    const val UNNAMED = "alliance-unnamed"
+
     // A row's tag, suffixed so a robot can press the third one. Composed here rather than at each
     // call site so the separator cannot differ between the screen and the test that drives it.
     fun row(tag: String, index: Int): String = "$tag-$index"

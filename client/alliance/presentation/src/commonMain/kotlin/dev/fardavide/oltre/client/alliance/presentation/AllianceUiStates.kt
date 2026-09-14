@@ -53,20 +53,24 @@ fun allianceUiState(
     // Null is *not read yet*, which the treasury panel says in a line of its own rather than the
     // whole face waiting on it — see `AllianceGateway.treasury` for why the two reads are separate.
     treasury: TreasuryResponse?,
-): AllianceUiState = when {
+): AllianceUiState {
     // **Held outranks everything and is checked first.** With no network the server never answered,
     // so nothing on the face is red and nothing is stale — there is simply no alliance state to draw.
-    !reachable -> AllianceUiState.Held
-    standing is AllianceState.Unread -> AllianceUiState.Asking
-    standing is AllianceState.Unaffiliated -> AllianceUiState.Seeking(search, founding)
-    standing is AllianceState.Petitioning -> AllianceUiState.Waiting(
-        name = TextRes(standing.alliance.name.value),
-        tag = TextRes(standing.alliance.tag.value),
-        body = Strings.allianceWaitingBody(),
-        withdraw = Strings.allianceWithdraw(),
-    )
-    standing is AllianceState.Enlisted -> standing.face(colony, treasury)
-    else -> AllianceUiState.Asking
+    if (!reachable) return AllianceUiState.Held
+    // **A `when` over the sealed type with no `else`**, so a fifth standing cannot be added without
+    // somebody deciding what it looks like. The first cut was a `when {}` of `is` guards with an
+    // `else` under it, which compiles, reads the same, and leaves an arm nothing can ever take.
+    return when (standing) {
+        AllianceState.Unread -> AllianceUiState.Asking
+        AllianceState.Unaffiliated -> AllianceUiState.Seeking(search, founding)
+        is AllianceState.Petitioning -> AllianceUiState.Waiting(
+            name = TextRes(standing.alliance.name.value),
+            tag = TextRes(standing.alliance.tag.value),
+            body = Strings.allianceWaitingBody(),
+            withdraw = Strings.allianceWithdraw(),
+        )
+        is AllianceState.Enlisted -> standing.face(colony, treasury)
+    }
 }
 
 private fun AllianceState.Enlisted.face(colony: Resources, treasury: TreasuryResponse?): AllianceUiState.Enlisted {
@@ -95,7 +99,10 @@ private fun Alliance.head(treasury: TreasuryResponse?): AllianceHeadUiState = Al
     seats = Strings.allianceSeatsLine(seats.taken, seats.cap),
     // Zero when the treasury has not been read, which draws an empty track rather than a guess. The
     // level beside it is on the alliance itself and is always known.
-    progress = treasury?.progress?.let { (it.intoLevel * 100 / it.span).toInt() } ?: 0,
+    //
+    // **One safe call, not two.** `TreasuryResponse.progress` is not nullable, so `treasury
+    // ?.progress?.let` asked a question with one possible answer — a branch nothing could ever take.
+    progress = if (treasury == null) 0 else (treasury.progress.intoLevel * 100 / treasury.progress.span).toInt(),
 )
 
 private fun JoinRequest.row(): PendingRowUiState = PendingRowUiState(
@@ -129,16 +136,24 @@ private fun ExperienceReading.badge(): TextRes = when (this) {
     ExperienceReading.Unknown -> Strings.levelBadge(0)
 }
 
-private fun PlayerProfile.drawnName(): TextRes = name?.let { TextRes(it.value) } ?: Strings.playerDefaultName()
+private fun PlayerProfile.drawnName(): TextRes {
+    val chosen = name ?: return Strings.playerDefaultName()
+    return TextRes(chosen.value)
+}
 
 private fun treasuryFace(treasury: TreasuryResponse?, colony: Resources): TreasuryUiState = TreasuryUiState(
     label = Strings.allianceTreasuryLabel(),
     rule = Strings.allianceTreasuryRule(),
-    pool = treasury?.pool?.rows().orEmpty(),
-    contributed = Strings.alliancePaidIn(treasury?.contributed?.groupedByThousands() ?: TextRes("0")),
+    // **One safe call each, on the one thing that is actually nullable.** `pool`, `contributed` and
+    // `projects` are all non-null on a `TreasuryResponse`, so the second `?.` in each of these asked
+    // a question with one answer and left a branch nothing could take.
+    pool = treasury?.pool.orEmptyRows(),
+    contributed = Strings.alliancePaidIn(
+        if (treasury == null) TextRes("0") else treasury.contributed.groupedByThousands(),
+    ),
     chips = contributeChips(colony, live = treasury != null),
     projectsLabel = Strings.allianceProjectsLabel(),
-    projects = treasury?.projects?.map { offer ->
+    projects = treasury?.projects.orEmpty().map { offer ->
         ProjectRowUiState(
             project = offer.project,
             name = offer.project.title(),
@@ -150,10 +165,12 @@ private fun treasuryFace(treasury: TreasuryResponse?, colony: Resources): Treasu
             shortLine = Strings.allianceProjectShort(),
             buyable = offer.affordable,
         )
-    }.orEmpty(),
+    },
     projectsEmpty = Strings.allianceProjectsEmpty(),
     unread = if (treasury == null) Strings.allianceTreasuryUnread() else null,
 )
+
+private fun Resources?.orEmptyRows(): List<PoolRowUiState> = this?.rows().orEmpty()
 
 private fun Resources.rows(): List<PoolRowUiState> = ResourceKind.entries.map { kind ->
     PoolRowUiState(name = Strings.resourceName(kind), amount = amountOf(kind).groupedByThousands())
@@ -238,9 +255,12 @@ private fun AllianceProject.effect(): TextRes = when (this) {
 // rather than hiding it** — `alliance-sheet.md`'s first open item. Handing an alliance on is a new
 // act nobody has designed, so a founder with company is offered nothing rather than a control that
 // refuses.
+// **`canDisband()` is not re-asked in the second arm, and the absence is deliberate.** The two
+// powers are complements — a founder may not leave and everybody else may — so anything reaching
+// the second arm is the founder, and asking again was a condition with one possible answer.
 private fun departure(role: AllianceRole, seats: Int): DepartureUiState? = when {
     role.canLeave() -> DepartureUiState(action = Strings.allianceLeaveAction(), disbands = false)
-    role.canDisband() && seats <= 1 -> DepartureUiState(action = Strings.allianceDisbandAction(), disbands = true)
+    seats <= 1 -> DepartureUiState(action = Strings.allianceDisbandAction(), disbands = true)
     else -> null
 }
 

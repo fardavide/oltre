@@ -9,6 +9,7 @@ import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.concurrent.atomic.AtomicInteger
@@ -135,6 +136,29 @@ internal class ContendedAllianceRepository(
         now: Instant,
         expected: AllianceVersion,
     ): TreasuryRead = TreasuryRead.Stale
+}
+
+// **An alliance disbanded between the read and the tap**, which is the one refusal the treasury
+// routes can meet that no in-memory sequence produces: the store answers `NoSuchAlliance` for a
+// caller who was enlisted a moment ago.
+internal class VanishedAllianceRepository : AllianceRepository by UnreachableAllianceRepository() {
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead =
+        TreasuryRead.Refused(ApiError.NoSuchAlliance)
+}
+
+// **A row somebody else is writing every time this one reads it.** The purchase route reads the
+// version before it asserts it, so a read that is already stale sends the loop round again — and
+// only a store that never settles reaches that path.
+internal class UnsettledAllianceRepository : AllianceRepository by UnreachableAllianceRepository() {
+
+    var reads: Int = 0
+        private set
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead {
+        reads++
+        return TreasuryRead.Stale
+    }
 }
 
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The

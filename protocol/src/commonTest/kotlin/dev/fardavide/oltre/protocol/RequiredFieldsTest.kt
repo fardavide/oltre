@@ -417,5 +417,21 @@ class RequiredFieldsTest {
         assertFailsWith<IllegalArgumentException> {
             AllianceProgress(level = AllianceLevel(1), earned = 10, intoLevel = 0, span = 0)
         }
+        // A total that counts down, which is what an overflowed ladder produced before the balance
+        // learned to saturate — and the guard that caught it.
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = -1, intoLevel = 0, span = 100)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = 10, intoLevel = -1, span = 100)
+        }
+    }
+
+    // The shape every one of those guards lets through, so the failures above are not the only thing
+    // this type is asserted on.
+    @Test
+    fun `a gauge at the start and one a point from the end are both legal`() {
+        AllianceProgress(level = AllianceLevel(0), earned = 0, intoLevel = 0, span = 1)
+        AllianceProgress(level = AllianceLevel(9), earned = 900, intoLevel = 99, span = 100)
     }
 }

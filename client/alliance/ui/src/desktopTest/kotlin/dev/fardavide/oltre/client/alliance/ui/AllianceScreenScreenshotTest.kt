@@ -1,8 +1,14 @@
 package dev.fardavide.oltre.client.alliance.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
@@ -70,6 +76,25 @@ class AllianceScreenScreenshotTest {
     @Test
     fun `waiting on an answer`() {
         capture("alliance_waiting", WAITING)
+    }
+
+    // **320dp, which is the width the design measures against** — a Slide Over pane, and the one the
+    // alliance sheet names as the constraint the whole destination was chosen under. The search and
+    // the founding block are the two faces with fields on them, so they are where a narrow window
+    // shows first.
+    @Test
+    fun `looking for one, in a Slide Over window`() {
+        capture(
+            "alliance_seeking_slide_over",
+            seeking(SearchResultsUiState.Results(listOf(FERRO, THRESHOLD))),
+            width = SLIDE_OVER_WIDTH,
+            height = 900,
+        )
+    }
+
+    @Test
+    fun `waiting on an answer, in a Slide Over window`() {
+        capture("alliance_waiting_slide_over", WAITING, width = SLIDE_OVER_WIDTH)
     }
 
     @Test
@@ -199,6 +224,101 @@ class AllianceScreenScreenshotTest {
             },
             height = 1_300,
         )
+    }
+
+    // **The frames the screen reaches by *changing*, rather than by being drawn once.** Every other
+    // capture here composes the screen one time; a destination a player actually uses recomposes —
+    // they type, they are answered, they tap, they land in an alliance — and a composable invoked
+    // once has never had to decide whether to skip.
+    //
+    // This walks the whole arc in one composition: nothing typed, then asking, then results, then
+    // enlisted. The last frame is what is pinned; the ones before it are what the walk is for.
+    @Test
+    fun `the arc from an empty search to a seat`() {
+        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 1_400) {
+            mainClock.autoAdvance = false
+            var state by mutableStateOf<AllianceUiState>(seeking(SearchResultsUiState.Idle(Strings.allianceSearchIdle())))
+            var asking by mutableStateOf<ContributeConfirmUiState?>(null)
+            var refused by mutableStateOf<RefusalUiState?>(null)
+            setContent {
+                OltreTheme(translations = English) {
+                    Surface {
+                        // **Called with only what it needs**, so the screen's own defaults are
+                        // exercised as well as the arguments: a composable is only ever asked to
+                        // skip when something it was handed has changed and something else has not.
+                        AllianceScreen(
+                            state = state,
+                            actions = AllianceActions(),
+                            confirm = asking,
+                            refusal = refused,
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+
+            for (next in walk()) {
+                state = next
+                mainClock.advanceTimeBy(SETTLED_MILLIS)
+            }
+            // The two things that come and go over the top of a face that is not changing — which is
+            // the other half of what recomposition is for.
+            for (question in listOf(CONFIRM, null, CONFIRM)) {
+                asking = question
+                mainClock.advanceTimeBy(SETTLED_MILLIS)
+            }
+            for (refusal in listOf(REFUSAL, null)) {
+                refused = refusal
+                mainClock.advanceTimeBy(SETTLED_MILLIS)
+            }
+            asking = null
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/alliance_recomposed.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
+    private fun walk(): List<AllianceUiState> = listOf(
+        seeking(SearchResultsUiState.Asking(Strings.allianceAsking())),
+        seeking(SearchResultsUiState.Empty(Strings.allianceSearchEmpty(TextRes("Aphelion")))),
+        seeking(SearchResultsUiState.Results(listOf(FERRO, THRESHOLD))),
+        AllianceUiState.Held,
+        AllianceUiState.Asking,
+        WAITING,
+        enlisted(projects = emptyList()),
+        enlisted(),
+    )
+
+    // **The screen as the shell actually calls it** — with a hoisted scroll state and a modifier,
+    // which is what a destination inside `MainScaffold` gets. Every other capture here leans on the
+    // defaults, so without this one half of the screen's own parameter list is never supplied.
+    @Test
+    fun `drawn the way the scaffold draws it`() {
+        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 1_400) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme(translations = English) {
+                    Surface {
+                        AllianceScreen(
+                            state = enlisted(),
+                            actions = AllianceActions(),
+                            confirm = null,
+                            refusal = null,
+                            scrollState = rememberScrollState(),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/alliance_scaffolded.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
     }
 
     private fun capture(
@@ -365,6 +485,18 @@ class AllianceScreenScreenshotTest {
             chip(Strings.allianceShare(25), "10,525 · 2,400 · 300", confirms = false),
             chip(Strings.allianceShare(50), "21,050 · 4,800 · 600", confirms = false),
             chip(Strings.allianceShareAll(), "42,100 · 9,600 · 1,200", confirms = true),
+        )
+
+        val CONFIRM = ContributeConfirmUiState(
+            title = Strings.allianceConfirmAllTitle(),
+            body = Strings.allianceConfirmAllBody(),
+            confirm = Strings.allianceConfirmAllAction(),
+            keep = Strings.allianceConfirmAllKeep(),
+        )
+
+        val REFUSAL = RefusalUiState(
+            lead = Strings.refusedContributionLead(),
+            body = Strings.refusedContributionBody(),
         )
 
         val CHARTER = ProjectRowUiState(

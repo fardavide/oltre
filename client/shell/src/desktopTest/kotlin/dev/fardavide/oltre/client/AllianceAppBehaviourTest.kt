@@ -368,6 +368,39 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **The arc a player actually walks, in one composition.** Every test above opens the tab on one
+    // face; this one types, is answered, is answered again, and ends up somewhere else — which is
+    // the only way the screen has to decide whether to redraw rather than simply being drawn.
+    @Test
+    fun `the tab follows the account from searching to a seat`() {
+        val server = unaffiliated()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.assertReads(Strings.allianceSearchIdle())
+
+            // Nothing found, then something.
+            alliance.search("Aphelion")
+            alliance.assertReads(Strings.allianceSearchEmpty(TextRes("Aphelion")))
+            server.allianceSearch = AllianceSearchResponse(ApiVersion.CURRENT, "ferro", listOf(ALLIANCE), null)
+            alliance.search("Ferro")
+
+            // Asked, and then let in — the standing the server answers with is what moves the face.
+            server.allianceStanding = AllianceStanding.Petitioning(ALLIANCE)
+            alliance.requestTheFirstSeat()
+            alliance.assertReads(Strings.allianceWaitingBody())
+
+            server.allianceStanding = AllianceStanding.Enlisted(ALLIANCE, AllianceRole.MEMBER)
+            server.allianceRoster = ROSTER.copy(pending = null)
+            alliance.withdraw()
+
+            // A plain member: a roster, a treasury, and a way out. No pending list at all, because
+            // `null` on the wire means *not yours to see*.
+            alliance.assertReads(Strings.allianceTreasuryRule())
+            alliance.assertReads(Strings.allianceLeaveAction())
+        }
+    }
+
     private fun colony(): GameSnapshot = GameSnapshot(
         lastUpdatedAt = TEST_NOW,
         debugUsed = false,

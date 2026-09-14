@@ -4,8 +4,10 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.JoinDecision
 import io.zonky.test.db.postgres.junit.SingleInstancePostgresRule
 import kotlinx.coroutines.test.runTest
 import org.junit.ClassRule
@@ -193,6 +195,70 @@ class TreasuryIntegrationTest {
         )
         assertEquals("0", database.scalar("SELECT pool_metal FROM alliances"))
         assertEquals(seat.alliance.value, database.scalar("SELECT id FROM alliances"))
+    }
+
+    // **Every refusal `buy` can produce, against the real store.** The in-memory suite asserts the
+    // same three, and the pair is the point: a fake that answered differently from the store it
+    // doubles would make every test standing on it a lie.
+    @Test
+    fun `a caller with no seat cannot spend a pool`() = runTest {
+        anAllianceWithDavideInIt()
+        val stranger = PlayerId("stranger")
+        database.givenPlayer(stranger)
+
+        val refused = alliances.buy(stranger, AllianceProject.CHARTER_EXPANSION, TEST_NOW, AllianceVersion.FIRST)
+
+        assertEquals(TreasuryRead.Refused(ApiError.NotInAnAlliance), refused)
+        assertEquals(TreasuryRead.Refused(ApiError.NotInAnAlliance), alliances.treasuryOf(stranger, TEST_NOW))
+    }
+
+    // **The parent row is locked before it is read**, so two admins buying in the same second cannot
+    // both spend the price one of them saw. A version that has moved on is the caller being told to
+    // read again.
+    @Test
+    fun `a purchase asserting a version the row has moved past buys nothing`() = runTest {
+        anAllianceWithDavideInIt()
+
+        val stale = alliances.buy(davide, AllianceProject.CHARTER_EXPANSION, TEST_NOW, AllianceVersion(99))
+
+        assertEquals(TreasuryRead.Stale, stale)
+    }
+
+    @Test
+    fun `a plain member cannot spend the pool even when it is full`() = runTest {
+        val seat = anAllianceWithDavideInIt()
+        colonies.found(davide, establishedColony())
+        val member = PlayerId("member")
+        database.givenPlayer(member)
+        colonies.found(member, establishedColony())
+        val alliance = assertIs<Affiliation.Enlisted>(alliances.allianceOf(davide, TEST_NOW)).alliance
+        val petitioned = assertIs<AllianceChange.Applied>(
+            alliances.petition(member, alliance.alliance.id, TEST_NOW, alliance.version),
+        )
+        val petition = assertIs<Affiliation.Petitioning>(petitioned.affiliation)
+        alliances.approve(
+            davide,
+            alliance.alliance.id,
+            petition.petition.id,
+            JoinDecision.ADMITTED,
+            TEST_NOW,
+            petition.alliance.version,
+        )
+        val paid = Resources.of(metal = 400_000, crystal = 200_000, deuterium = 100_000)
+        val colony = checkNotNull(colonies.colonyOf(davide))
+        colonies.write(
+            davide,
+            colony.snapshot,
+            emptySet(),
+            colony.version,
+            PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
+        )
+        val current = assertIs<TreasuryRead.Present>(alliances.treasuryOf(member, TEST_NOW))
+
+        val refused = alliances.buy(member, AllianceProject.CHARTER_EXPANSION, TEST_NOW, current.alliance.version)
+
+        assertEquals(TreasuryRead.Refused(ApiError.AllianceRoleTooLow), refused)
+        assertEquals("400000", database.scalar("SELECT pool_metal FROM alliances"))
     }
 
     private suspend fun anAllianceWithDavideInIt(): Seat {

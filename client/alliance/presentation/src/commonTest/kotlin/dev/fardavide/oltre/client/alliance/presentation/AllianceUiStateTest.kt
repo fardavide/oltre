@@ -8,6 +8,7 @@ import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.ExperienceBalance
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
@@ -281,6 +282,16 @@ class AllianceUiStateTest {
         )
     }
 
+    // **A search the server refused is not a search that found nothing.** Nothing came back at all,
+    // so the face goes back to saying what a search is *for* rather than naming a string as absent
+    // when nobody ever looked for it.
+    @Test
+    fun `a query the server never answered reads as idle rather than empty`() {
+        val search = searchUiState(query = "Ferro", answer = null, asking = false, reachable = true)
+
+        assertEquals(Strings.allianceSearchIdle(), assertIs<SearchResultsUiState.Idle>(search.state).line)
+    }
+
     // **Held is told apart from empty in words alone** — held dims what acts, never what informs.
     @Test
     fun `a search with no network says why rather than reading as empty`() {
@@ -332,6 +343,51 @@ class AllianceUiStateTest {
 
         assertEquals(Strings.allianceConfirmAllTitle(), confirm.title)
         assertEquals(Strings.allianceConfirmAllKeep(), confirm.keep)
+    }
+
+    // **An alliance whose roster has not arrived is still an alliance.** The head is on the standing
+    // and is always known, so the face draws rather than waiting — and a founder is shown no pending
+    // list, because there is no answer about one yet.
+    @Test
+    fun `an unread roster draws the head and no rows`() {
+        val unread = AllianceState.Enlisted(ALLIANCE, AllianceRole.FOUNDER, AllianceRosterReading.Unread)
+
+        val state = assertIs<AllianceUiState.Enlisted>(face(standing = unread))
+
+        assertEquals(emptyList(), state.roster)
+        assertNull(state.pending)
+        assertEquals(Strings.allianceSeatsLine(3, 12), state.header.seats)
+    }
+
+    // **A chip prints all three figures even when two of them are nothing**, and that is the one
+    // place in the app where a zero is drawn on purpose: the three numbers are positional, reading
+    // down the same order as the pool rows directly above them, and dropping the empty ones would
+    // slide the remaining figure under the wrong name.
+    //
+    // A project cost, which has names beside its numbers, does the opposite — see below.
+    @Test
+    fun `a chip keeps its three figures in the rail's order even when two are nothing`() {
+        val deuteriumOnly = contributeChips(Resources.of(deuterium = 500), live = true)
+
+        assertEquals(
+            Strings.clauses(
+                listOf(Strings.groupedNumber(0), Strings.groupedNumber(0), Strings.groupedNumber(50)),
+            ),
+            deuteriumOnly.first().figure,
+        )
+    }
+
+    @Test
+    fun `a project priced in one resource says so and no more`() {
+        val single = TREASURY.copy(
+            projects = listOf(OFFER.copy(cost = Resources.of(metal = 20_000))),
+        )
+        val state = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(), treasury = single))
+
+        assertEquals(
+            Strings.clauses(listOf(Strings.amountOfResource(Strings.groupedNumber(20_000), ResourceKind.METAL))),
+            state.treasury.projects.single().cost,
+        )
     }
 
     // ── The harness ──────────────────────────────────────────────────────────────────────────

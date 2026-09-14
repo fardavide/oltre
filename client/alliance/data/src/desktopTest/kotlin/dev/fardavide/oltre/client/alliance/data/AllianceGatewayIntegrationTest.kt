@@ -10,10 +10,14 @@ import dev.fardavide.oltre.client.net.data.KtorOltreApi
 import dev.fardavide.oltre.client.net.data.SessionKeeper
 import dev.fardavide.oltre.client.net.data.oltreHttpClient
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceMember
+import dev.fardavide.oltre.protocol.AllianceProgress
+import dev.fardavide.oltre.protocol.AllianceProject
+import dev.fardavide.oltre.protocol.AllianceProjectOffer
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceResponse
@@ -27,6 +31,7 @@ import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.AnswerJoinRequest
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.BuyProjectRequest
 import dev.fardavide.oltre.protocol.CreateAllianceRequest
 import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.JoinAllianceRequest
@@ -41,6 +46,7 @@ import dev.fardavide.oltre.protocol.RenameAllianceRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SetMemberRoleRequest
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import kotlinx.coroutines.test.runTest
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -380,6 +386,86 @@ class AllianceGatewayIntegrationTest {
             assertEquals(0, scenario.store.clearCount)
         }
     }
+
+    // ── The treasury, over a real socket ─────────────────────────────────────────────────────
+    //
+    // **Its own read rather than one folded into the membership**, which is the gateway's own split:
+    // the roster is what makes an alliance a place, the pool is a panel on it. These two go over the
+    // wire because the route, the bearer and the body shape are exactly what a fake cannot judge.
+
+    @Test
+    fun `reading the treasury authenticates and answers the pool`() = runTest {
+        val held = fakeHeldSession()
+        SocketScenario(held).use { scenario ->
+            scenario.replyPayload(fakeTreasury())
+
+            assertEquals(ApiResult.Answered(fakeTreasury()), scenario.gateway.treasury(held.accessToken))
+
+            val request = scenario.requests.single()
+            assertEquals("GET", request.method)
+            assertEquals("/v1/alliance/treasury", request.path)
+            assertEquals(Protocol.BEARER_PREFIX + held.accessToken.value, request.authorization)
+        }
+    }
+
+    @Test
+    fun `buying a project posts the project this build named`() = runTest {
+        val held = fakeHeldSession()
+        SocketScenario(held).use { scenario ->
+            scenario.replyPayload(fakeTreasury())
+
+            assertEquals(
+                ApiResult.Answered(fakeTreasury()),
+                scenario.gateway.buyProject(held.accessToken, AllianceProject.CHARTER_EXPANSION),
+            )
+
+            assertEquals(
+                BuyProjectRequest(ApiVersion.CURRENT, AllianceProject.CHARTER_EXPANSION),
+                scenario.posted<BuyProjectRequest>("/v1/alliance/projects", held.accessToken),
+            )
+        }
+    }
+
+    // **A short pool is an answer rather than a failure**, and it comes back as the error the screen
+    // draws instead of as a dead request.
+    @Test
+    fun `a pool the server says is short comes back as a refusal`() = runTest {
+        val held = fakeHeldSession()
+        SocketScenario(held).use { scenario ->
+            scenario.refuse(ApiError.AllianceTreasuryShort)
+
+            assertEquals(
+                ApiResult.Refused(ApiError.AllianceTreasuryShort),
+                scenario.gateway.buyProject(held.accessToken, AllianceProject.CHARTER_EXPANSION),
+            )
+        }
+    }
+
+    @Test
+    fun `a treasury read with no socket is unreachable rather than an error`() = runTest {
+        val held = fakeHeldSession()
+        SocketScenario(held).use { scenario ->
+            scenario.server.stop(0)
+
+            assertEquals(ApiResult.Unreachable, scenario.gateway.treasury(held.accessToken))
+            assertEquals(ApiResult.Unreachable, scenario.gateway.buyProject(held.accessToken, AllianceProject.CHARTER_EXPANSION))
+        }
+    }
+
+    private fun fakeTreasury(): TreasuryResponse = TreasuryResponse(
+        apiVersion = ApiVersion.CURRENT,
+        pool = Resources.of(metal = 486_300, crystal = 232_900, deuterium = 71_400),
+        contributed = 42_000,
+        progress = AllianceProgress(level = AllianceLevel(7), earned = 486_300, intoLevel = 62_000, span = 100_000),
+        projects = listOf(
+            AllianceProjectOffer(
+                project = AllianceProject.CHARTER_EXPANSION,
+                cost = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000),
+                affordable = true,
+                timesBought = 0,
+            ),
+        ),
+    )
 
     private class SocketScenario(held: SessionResponse) : AutoCloseable {
         val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)

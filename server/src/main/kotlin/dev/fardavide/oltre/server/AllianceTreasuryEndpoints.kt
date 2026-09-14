@@ -67,7 +67,10 @@ internal suspend fun buyAllianceProject(
             TreasuryRead.Stale -> Unit
         }
     }
-    Answer.Failed(HttpStatusCode.Conflict, ApiError.StaleAlliance)
+    // **Through `answer()` rather than built here.** Losing every attempt says exactly what one
+    // stale read says, and writing the status and the error out a second time was a second place
+    // for them to disagree — and a `when` arm in `answer()` that nothing could reach.
+    TreasuryRead.Stale.answer()
 }
 
 // One place the three answers become statuses, so a read and a purchase cannot describe the same

@@ -55,6 +55,14 @@ class ContributeChipTest {
         assertEquals(listOf(false, true, true, true), chips.map { it.enabled })
     }
 
+    // A colony with no metal at all still has two resources worth paying in, so the chip presses on
+    // the strength of either of the other two.
+    @Test
+    fun `a chip presses on any one of the three`() {
+        assertTrue(contributeChips(Resources.of(crystal = 1_000), live = true).first().enabled)
+        assertTrue(contributeChips(Resources.of(deuterium = 1_000), live = true).first().enabled)
+    }
+
     @Test
     fun `an empty colony presses nothing at all`() {
         val chips = contributeChips(Resources.of(), live = true)
