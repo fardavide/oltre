@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +46,8 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceTag
 
 // **The alliance destination, in the four faces `alliance-sheet.md` §7 settled** — and the screen
 // that replaces the honest "Coming soon" the tab carried while the feature was being built.
@@ -202,16 +206,56 @@ private fun FoundingFace(state: FoundingUiState, actions: AllianceActions) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(state.label)
         Note(state.body)
+        // **The price, above the fields rather than beside the commit** — `alliance-sheet.md` §7:
+        // *"the founding block stated below it, so the price is known before anything is typed."*
+        // Red when the colony cannot cover it, which is the project row's own colouring on the one
+        // other cost this app reads against something the player cannot simply go and earn faster.
+        Text(
+            text = state.cost.resolve(),
+            color = if (state.affordable) OltreColors.text else OltreColors.danger,
+            fontFamily = oltreMono(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.testTag(AllianceTestTags.FOUND_PRICE),
+        )
         Caption(state.nameLabel)
-        Field(state.name, actions.onNameChange, AllianceTestTags.FOUND_NAME, refused = state.nameRefusal != null)
+        // **`Words`, so the phone offers a capital at every word** — Davide, 2026-09-14: *"It doesn't
+        // need to do any manual transformation. I think we can set it up in the text field options.
+        // By the way, you should capitalize the first letter only of every word."* It is the
+        // keyboard's suggestion rather than a fold, so a name deliberately typed lower case survives.
+        Field(
+            value = state.name,
+            onChange = actions.onNameChange,
+            tag = AllianceTestTags.FOUND_NAME,
+            capitalization = KeyboardCapitalization.Words,
+            // The bound is a fact the field enforces, `NameField`'s own rule: a value over it is
+            // declined whole rather than truncated, which only shows on a paste.
+            maxLength = AllianceName.MAX_LENGTH,
+            refused = state.nameRefusal != null,
+        )
         state.nameRefusal?.let { Refusal(it, AllianceTestTags.FOUND_NAME_REFUSAL) }
         Caption(state.tagLabel)
-        Field(state.tag, actions.onTagChange, AllianceTestTags.FOUND_TAG, refused = state.tagRefusal != null)
+        Field(
+            value = state.tag,
+            onChange = actions.onTagChange,
+            tag = AllianceTestTags.FOUND_TAG,
+            capitalization = KeyboardCapitalization.Characters,
+            maxLength = AllianceTag.MAX_LENGTH,
+            refused = state.tagRefusal != null,
+        )
+        // **The shape, stated whether or not anything has been typed.** The commit control below is
+        // absent until the contract would accept both fields, and an absence nothing explains is the
+        // unanswerable question this product does not ship.
+        Caption(state.tagRule, tag = AllianceTestTags.FOUND_TAG_RULE)
         state.tagRefusal?.let { Refusal(it, AllianceTestTags.FOUND_TAG_REFUSAL) }
         // Absent, never greyed, while there is nothing to commit or a refusal stands.
         if (state.committable) {
             Ghost(state.action, onClick = actions.onFound, tag = AllianceTestTags.FOUND_ACTION)
         }
+        // **The line that makes the absence answerable**, and the reason there is no time-until on
+        // it: the day unit that 50,000 deuterium at a colony's rate would need is a design-system
+        // decision `alliance-sheet.md` flags as open, and every other ghost in this app reads `hh mm`.
+        if (!state.affordable) Note(state.shortLine, AllianceTestTags.FOUND_SHORT)
     }
 }
 
@@ -474,12 +518,27 @@ private fun ProjectRow(row: ProjectRowUiState, index: Int, actions: AllianceActi
 
 // ── The small pieces ─────────────────────────────────────────────────────────────────────────
 
+// **`maxLength` is `Int.MAX_VALUE` for the search field and a real bound for the two founding ones**,
+// which is the difference between a field that asks a server and a field that writes a contract: the
+// search takes whatever is typed, and a name or a tag past its bound is a value the contract refuses,
+// so the field is what stops it existing rather than a message after the fact.
 @Composable
-private fun Field(value: String, onChange: (String) -> Unit, tag: String, refused: Boolean = false) {
+private fun Field(
+    value: String,
+    onChange: (String) -> Unit,
+    tag: String,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+    maxLength: Int = Int.MAX_VALUE,
+    refused: Boolean = false,
+) {
     BasicTextField(
         value = value,
-        onValueChange = onChange,
+        // Declined whole rather than truncated — `NameField`'s finding: truncating takes characters
+        // off the end of what is already there whenever the caret is not at it, and silently
+        // deleting somebody's typing is worse than declining their paste.
+        onValueChange = { typed -> if (typed.length <= maxLength) onChange(typed) },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(capitalization = capitalization),
         textStyle = TextStyle(color = OltreColors.text, fontFamily = oltreMono(), fontSize = 13.sp),
         cursorBrush = SolidColor(OltreColors.accent),
         modifier = Modifier

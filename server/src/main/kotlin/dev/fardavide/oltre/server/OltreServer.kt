@@ -127,6 +127,13 @@ internal fun Application.oltre(
                 call.send(foundAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
+            // **Before `/alliance/roster` and the rest, and before `get("/alliance")` cannot claim
+            // it**, because Ktor matches literal segments ahead of the bare path either way — the
+            // ordering here is for a reader rather than for the router.
+            get("/alliance/founding") {
+                call.send(foundingPrice(authenticator, call.credentials()))
+            }
+
             get("/alliance") {
                 call.send(readAlliance(alliances, authenticator, clock, call.credentials()))
             }
@@ -245,6 +252,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Alliances -> respond(answer.status, answer.response)
         is Answer.Roster -> respond(answer.status, answer.response)
         is Answer.Treasury -> respond(answer.status, answer.response)
+        is Answer.FoundingPrice -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

@@ -88,7 +88,25 @@ internal interface AllianceRepository {
 
     suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance>
 
-    suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded
+    // **Founding costs the founder's colony `price`, charged in the same transaction as the insert.**
+    // The store reads the colony under a row lock, advances it to `now`, asks `core` whether it
+    // covers the price and writes it back beside the new alliance — so there is no instant at which
+    // an alliance exists and has not been paid for, and none at which a colony has paid for an
+    // alliance that does not exist.
+    //
+    // **`price` is a parameter rather than a constant read in here**, which is what keeps the balance
+    // out of the store: `AllianceBalance.FOUNDING_PRICE` is the one production ever passes, and the
+    // only other caller is a test saying what it wants to be true of the money.
+    //
+    // Two refusals belong to the price and neither is a new member: `ApiError.NoColony` for a player
+    // with nothing to charge, and `ApiError.AllianceFoundingUnaffordable` for one who cannot cover it.
+    suspend fun found(
+        player: PlayerId,
+        name: AllianceName,
+        tag: AllianceTag,
+        now: Instant,
+        price: Resources,
+    ): Founded
 
     suspend fun allianceOf(player: PlayerId, now: Instant): Affiliation
 

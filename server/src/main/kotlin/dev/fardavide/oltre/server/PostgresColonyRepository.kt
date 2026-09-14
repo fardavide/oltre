@@ -149,24 +149,63 @@ internal class PostgresColonyRepository(
     // version it is asserting, at eight. Two hand-kept copies of a positional binding is how a
     // column ends up in the wrong parameter with nothing to say so — which is what the first run of
     // this file did.
-    private fun PreparedStatement.bindColony(
-        snapshot: GameSnapshot,
-        version: ColonyVersion,
-        now: Instant,
-        player: PlayerId,
-    ) {
-        setInt(1, snapshot.schemaVersion)
-        setObject(2, snapshot.lastUpdatedAt.atUtc())
-        // `GameSave.encode` verbatim, which is the whole of `#106` §5.4: the save format already
-        // lives in `core` because client and server must agree on it byte for byte, so there is
-        // nothing here to map and nothing to keep in step.
-        setString(3, GameSave.encode(snapshot))
-        setLong(4, version.value)
-        setObject(5, now.atUtc())
-        setLong(6, snapshot.state.experience.points)
-        setString(7, player.value)
-    }
 }
+
+private fun PreparedStatement.bindColony(
+    snapshot: GameSnapshot,
+    version: ColonyVersion,
+    now: Instant,
+    player: PlayerId,
+) {
+    setInt(1, snapshot.schemaVersion)
+    setObject(2, snapshot.lastUpdatedAt.atUtc())
+    // `GameSave.encode` verbatim, which is the whole of `#106` §5.4: the save format already
+    // lives in `core` because client and server must agree on it byte for byte, so there is
+    // nothing here to map and nothing to keep in step.
+    setString(3, GameSave.encode(snapshot))
+    setLong(4, version.value)
+    setObject(5, now.atUtc())
+    setLong(6, snapshot.state.experience.points)
+    setString(7, player.value)
+}
+
+// ── Reading and writing a colony inside somebody else's transaction ─────────────────────────────
+//
+// **Founding an alliance charges the colony and inserts an alliance, and those have to land or fail
+// together** — so `PostgresAllianceRepository.found` runs both as statements on its own connection
+// rather than calling `write`, which would open a second one and give the pair no atomicity at all.
+//
+// The two functions are **here** rather than there, beside the SQL and the binding they share a
+// parameter order with, which is the same reason `bindColony` exists at all: two hand-kept copies of
+// a positional binding is how a column ends up in the wrong parameter with nothing to say so.
+
+// `SELECT … FOR UPDATE`, and the lock is what makes founding need no retry loop.
+//
+// **The contrast with `write` is worth stating, because they answer the same race two ways.** A sync
+// reads a colony, spends real time replaying against it and writes it back, so holding a row lock for
+// that whole span would serialise two devices behind each other — it takes an optimistic
+// compare-and-set instead and tells a loser to read again. Founding reads, subtracts a fixed price
+// and writes, all inside one transaction with no client round trip in the middle, so the pessimistic
+// lock is both cheap and complete: a concurrent sync blocks until the commit and then loses its own
+// compare-and-set, which is exactly the answer it already knows how to handle.
+internal fun Connection.lockedColony(player: PlayerId): StoredColony? = query(
+    LOCK_COLONY,
+    bind = { setString(1, player.value) },
+    read = { rows -> if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2)) else null },
+)
+
+// The same compare-and-set `write` uses, on a connection somebody else opened. Under `lockedColony`
+// it cannot lose, and it asserts the version anyway: the assertion is what bumps it, and a write that
+// did not would leave every reader's token valid for ever.
+internal fun Connection.writeColony(
+    player: PlayerId,
+    snapshot: GameSnapshot,
+    expected: ColonyVersion,
+    now: Instant,
+): Boolean = update(UPDATE_COLONY) {
+    bindColony(snapshot, version = expected.next(), now = now, player = player)
+    setLong(EXPECTED_VERSION_PARAMETER, expected.value)
+} == 1
 
 // **How long a spent key is remembered.** Thirty days, and the number is chosen against the client
 // rather than against the table: an idempotency key matters for exactly as long as some device might
@@ -184,6 +223,9 @@ private const val INSERT_COLONY = """
 """
 
 private const val SELECT_COLONY = "SELECT snapshot_json, version FROM colonies WHERE player_id = ?"
+
+// The same read, holding the row until the transaction ends. See `lockedColony`.
+private const val LOCK_COLONY = "SELECT snapshot_json, version FROM colonies WHERE player_id = ? FOR UPDATE"
 
 // The compare-and-set. The trailing `AND version = ?` is the whole of it: it updates one row or no
 // rows, and which of the two is the answer.

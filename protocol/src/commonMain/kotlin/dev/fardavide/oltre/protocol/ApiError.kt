@@ -153,6 +153,21 @@ sealed interface ApiError {
     @SerialName("AllianceTreasuryShort")
     data object AllianceTreasuryShort : ApiError
 
+    // The **colony** cannot cover the founding price — the other end of `AllianceTreasuryShort`,
+    // which is about a pool. A tenth alliance member, and the paragraph above is now owed a second
+    // payment rather than a first: `AllianceTreasuryShort` rode 0.24's bump to 2, and this rides
+    // 0.24.1's to 3, because founding charges the colony and that moves `GameSave.SCHEMA_VERSION`
+    // anyway. Riding a bump that was already being paid for is the only way this is free; nothing
+    // wanting an eleventh should assume another one is coming.
+    //
+    // **Its own constant rather than reusing `VerbRefusal.INSUFFICIENT_RESOURCES`**, which is the
+    // near-miss worth naming: that enum rides a sync envelope and says why a *verb* was refused on
+    // replay, and founding is a route with no envelope to hang one on. One vocabulary for "you
+    // cannot afford it" across two transports would make the route's answer undecodable as either.
+    @Serializable
+    @SerialName("AllianceFoundingUnaffordable")
+    data object AllianceFoundingUnaffordable : ApiError
+
     // Everything the server could not name. `detail` is a diagnostic, exactly as above.
     @Serializable
     @SerialName("Internal")

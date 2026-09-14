@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.25.0", "2026-09-14", "Un'alleanza adesso costa",
+            "200.000 metallo, 100.000 cristallo, 50.000 deuterio, detto prima di scrivere.",
+            "Fondala aspetta che nome e sigla siano quelli che il gioco può mandare.",
+            "Elenco e fondo si riempiono dopo che fondi, accetti o rimuovi.",
+        ),
+        release(
             "0.24.0", "2026-09-14", "L'alleanza, e un fondo comune",
             "Cercane una per nome, chiedi di entrare, o fondane una tua con nome e sigla.",
             "Versa una parte delle tue scorte nel fondo. Quello che entra non esce.",

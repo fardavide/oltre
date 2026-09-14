@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.alliance.presentation
 import dev.fardavide.oltre.client.alliance.domain.AllianceRosterReading
 import dev.fardavide.oltre.client.alliance.domain.AllianceState
 import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
+import dev.fardavide.oltre.client.alliance.ui.FoundingUiState
 import dev.fardavide.oltre.client.alliance.ui.SearchResultsUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
@@ -314,23 +315,90 @@ class AllianceUiStateTest {
     }
 
     // ── Founding ─────────────────────────────────────────────────────────────────────────────
+    //
+    // **The colony can pay unless a test says otherwise**, because most of these are about names,
+    // tags and refusals rather than about money — `founding` below defaults to a stock that covers
+    // the price, and the four tests that care pass their own.
 
     @Test
     fun `nothing typed commits nothing`() {
-        assertTrue(!foundingUiState(name = "", tag = "", nameTaken = false, tagTaken = false).committable)
-        assertTrue(!foundingUiState(name = "Ferro", tag = "", nameTaken = false, tagTaken = false).committable)
+        assertTrue(!founding(name = "", tag = "").committable)
+        assertTrue(!founding(name = "Ferro", tag = "").committable)
     }
 
     @Test
     fun `a name and a tag commit`() {
-        assertTrue(foundingUiState(name = "Ferro", tag = "FRA", nameTaken = false, tagTaken = false).committable)
+        assertTrue(founding(name = "Ferro", tag = "FRA").committable)
+    }
+
+    // **The defect this pair exists for.** `committable` used to mean *both fields hold something*,
+    // while the tap constructed an `AllianceTag` and swallowed the refusal — so a tag the contract
+    // cannot accept drew a control that did nothing at all when pressed. The control is what has to
+    // know, which means `committable` runs the contract's own check.
+    @Test
+    fun `a tag the contract refuses commits nothing`() {
+        assertTrue(!founding(name = "Ferro", tag = "fra").committable)
+        assertTrue(!founding(name = "Ferro", tag = "FR").committable)
+        assertTrue(!founding(name = "Ferro", tag = "FR A").committable)
+    }
+
+    // The trim is the client's, per `AllianceName`'s own division, so a name typed with a trailing
+    // space is a name rather than a refusal the player cannot see.
+    @Test
+    fun `a name the player has not trimmed still commits`() {
+        assertTrue(founding(name = " Ferro ", tag = "FRA").committable)
+    }
+
+    // **Absent is only answerable if something says why**, so the rule rides the tag's own label
+    // rather than appearing after a tap that never happens.
+    @Test
+    fun `the tag field states the shape it wants`() {
+        assertEquals(Strings.allianceFoundTagRule(), founding(name = "", tag = "").tagRule)
+    }
+
+    // ── The price ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the block states what founding costs`() {
+        val state = founding(name = "", tag = "")
+
+        assertEquals(Strings.allianceFoundPrice(PRICE.drawn()), state.cost)
+        assertTrue(state.affordable)
+    }
+
+    // **A colony short of any one resource cannot found**, and the control goes rather than greying.
+    @Test
+    fun `a colony short of the price is told so and offered no control`() {
+        val poor = Resources.of(metal = 10_000_000, crystal = 10_000_000, deuterium = 49_999)
+
+        val state = founding(name = "Ferro", tag = "FRA", colony = poor)
+
+        assertTrue(!state.affordable)
+        assertTrue(!state.committable)
+        assertEquals(Strings.allianceFoundShort(), state.shortLine)
+    }
+
+    @Test
+    fun `a colony holding exactly the price can found`() {
+        assertTrue(founding(name = "Ferro", tag = "FRA", colony = PRICE).committable)
+    }
+
+    // **An unread price is drawn as unread rather than guessed at**, and it withholds the control:
+    // the balance is the server's, and a figure invented here would be one nothing charges.
+    @Test
+    fun `a price nobody has read yet says so and commits nothing`() {
+        val state = founding(name = "Ferro", tag = "FRA", price = null)
+
+        assertEquals(Strings.allianceFoundPriceUnread(), state.cost)
+        assertTrue(!state.affordable)
+        assertTrue(!state.committable)
     }
 
     // **Both fields can be refused in the same answer**, because one commit sends both — and the
     // control is absent while a refusal stands rather than greyed.
     @Test
     fun `a refusal on either field names the string and withdraws the control`() {
-        val refused = foundingUiState(name = "Ferro", tag = "FRA", nameTaken = true, tagTaken = true)
+        val refused = founding(name = "Ferro", tag = "FRA", nameTaken = true, tagTaken = true)
 
         assertEquals(Strings.allianceNameTaken(TextRes("Ferro")), refused.nameRefusal)
         assertEquals(Strings.allianceTagTaken(TextRes("FRA")), refused.tagRefusal)
@@ -392,6 +460,38 @@ class AllianceUiStateTest {
 
     // ── The harness ──────────────────────────────────────────────────────────────────────────
 
+    // Defaults to a price that has been read and a colony that can cover it, so a test about the
+    // fields is not also a test about money. The four that are about money say so.
+    private fun founding(
+        name: String,
+        tag: String,
+        nameTaken: Boolean = false,
+        tagTaken: Boolean = false,
+        price: Resources? = PRICE,
+        colony: Resources = RICH,
+    ): FoundingUiState = foundingUiState(
+        name = name,
+        tag = tag,
+        nameTaken = nameTaken,
+        tagTaken = tagTaken,
+        price = price,
+        colony = colony,
+    )
+
+    // The cost line as the block draws it — resource names beside their figures, which is how every
+    // other cost in the app reads and the opposite of a contribute chip's positional three.
+    private fun Resources.drawn(): TextRes = Strings.clauses(
+        ResourceKind.entries
+            .filter { kind -> amountOf(kind) > 0 }
+            .map { kind -> Strings.amountOfResource(Strings.groupedNumber(amountOf(kind)), kind) },
+    )
+
+    private fun Resources.amountOf(kind: ResourceKind): Long = when (kind) {
+        ResourceKind.METAL -> metal
+        ResourceKind.CRYSTAL -> crystal
+        ResourceKind.DEUTERIUM -> deuterium
+    }
+
     private fun face(
         standing: AllianceState,
         reachable: Boolean = true,
@@ -400,7 +500,7 @@ class AllianceUiStateTest {
         standing = standing,
         reachable = reachable,
         search = searchUiState(query = "", answer = null, asking = false, reachable = reachable),
-        founding = foundingUiState(name = "", tag = "", nameTaken = false, tagTaken = false),
+        founding = founding(name = "", tag = ""),
         colony = Resources.of(metal = 42_100, crystal = 9_600, deuterium = 1_200),
         treasury = treasury,
     )
@@ -454,6 +554,12 @@ class AllianceUiStateTest {
                 ),
             ),
         )
+
+        // The real founding price — `AllianceBalance.FOUNDING_PRICE`, Davide's on 2026-09-13. A
+        // tidier figure here would let the block pass while drawing a number no server sends.
+        val PRICE = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000)
+
+        val RICH = Resources.of(metal = 500_000, crystal = 500_000, deuterium = 500_000)
 
         val OFFER = AllianceProjectOffer(
             project = AllianceProject.CHARTER_EXPANSION,

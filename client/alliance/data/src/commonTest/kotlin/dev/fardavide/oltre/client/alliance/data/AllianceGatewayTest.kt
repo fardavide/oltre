@@ -162,10 +162,10 @@ class AllianceGatewayTest {
 
         assertEquals(
             ApiResult.Answered(AllianceState.Enlisted(alliance, AllianceRole.FOUNDER, AllianceRosterReading.Unread)),
-            scenario.gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FERRO")),
+            scenario.gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FRA")),
         )
         assertEquals(
-            AllianceRequest.Create(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FERRO")),
+            AllianceRequest.Create(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FRA")),
             scenario.api.allianceWrites().single(),
         )
     }
@@ -326,7 +326,7 @@ class AllianceGatewayTest {
                 allianceStanding = AllianceStanding.Enlisted(fakeAlliance(), AllianceRole.FOUNDER),
             ),
         )
-        scenario.gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FERRO"))
+        scenario.gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FRA"))
         val held = scenario.gateway.standing
         scenario.api.allianceRosterError = ApiError.AllianceRoleTooLow
 
@@ -545,8 +545,8 @@ private enum class Mutation {
 }
 
 private suspend fun Scenario.mutate(mutation: Mutation): ApiResult<AllianceState> = when (mutation) {
-    Mutation.CREATE -> gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FERRO"))
-    Mutation.RENAME -> gateway.renameAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FERRO"))
+    Mutation.CREATE -> gateway.createAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FRA"))
+    Mutation.RENAME -> gateway.renameAlliance(SessionToken("access"), AllianceName("Ferro Alto"), AllianceTag("FRA"))
     Mutation.REQUEST_TO_JOIN -> gateway.requestToJoin(SessionToken("access"), AllianceId("ferro-alto"))
     Mutation.ANSWER_REQUEST -> gateway.answerRequest(SessionToken("access"), JoinRequestId("petition"), JoinDecision.ADMITTED)
     Mutation.SET_MEMBER_ROLE -> gateway.setMemberRole(SessionToken("access"), AllianceMemberId("member"), AllianceRole.ADMIN)
@@ -558,7 +558,7 @@ private suspend fun Scenario.mutate(mutation: Mutation): ApiResult<AllianceState
 private fun fakeAlliance(): Alliance = Alliance(
     id = AllianceId("ferro-alto"),
     name = AllianceName("Ferro Alto"),
-    tag = AllianceTag("FERRO"),
+    tag = AllianceTag("FRA"),
     level = AllianceLevel(0),
     seats = AllianceSeats(taken = 1, cap = 20),
 )

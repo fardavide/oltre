@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.FoundAllianceResult
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.foundAlliance
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceProject
@@ -34,6 +37,32 @@ internal class InMemoryAllianceRepository(
     private val alliances = mutableMapOf<AllianceId, StoredAlliance>()
     private val seats = mutableMapOf<PlayerId, Seat>()
     private val petitions = mutableMapOf<PlayerId, Petition>()
+
+    // Takes the founding price out of the colony, or says why it could not. **Null is paid** — the
+    // one shape that keeps the caller a straight line, since every non-null answer is a refusal it
+    // hands straight back.
+    //
+    // Called with the lock already held, which is why it is a private function on this class rather
+    // than anything reusable: `colonies` has a lock of its own, and the one thing that must not
+    // happen here is a second acquisition of this one.
+    private suspend fun charge(player: PlayerId, price: Resources, now: Instant): Founded.Refused? {
+        val colony = colonies.colonyOf(player) ?: return Founded.Refused(ApiError.NoColony)
+        val advanced = advance(colony.snapshot.state, from = colony.snapshot.lastUpdatedAt, to = now)
+        val paid = when (val charged = foundAlliance(advanced, price, now)) {
+            FoundAllianceResult.InsufficientResources -> return Founded.Refused(ApiError.AllianceFoundingUnaffordable)
+            is FoundAllianceResult.Paid -> charged.state
+        }
+        val written = colonies.write(
+            player = player,
+            // `lastUpdatedAt` moves with the state, or the next read would advance the charged
+            // colony a second time from the old instant and hand back what the price took.
+            snapshot = colony.snapshot.copy(lastUpdatedAt = now, state = paid),
+            applied = emptySet(),
+            expected = colony.version,
+        )
+        check(written == WriteResult.WRITTEN) { "a colony read and written under one lock lost its compare-and-set" }
+        return null
+    }
 
     override suspend fun rosterOf(player: PlayerId, now: Instant): RosterRead = lock.withLock {
         val current = when (val affiliation = affiliationOf(player)) {
@@ -89,7 +118,17 @@ internal class InMemoryAllianceRepository(
             .take(limit)
     }
 
-    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
+    // **One lock stands in for the transaction**, which is what makes this a fair stand-in for the
+    // Postgres store rather than a looser one: every refusal, the charge and both inserts happen
+    // without releasing it, so no caller can observe an alliance that has not been paid for or a
+    // colony that has paid for one that does not exist.
+    override suspend fun found(
+        player: PlayerId,
+        name: AllianceName,
+        tag: AllianceTag,
+        now: Instant,
+        price: Resources,
+    ): Founded =
         lock.withLock {
             val affiliation = affiliationOf(player)
             when (val verdict = AllianceRules.founding(affiliation, name, tag, emptyList())) {
@@ -109,6 +148,21 @@ internal class InMemoryAllianceRepository(
                 is FoundingVerdict.Refused -> return@withLock Founded.Refused(verdict.error)
                 is FoundingVerdict.Retry -> return@withLock Founded.AlreadyFounded(verdict.alliance, verdict.role)
                 FoundingVerdict.Proceed -> Unit
+            }
+            // **The money, decided and taken before anything is inserted**, which is the Postgres
+            // store's own order. The write lands under the same lock as the two map writes below, so
+            // nothing can observe an alliance that has not been paid for.
+            //
+            // **A founding with no price reads no colony**, which is what keeps `Resources.of()`
+            // meaning genuinely free: there is nothing to charge, so there is nothing to look up and
+            // no `NoColony` to refuse with. Production never takes that branch —
+            // `AllianceBalance.FOUNDING_PRICE` is what the route passes — and the tests that do are
+            // the ones about rosters and names rather than about money.
+            if (price != Resources.of()) {
+                when (val charged = charge(player, price, now)) {
+                    is Founded.Refused -> return@withLock charged
+                    null -> Unit
+                }
             }
             val id = ids.mint()
             val stored = StoredAlliance(

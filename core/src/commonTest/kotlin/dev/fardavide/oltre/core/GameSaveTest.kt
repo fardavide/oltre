@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":19,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":20,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -1232,8 +1232,22 @@ class GameSaveTest {
     // frozen `VERSION_*` constants below are under, said for a fixture that is derived rather than
     // frozen.
     private fun schema18(state: GameState): String =
+        schema19(state).replace(""""schemaVersion":19""", """"schemaVersion":18""")
+
+    // ── 19 -> 20: the founding price ────────────────────────────────────────────────────────
+    //
+    // A save written by 0.24, and byte-for-byte a current save with a different number on it for
+    // schema 18's reason said again: schema 20 adds no key and removes none, and moves the version
+    // because `eventLog` can now hold an `AllianceFounded` an older build has never heard of.
+    //
+    // **The chain is derived rather than pasted, and this link is why.** Every older fixture goes
+    // through here, so a hop that moves `SCHEMA_VERSION` needs exactly one new link and no edit to
+    // the ones below it — which is what stops the whole chain silently becoming a no-op `replace`
+    // and handing every migration test a save stamped with the current version. That is precisely
+    // what happened when 19 landed without this link.
+    private fun schema19(state: GameState): String =
         GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
-            .replace(""""schemaVersion":19""", """"schemaVersion":18""")
+            .replace(""""schemaVersion":20""", """"schemaVersion":19""")
 
     // Derived from the state rather than pasted, for the reason the whole fixture chain is.
     private fun chartedKey(state: GameState): String =

@@ -395,6 +395,19 @@ class AllianceScreenScreenshotTest {
             body = Strings.allianceFoundBody(),
             nameLabel = Strings.allianceFoundName(),
             tagLabel = Strings.allianceFoundTag(),
+            tagRule = Strings.allianceFoundTagRule(),
+            // The real price, so the frame photographs the figure the game charges.
+            cost = Strings.allianceFoundPrice(
+                Strings.clauses(
+                    listOf(
+                        Strings.amountOfResource(Strings.groupedNumber(200_000), ResourceKind.METAL),
+                        Strings.amountOfResource(Strings.groupedNumber(100_000), ResourceKind.CRYSTAL),
+                        Strings.amountOfResource(Strings.groupedNumber(50_000), ResourceKind.DEUTERIUM),
+                    ),
+                ),
+            ),
+            affordable = true,
+            shortLine = Strings.allianceFoundShort(),
             name = "",
             tag = "",
             action = Strings.allianceFoundAction(),

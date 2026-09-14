@@ -294,7 +294,18 @@ and `ApiVersion` bump that §1.3 makes unavoidable for any of the four.
 
 ## 5. Founding, joining, and who runs it
 
-### 5.1 The price — proposals, all dials
+### 5.1 The price — **built, 0.25.0**
+
+> **Settled and shipping.** 200,000 metal · 100,000 crystal · 50,000 deuterium, Davide's on
+> 2026-09-13, charged since 0.25.0. It lives in `AllianceBalance.FOUNDING_PRICE` in `:server` and
+> crosses the wire on `GET /v1/alliance/founding`, so the balance round can retune it with a deploy
+> rather than a release. `core.foundAlliance` is what takes it out of the colony;
+> `AllianceRepository.found` writes the charge and the alliance in one transaction.
+>
+> **Still open below:** the *gate* (§5.1's level-gate proposal), and the day unit in the duration
+> format — until that exists the block says the colony is short rather than how long until it is not.
+
+The proposals this was chosen from, kept because the reasoning is still what would justify moving it:
 
 Davide's ask says *for a price*, which the game has an idiom for: a `Resources` cost on the 1 : 2 : 3.
 
@@ -356,8 +367,11 @@ enough for a thing measured in weeks.
   normalised column — trimmed, case-folded, whitespace-collapsed — under a unique index. The refusal
   is a designed state, because **it is the first refusal in this app a finger can actually reach**
   (status.md, 0.22.0 pending: the profile face has no error state because nothing could refuse it).
-- **A short tag beside the name**, 2–5 characters, also unique: what fits next to a commander in a
-  roster where the full name does not, and the genre's own convention.
+- **A short tag beside the name**, **3–4 characters** (Davide, 2026-09-14 — tightened from the
+  frame's 2–5 after seeing it on a device), also unique: what fits next to a commander in a roster
+  where the full name does not, and the genre's own convention. Uppercase ASCII letters and digits;
+  the field asks the keyboard for capitals and the contract refuses anything else rather than folding
+  it. Tightening a bound is free forever (§1.3) and no alliance existed anywhere when it moved.
 - **Search is a route, rate-limited and paginated.** `RateLimit.kt` already exists. A normalised
   column and a prefix match is enough at this scale; a trigram index is for when there is something
   to measure.
@@ -569,7 +583,7 @@ remove every other member first. This is the first item under *Open* below.
 | | Sheet faces | | Refused / held | |
 |---|---|---|---|
 | Sheet faces after this ships | 9 (was 6) | Refused line | 1dp `--status-danger` at 45% |
-| Name field / tag field | 44dp, max 24 from 18 / max 5 from 4 | Refusal clears | on first keystroke |
+| Name field / tag field | 44dp, max 32 / 3–4, both enforced by the field | Refusal clears | on first keystroke |
 | Commit, unaffordable | 44dp ghost + computed time | Held card | amber 6% fill in 22% border, r14 (fleet strip's) |
 | Commit, not ready / refused | absent, never greyed | Held blocks / held values | `HELD_DIM` (42%) / full strength |
 | Treasury pool row / orb | 44dp hairline-ruled / 7dp resource hue | Stale stamp | `"Last read HH:MM"`, new |
@@ -592,8 +606,8 @@ remove every other member first. This is the first item under *Open* below.
 - The merged destination's name (`Ships` / `Navi`), its head, and which glyph it keeps.
 - The leave/remove rules: reached from a roster row, only the founder removes, a founder cannot leave
   while anyone else remains, both acts use the delete face's two steps.
-- The name bounds (3–24 for the name, 2–5 for the tag) — the 24 is the commander name's; 3 and 2–5
-  are the frame's.
+- The name bound (32, generous rather than measured) — the frame's. **The tag bound is not the
+  frame's: 3–4 is Davide's, 2026-09-14.**
 - The roster sort order, the stale-stamp's shape, and every placeholder name, alliance name and tag.
 
 ### Open, and every one is Davide's or the balance round's

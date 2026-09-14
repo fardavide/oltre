@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 // The mirror of `ErrorId` in `ApiErrorTest`, for `AllianceStanding`.
 private enum class AllianceStandingId {
@@ -87,11 +88,17 @@ class AllianceTest {
     // ── The tag ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a tag outside two to five characters is refused`() {
-        assertFailsWith<IllegalArgumentException> { AllianceTag("F") }
-        assertFailsWith<IllegalArgumentException> { AllianceTag("FRAALT") }
-        assertEquals("FR", AllianceTag("FR").value)
-        assertEquals("FRALT", AllianceTag("FRALT").value)
+    fun `a tag outside three to four characters is refused`() {
+        assertFailsWith<IllegalArgumentException> { AllianceTag("FR") }
+        assertFailsWith<IllegalArgumentException> { AllianceTag("FRALT") }
+        assertEquals("FRA", AllianceTag("FRA").value)
+        assertEquals("FRAL", AllianceTag("FRAL").value)
+    }
+
+    @Test
+    fun `the tag bound is three to four`() {
+        assertEquals(3, AllianceTag.MIN_LENGTH)
+        assertEquals(4, AllianceTag.MAX_LENGTH)
     }
 
     @Test
@@ -108,6 +115,63 @@ class AllianceTest {
     fun `a tag that breaks the bound is refused on the way in as well as on the way out`() {
         assertFailsWith<IllegalArgumentException> {
             Protocol.json.decodeFromJsonElement(AllianceTag.serializer(), JsonPrimitive("fra"))
+        }
+    }
+
+    // ── The check both ends run ───────────────────────────────────────────────────────────────
+    //
+    // Davide, 2026-09-14: *"we should run the check on the server and the client as well. Please
+    // make sure that we put this in a shared place so the client and the server share the same
+    // logic."* These are that shared place, and the `init` guards above are the same rule said as a
+    // raise — so a rule that moved in one and not the other would fail these.
+
+    @Test
+    fun `a name the contract accepts is refused for nothing`() {
+        assertNull(AllianceName.refusalFor("Ferro Alto"))
+    }
+
+    @Test
+    fun `a name is refused for the reason its guard raises on`() {
+        assertEquals(AllianceNameRefusal.BLANK, AllianceName.refusalFor("   "))
+        assertEquals(AllianceNameRefusal.UNTRIMMED, AllianceName.refusalFor(" Ferro Alto"))
+        assertEquals(
+            AllianceNameRefusal.TOO_LONG,
+            AllianceName.refusalFor("a".repeat(AllianceName.MAX_LENGTH + 1)),
+        )
+    }
+
+    @Test
+    fun `a tag the contract accepts is refused for nothing`() {
+        assertNull(AllianceTag.refusalFor("FRA"))
+        assertNull(AllianceTag.refusalFor("FR7A"))
+    }
+
+    @Test
+    fun `a tag is refused for the reason its guard raises on`() {
+        assertEquals(AllianceTagRefusal.WRONG_LENGTH, AllianceTag.refusalFor("FR"))
+        assertEquals(AllianceTagRefusal.WRONG_LENGTH, AllianceTag.refusalFor("FRALT"))
+        assertEquals(AllianceTagRefusal.NOT_UPPERCASE, AllianceTag.refusalFor("fra"))
+        assertEquals(AllianceTagRefusal.NOT_UPPERCASE, AllianceTag.refusalFor("FR-A"))
+    }
+
+    // **The length is read before the alphabet**, so a player who has typed two good letters is told
+    // the tag is too short rather than that it holds a character it does not hold.
+    @Test
+    fun `a tag that is both too short and not uppercase is refused for its length`() {
+        assertEquals(AllianceTagRefusal.WRONG_LENGTH, AllianceTag.refusalFor("f"))
+    }
+
+    // The check and the guard are one rule, and this is what says so: everything the check passes
+    // constructs, and everything it refuses raises.
+    @Test
+    fun `every string the check passes is one the guard accepts`() {
+        val candidates = listOf("", "  ", "F", "FR", "FRA", "FRAL", "FRALT", "fra", "FR-A", "FR7", " FRA")
+        for (candidate in candidates) {
+            if (AllianceTag.refusalFor(candidate) == null) {
+                assertEquals(candidate, AllianceTag(candidate).value)
+            } else {
+                assertFailsWith<IllegalArgumentException> { AllianceTag(candidate) }
+            }
         }
     }
 

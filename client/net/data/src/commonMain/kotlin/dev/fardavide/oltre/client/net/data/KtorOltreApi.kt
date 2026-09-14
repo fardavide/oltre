@@ -5,7 +5,9 @@ import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.BuyProjectRequest
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.FoundingPriceResponse
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
@@ -186,6 +188,13 @@ class KtorOltreApi(
                 bearer(access)
             }
         }.standing()
+
+    // **Answered with the price alone**, because that is all the response carries and a caller that
+    // held the envelope would be holding an `ApiVersion` it has already agreed about.
+    override suspend fun foundingPrice(access: SessionToken): ApiResult<Resources> =
+        send(FoundingPriceResponse.serializer()) {
+            client.get(baseUrl + "/v1/alliance/founding") { bearer(access) }
+        }.price()
 
     override suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> =
         send(TreasuryResponse.serializer()) {
@@ -408,6 +417,12 @@ class KtorOltreApi(
 
 private fun ApiResult<AllianceResponse>.standing(): ApiResult<AllianceStanding> = when (this) {
     is ApiResult.Answered -> ApiResult.Answered(value.standing)
+    is ApiResult.Refused -> ApiResult.Refused(error)
+    ApiResult.Unreachable -> ApiResult.Unreachable
+}
+
+private fun ApiResult<FoundingPriceResponse>.price(): ApiResult<Resources> = when (this) {
+    is ApiResult.Answered -> ApiResult.Answered(value.price)
     is ApiResult.Refused -> ApiResult.Refused(error)
     ApiResult.Unreachable -> ApiResult.Unreachable
 }

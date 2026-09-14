@@ -1,7 +1,10 @@
 package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -87,8 +90,32 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.onNodeWithText(English.resolve(text)).performScrollTo().assertIsDisplayed()
     }
 
+    fun assertDoesNotRead(text: TextRes) = apply {
+        test.onNodeWithText(English.resolve(text)).assertDoesNotExist()
+    }
+
     fun assertSaysSeats(taken: Int, cap: Int) = apply {
         assertReads(Strings.allianceSeatsLine(taken, cap))
+    }
+
+    // **Who is actually drawn on the roster**, which is the half that went missing: every alliance
+    // act answers with a standing alone, so a screen that did not follow it with a roster read drew
+    // a card with no rows in it and no way to tell that from an alliance of nobody.
+    //
+    // By row rather than by text, because the player strip carries the signed-in commander's name
+    // too — a bare text query matches both and cannot tell a roster from a chrome line.
+    fun assertRosterNames(vararg names: String) = apply {
+        names.forEachIndexed { index, name ->
+            test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, index))
+                .performScrollTo()
+                .assertIsDisplayed()
+                .assert(hasAnyDescendant(hasText(name)))
+        }
+    }
+
+    fun depart() = apply {
+        test.onNodeWithTag(AllianceTestTags.DEPARTURE).performScrollTo().performClick()
+        test.waitForIdle()
     }
 
     fun assertNothingToConfirm() = apply {

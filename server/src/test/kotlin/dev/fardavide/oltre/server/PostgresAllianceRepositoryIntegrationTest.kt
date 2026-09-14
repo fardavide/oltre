@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
@@ -40,6 +41,68 @@ class PostgresAllianceRepositoryIntegrationTest {
         database.applySchema()
         database.emptyEveryTable()
         database.givenPlayer(founder)
+    }
+
+    // ── What founding costs ──────────────────────────────────────────────────────────────────
+    //
+    // **The one path in this file that the in-memory store cannot stand in for.** Everything else
+    // here is a rule both implementations run; the charge is a `SELECT … FOR UPDATE`, a `core` call
+    // and a compare-and-set inside the alliance's own transaction, and none of that exists in a map.
+    // Without these three the charged branch would ship covered only by the fake.
+
+    @Test
+    fun `founding charges the colony in the same transaction as the insert`() = runTest {
+        val colonies = PostgresColonyRepository(database, MovableClock(TEST_NOW))
+        colonies.found(founder, establishedColony())
+        val before = checkNotNull(colonies.colonyOf(founder))
+
+        val made = repository.found(founder, AllianceName("Fleet"), AllianceTag("FLT"), TEST_NOW, PRICE)
+
+        assertIs<Founded.Made>(made)
+        val after = checkNotNull(colonies.colonyOf(founder))
+        assertEquals(before.snapshot.state.resources.minus(PRICE), after.snapshot.state.resources)
+        // The version moved with it, so a sync that read the colony before this loses its own
+        // compare-and-set rather than writing the price back.
+        assertNotEquals(before.version, after.version)
+        assertEquals(TEST_NOW, after.snapshot.lastUpdatedAt)
+    }
+
+    @Test
+    fun `a colony that cannot cover the price founds nothing and keeps what it has`() = runTest {
+        val colonies = PostgresColonyRepository(database, MovableClock(TEST_NOW))
+        colonies.found(founder, freshColony())
+        val before = checkNotNull(colonies.colonyOf(founder))
+
+        val refused = repository.found(founder, AllianceName("Fleet"), AllianceTag("FLT"), TEST_NOW, PRICE)
+
+        assertEquals(Founded.Refused(ApiError.AllianceFoundingUnaffordable), refused)
+        assertEquals(before, checkNotNull(colonies.colonyOf(founder)))
+        assertEquals(Affiliation.Unaffiliated, repository.allianceOf(founder, TEST_NOW))
+    }
+
+    @Test
+    fun `a player with no colony cannot be charged and founds nothing`() = runTest {
+        val refused = repository.found(founder, AllianceName("Fleet"), AllianceTag("FLT"), TEST_NOW, PRICE)
+
+        assertEquals(Founded.Refused(ApiError.NoColony), refused)
+        assertEquals(Affiliation.Unaffiliated, repository.allianceOf(founder, TEST_NOW))
+    }
+
+    // **A founding refused after the money was judged still costs nothing**, because the insert
+    // comes between the two halves of the charge: a taken name returns before the write.
+    @Test
+    fun `a founding refused for a taken name leaves the colony untouched`() = runTest {
+        val colonies = PostgresColonyRepository(database, MovableClock(TEST_NOW))
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        colonies.found(rival, establishedColony())
+        assertIs<Founded.Made>(repository.found(founder, AllianceName("Fleet"), AllianceTag("FLT"), TEST_NOW))
+        val before = checkNotNull(colonies.colonyOf(rival))
+
+        val refused = repository.found(rival, AllianceName("Fleet"), AllianceTag("RIV"), TEST_NOW, PRICE)
+
+        assertEquals(Founded.Refused(ApiError.AllianceNameTaken), refused)
+        assertEquals(before, checkNotNull(colonies.colonyOf(rival)))
     }
 
     // ── Search ──
@@ -98,8 +161,8 @@ class PostgresAllianceRepositoryIntegrationTest {
         for ((index, name) in names.withIndex()) {
             val player = PlayerId("founder-$index")
             database.givenPlayer(player)
-            repository.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)
-            memory.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)
+            repository.found(player, AllianceName(name), AllianceTag("F" + index.toString().padStart(2, '0')), TEST_NOW)
+            memory.found(player, AllianceName(name), AllianceTag("F" + index.toString().padStart(2, '0')), TEST_NOW)
         }
         for (store in listOf(repository, memory)) {
             val first = store.search(CanonicalAllianceName("fleet"), null, 2)
@@ -176,7 +239,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val made = names.mapIndexed { index, name ->
             val player = PlayerId("founder-$index")
             database.givenPlayer(player)
-            assertIs<Founded.Made>(repository.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)).alliance
+            assertIs<Founded.Made>(repository.found(player, AllianceName(name), AllianceTag("F" + index.toString().padStart(2, '0')), TEST_NOW)).alliance
         }
 
         for ((index, prefix) in listOf("fleet %", "fleet _", "fleet \\").withIndex()) {
@@ -189,7 +252,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val made = (25 downTo 1).map { number ->
             val player = PlayerId("founder-$number")
             database.givenPlayer(player)
-            val stored = assertIs<Founded.Made>(repository.found(player, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F$number"), TEST_NOW)).alliance
+            val stored = assertIs<Founded.Made>(repository.found(player, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F" + number.toString().padStart(2, '0')), TEST_NOW)).alliance
             database.connection.use { connection ->
                 connection.prepareStatement("UPDATE alliances SET experience = ? WHERE id = ?").use { statement ->
                     statement.setLong(1, (number % 3).toLong())
@@ -885,6 +948,10 @@ class PostgresAllianceRepositoryIntegrationTest {
     }
 
     private companion object {
+
+        // The price the route passes, so these assert against what production charges rather than
+        // against a figure chosen here.
+        val PRICE: Resources = AllianceBalance.FOUNDING_PRICE
 
         @get:ClassRule
         @JvmStatic

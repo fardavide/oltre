@@ -97,6 +97,10 @@ private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     // it settles at the instant it is applied, schedules nothing, and there is no future in which it
     // lands while the app is closed.
     is Event.ResourcesContributed,
+    // Founding an alliance is the same answer for the same reason, and with one more of its own:
+    // the tap that pays for it lands on the alliance destination and the answer redraws it, so a
+    // band across a facility row would be announcing something the player is already looking at.
+    is Event.AllianceFounded,
     -> null
 }
 

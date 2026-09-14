@@ -18,6 +18,7 @@ import dev.fardavide.oltre.client.alliance.domain.AllianceState
 import dev.fardavide.oltre.client.alliance.presentation.allianceUiState
 import dev.fardavide.oltre.client.alliance.presentation.basket
 import dev.fardavide.oltre.client.alliance.presentation.contributeConfirmUiState
+import dev.fardavide.oltre.client.alliance.presentation.foundable
 import dev.fardavide.oltre.client.alliance.presentation.foundingUiState
 import dev.fardavide.oltre.client.alliance.presentation.searchUiState
 import dev.fardavide.oltre.client.alliance.ui.AllianceActions
@@ -365,6 +366,10 @@ fun App(
             // The pool, read on its own rather than with the standing — see `AllianceGateway
             // .treasury` for why. Null is *not read yet*, which the panel says in one line.
             var treasury by remember { mutableStateOf<TreasuryResponse?>(null) }
+            // What founding costs, read the way the pool is and for the mirrored reason: a price is
+            // only interesting to somebody in no alliance. Null is *not read yet*, which the founding
+            // block says in a line rather than guessing at a figure.
+            var foundingPrice by remember { mutableStateOf<Resources?>(null) }
             // The founding block's two fields, and the two refusals that can land on them. **Both at
             // once**, because one commit sends both — and each clears on the first keystroke in its
             // own field, since the answer was about the string that was there.
@@ -640,6 +645,18 @@ fun App(
                         // Left unread rather than cleared: a panel that had a pool a moment ago is
                         // better drawing the one it has than emptying itself because one request
                         // did not land.
+                        is ApiResult.Refused, ApiResult.Unreachable -> Unit
+                    }
+                }
+                // **And the price, on the other arm of the same question.** A member is not shown a
+                // founding block and has nothing to spend it on, so the two reads are exclusive —
+                // which is what keeps a check-in to the same two requests it already paid for.
+                //
+                // Asked once and kept: the balance moves with a deploy rather than during a session,
+                // so a price that has landed is worth redrawing rather than re-fetching every minute.
+                if (standing == AllianceState.Unaffiliated && foundingPrice == null) {
+                    when (val price = alliances.foundingPrice(access)) {
+                        is ApiResult.Answered -> foundingPrice = price.value
                         is ApiResult.Refused, ApiResult.Unreachable -> Unit
                     }
                 }
@@ -1141,11 +1158,43 @@ fun App(
                 // directly and the standing they hand back is the authoritative one. Contributing is
                 // the exception and goes through `dispatch` like every other verb, because it takes
                 // resources out of a colony.
-                fun actOnAlliance(call: suspend (SessionToken) -> ApiResult<AllianceState>) {
+                fun actOnAlliance(
+                    // **Set by founding alone**, which is the one alliance act that takes resources
+                    // out of the colony. The charge happens on the server, so without this the rail
+                    // would go on showing a stock the server has already spent until the next minute
+                    // tick — a number that is wrong on the screen the tap was made from.
+                    spendsTheColony: Boolean = false,
+                    call: suspend (SessionToken) -> ApiResult<AllianceState>,
+                ) {
                     scope.launch {
                         when (val credential = sessions.current()) {
                             is Credential.Held -> when (val answer = call(credential.access)) {
-                                is ApiResult.Answered -> standing = answer.value
+                                is ApiResult.Answered -> {
+                                    standing = answer.value
+                                    if (spendsTheColony) arrive(colony.sync(), debugClock, wallClock.now())
+                                    // **And then the roster and the pool, because an act answers with
+                                    // a standing and nothing else.** `AllianceGateway.change` can only
+                                    // hand back `AllianceRosterReading.Unread` — it has one response
+                                    // and the roster is a second route — so a screen that stopped at
+                                    // the line above drew an alliance with **no rows on its roster
+                                    // and a pool it said it had not read**, and stayed that way for
+                                    // the life of the process: nothing re-reads a standing that is no
+                                    // longer `Unread`. That is what founding one looked like from the
+                                    // outside, and what admitting a member did to a roster that was
+                                    // on screen a moment earlier.
+                                    //
+                                    // Two requests, stated here rather than hidden inside one gateway
+                                    // call — `buyProject` below already pays for the same pair for
+                                    // the same reason.
+                                    if (standing is AllianceState.Enlisted) {
+                                        readAlliance(credential.access)
+                                    } else {
+                                        // Leaving takes the pool with it. Left standing, the next
+                                        // founding block would open over the previous alliance's
+                                        // figures, which is somebody else's money on the screen.
+                                        treasury = null
+                                    }
+                                }
                                 // **The two refusals this feature can actually reach from a finger**,
                                 // and they land on the fields rather than in a block — the answer is
                                 // about the string that was there, and the value stays editable.
@@ -2043,7 +2092,17 @@ fun App(
                                         asking = allianceAsking,
                                         reachable = reachable,
                                     ),
-                                    founding = foundingUiState(foundName, foundTag, nameTaken, tagTaken),
+                                    founding = foundingUiState(
+                                        name = foundName,
+                                        tag = foundTag,
+                                        nameTaken = nameTaken,
+                                        tagTaken = tagTaken,
+                                        // **The price the server charges and the stock the colony
+                                        // actually holds**, so the control is absent exactly when
+                                        // the route would refuse it rather than one tap later.
+                                        price = foundingPrice,
+                                        colony = current.state.resources,
+                                    ),
                                     // **The colony's own stock, which is what a share is a share
                                     // of.** It is the live one rather than the one the tab opened
                                     // with: the chips restate their figures every second the rail
@@ -2061,14 +2120,23 @@ fun App(
                                     // other one standing, because one commit can be refused twice.
                                     onNameChange = { foundName = it; nameTaken = false },
                                     onTagChange = { foundTag = it; tagTaken = false },
+                                    // **The same check the control asked before it drew itself**, and
+                                    // that is the whole of the fix: this was a `runCatching` around
+                                    // each value class whose refusal was dropped on the floor, under
+                                    // a control that appeared the moment both fields held anything —
+                                    // so *Found it* over a lower-case tag was a button that did
+                                    // nothing at all. `foundable` is unreachable as `false` from a
+                                    // finger now; it stays as the floor that keeps this a total
+                                    // function, never as the thing that decides.
                                     onFound = {
-                                        val name = runCatching { AllianceName(foundName.trim()) }.getOrNull()
-                                        val tag = runCatching { AllianceTag(foundTag.trim()) }.getOrNull()
-                                        // **Refused by the contract before it is sent**, which is what
-                                        // the value classes are for: a name past its bound or a tag
-                                        // with a lower-case letter never becomes a request.
-                                        if (name != null && tag != null) {
-                                            actOnAlliance { alliances.createAlliance(it, name, tag) }
+                                        if (foundable(foundName, foundTag)) {
+                                            actOnAlliance(spendsTheColony = true) {
+                                                alliances.createAlliance(
+                                                    it,
+                                                    AllianceName(foundName.trim()),
+                                                    AllianceTag(foundTag),
+                                                )
+                                            }
                                         }
                                     },
                                     onWithdraw = { actOnAlliance { alliances.leaveAlliance(it) } },

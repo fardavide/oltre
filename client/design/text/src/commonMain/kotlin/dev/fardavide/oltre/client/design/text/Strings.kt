@@ -1155,6 +1155,22 @@ object Strings {
 
     fun allianceFoundTag(): TextRes = message(StringId.AllianceFoundTag)
 
+    // **The shape the tag has to be, said before the tap rather than after it.** The commit control
+    // is absent until both fields are things the contract accepts — *absent, never greyed* — and an
+    // absence with no reason beside it is the unanswerable question a disabled button would be.
+    fun allianceFoundTagRule(): TextRes = message(StringId.AllianceFoundTagRule)
+
+    // **The price, stated before anything is typed** — `alliance-sheet.md` §7's whole reason for
+    // putting a founding block under the search rather than behind a button.
+    fun allianceFoundPrice(cost: TextRes): TextRes = message(StringId.AllianceFoundPrice, Arg.Text(cost))
+
+    // The server has not answered `GET /v1/alliance/founding` yet. A sentence rather than a guessed
+    // figure: the balance is the server's, and a client that invented one would be drawing a price
+    // nothing charges.
+    fun allianceFoundPriceUnread(): TextRes = message(StringId.AllianceFoundPriceUnread)
+
+    fun allianceFoundShort(): TextRes = message(StringId.AllianceFoundShort)
+
     fun allianceFoundAction(): TextRes = message(StringId.AllianceFoundAction)
 
     fun allianceNameTaken(name: TextRes): TextRes = message(StringId.AllianceNameTaken, Arg.Text(name))

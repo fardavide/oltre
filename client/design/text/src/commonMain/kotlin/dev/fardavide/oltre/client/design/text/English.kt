@@ -523,6 +523,10 @@ object English : Translations {
         StringId.AllianceFoundBody -> "A name, a tag, and a price that makes it a decision rather than a formality."
         StringId.AllianceFoundName -> "Name"
         StringId.AllianceFoundTag -> "Tag"
+        StringId.AllianceFoundTagRule -> "Three or four capitals or digits."
+        StringId.AllianceFoundPrice -> "Founding costs ${args.text(0)}."
+        StringId.AllianceFoundPriceUnread -> "The price has not been read yet."
+        StringId.AllianceFoundShort -> "Your colony is short of the price."
         StringId.AllianceFoundAction -> "Found it"
         // **The first refusal in this app a finger can reach**, and it lands on the field rather
         // than in a block: the answer is about the string that was there, so it clears on the first

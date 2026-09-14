@@ -320,12 +320,12 @@ class KtorOltreApiTest {
         val records = mutableListOf<HttpRequestData>()
         val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
         val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.Created, JSON) }
-            .createAlliance(PLAYER, AllianceName("Ferro Alto"), AllianceTag("FERRO"))
+            .createAlliance(PLAYER, AllianceName("Ferro Alto"), AllianceTag("FRA"))
         val request = records.single()
         assertEquals(HttpMethod.Post, request.method)
         assertEquals("/v1/alliance", request.url.encodedPath)
         assertEquals(
-            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Ferro Alto"), AllianceTag("FERRO")),
+            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Ferro Alto"), AllianceTag("FRA")),
             Protocol.json.decodeFromString<CreateAllianceRequest>(request.bodyText()),
         )
         assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])

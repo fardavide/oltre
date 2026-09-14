@@ -56,6 +56,19 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 20 — the founding price: an alliance costs resources, so the event log can contain an
+    //     `AllianceFounded`. **The third identity hop, and it is 19's argument verbatim** — which is
+    //     itself worth recording, because two hops one release apart for the same structural reason
+    //     is the tell that the *log* is the thing that keeps moving, not the state. Nothing is added
+    //     to `GameState`, no key is removed, and a colony saved at 19 is byte-for-byte valid at 20;
+    //     what changed is the set of values `eventLog` can take, and an unknown polymorphic
+    //     discriminator is a hard decode failure whatever a decoder is told about unknown keys.
+    //
+    //     `ApiVersion.OLDEST_SERVED` moves to 3 with it, so an installed 0.24 build gets a clean 426
+    //     rather than a snapshot it cannot read. **That is the second forced update in two days**,
+    //     and it is affordable only because the audience is internal testers; at public launch this
+    //     pattern needs a server able to serve two snapshot shapes, which nothing here can do. The
+    //     bill for that is in `#144` §1 and is now overdue rather than merely noted.
     // 19 — the treasury: resources can leave a colony for an alliance pool, so the event log can
     //     contain a `ResourcesContributed`. **Nothing is added to `GameState` at all**, which makes
     //     this the second identity hop in the table and the first whose reason is not a defaulted
@@ -148,7 +161,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 19
+    const val SCHEMA_VERSION: Int = 20
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -495,6 +508,12 @@ object GameSave {
         // construction, so there is nothing in it to rewrite, and re-encoding a log that is already
         // correct is how a hop loses something a player earned.
         18 to { root -> root },
+        // 19 -> 20: the founding price, and the identity function again for 18 -> 19's exact reason.
+        // A colony saved at 19 holds no `AllianceFounded` by construction, so there is nothing in it
+        // to rewrite, and re-encoding a log that is already correct is how a hop loses something a
+        // player earned. The hop's whole job is to exist, so `migratedToCurrent` can carry a 19
+        // forward instead of reading a missing step as "this build cannot get there".
+        19 to { root -> root },
     )
 
     private val EVENT_LOG = ListSerializer(Event.serializer())

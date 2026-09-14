@@ -32,6 +32,20 @@ class AllianceEndpointsTest {
     private val authenticator = HeaderAuthenticator(players)
     private val clock = MovableClock(TEST_NOW)
 
+    // The one request body five tests below send, so the money each of them asserts about is
+    // demonstrably the same founding.
+    private val VANGUARD = Protocol.json.encodeToString(
+        CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
+    )
+
+    // A founder with enough in the bank to pay for an alliance. `establishedColony` holds
+    // 500,000 of each and the price is 200,000 / 100,000 / 50,000.
+    private suspend fun solventFounder(header: String = "founder"): PlayerId {
+        val player = assertIs<Caller.Known>(authenticator.identify(Credentials(null, header))).player
+        colonies.found(player, establishedColony())
+        return player
+    }
+
     @Test
     fun `every alliance handler refuses missing credentials before accessing a store or reading its body`() = runTest {
         val unreachable = UnreachableAllianceRepository()
@@ -107,8 +121,104 @@ class AllianceEndpointsTest {
         assertEquals(AllianceStanding.Unaffiliated, answer.response.standing)
     }
 
+    // ── Founding, and what it costs ──────────────────────────────────────────────────────────
+    //
+    // **Every test that founds through the *route* needs a founder who can pay**, because the route
+    // charges `AllianceBalance.FOUNDING_PRICE` and a fresh colony holds 1,800 metal. Tests that found
+    // through the store take the free four-argument `found` and say nothing about money.
+
+    @Test
+    fun `the founding price route answers what founding costs`() = runTest {
+        val answer = assertIs<Answer.FoundingPrice>(foundingPrice(authenticator, Credentials(null, "founder")))
+
+        assertEquals(HttpStatusCode.OK, answer.status)
+        assertEquals(ApiVersion.CURRENT, answer.response.apiVersion)
+        assertEquals(AllianceBalance.FOUNDING_PRICE, answer.response.price)
+    }
+
+    @Test
+    fun `the founding price route refuses a caller it cannot name`() = runTest {
+        val answer = assertIs<Answer.Failed>(foundingPrice(authenticator, Credentials(null, null)))
+
+        assertEquals(HttpStatusCode.Unauthorized, answer.status)
+    }
+
+    // **The whole point of the slice**: the price leaves the colony, and it is the price the route
+    // advertises rather than a second number written here.
+    @Test
+    fun `founding takes the price out of the founder colony`() = runTest {
+        val founder = solventFounder()
+        val before = checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources
+
+        assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD))
+
+        val after = checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources
+        assertEquals(before.minus(AllianceBalance.FOUNDING_PRICE), after)
+    }
+
+    // **A colony that cannot cover it founds nothing and keeps what it has**, which is the half that
+    // matters more than the charge: a refusal that took the money would be unrecoverable.
+    @Test
+    fun `a colony that cannot cover the price founds nothing and is untouched`() = runTest {
+        val founder = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "founder"))).player
+        colonies.found(founder, freshColony())
+        val before = checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources
+
+        val answer = assertIs<Answer.Failed>(
+            foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD),
+        )
+
+        assertEquals(HttpStatusCode.Conflict, answer.status)
+        assertEquals(ApiError.AllianceFoundingUnaffordable, answer.error)
+        assertEquals(before, checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources)
+        assertEquals(Affiliation.Unaffiliated, alliances.allianceOf(founder, TEST_NOW))
+    }
+
+    // A player who has never uploaded a colony has nothing to charge, which is a different answer
+    // from having one and being poor — and `NoColony` is the one the rest of the API already uses.
+    @Test
+    fun `a player with no colony at all cannot found`() = runTest {
+        val answer = assertIs<Answer.Failed>(
+            foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD),
+        )
+
+        assertEquals(HttpStatusCode.NotFound, answer.status)
+        assertEquals(ApiError.NoColony, answer.error)
+    }
+
+    // **A retry pays once.** The second request is answered from the seat the first one made, before
+    // anything reaches the charge — which is what makes a lost 201 safe on a flaky connection.
+    @Test
+    fun `a retried founding is charged once`() = runTest {
+        val founder = solventFounder()
+        val before = checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources
+
+        assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD))
+        assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD))
+
+        assertEquals(before.minus(AllianceBalance.FOUNDING_PRICE), checkNotNull(colonies.colonyOf(founder)).snapshot.state.resources)
+    }
+
+    // A founding refused for a name somebody else holds is refused before the money moves, exactly
+    // as an unaffordable one is refused before the alliance is written.
+    @Test
+    fun `a founding refused for a taken name costs nothing`() = runTest {
+        val holder = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "holder"))).player
+        assertIs<Founded.Made>(alliances.found(holder, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW))
+        val rival = solventFounder(header = "rival")
+        val before = checkNotNull(colonies.colonyOf(rival)).snapshot.state.resources
+
+        val answer = assertIs<Answer.Failed>(
+            foundAlliance(alliances, authenticator, clock, Credentials(null, "rival"), VANGUARD),
+        )
+
+        assertEquals(HttpStatusCode.Conflict, answer.status)
+        assertEquals(before, checkNotNull(colonies.colonyOf(rival)).snapshot.state.resources)
+    }
+
     @Test
     fun `founding answers with the authoritative alliance and founder role`() = runTest {
+        solventFounder()
         val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
 
         val answer = foundAlliance(
@@ -126,9 +236,8 @@ class AllianceEndpointsTest {
 
     @Test
     fun `retrying a founding request answers 200 with the same alliance`() = runTest {
-        val body = Protocol.json.encodeToString(
-            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
-        )
+        solventFounder()
+        val body = VANGUARD
         val first = assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), body))
 
         val again = assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), body))
@@ -139,9 +248,10 @@ class AllianceEndpointsTest {
 
     @Test
     fun `petitioning answers with the durable pending alliance`() = runTest {
-        val created = assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), Protocol.json.encodeToString(
-            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
-        )))
+        solventFounder()
+        val created = assertIs<Answer.Alliance>(
+            foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), VANGUARD),
+        )
         val alliance = assertIs<AllianceStanding.Enlisted>(created.response.standing).alliance
 
         val answer = assertIs<Answer.Alliance>(petitionAlliance(alliances, authenticator, clock, Credentials(null, "petitioner"), Protocol.json.encodeToString(

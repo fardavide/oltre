@@ -212,6 +212,14 @@ class FakeOltreApi(
 
     var treasuryError: ApiError? = null,
 
+    // **The real number, not a round one**, so a test that asserts the founding block draws the
+    // price is asserting the price the game actually charges — `AllianceBalance.FOUNDING_PRICE`,
+    // 200,000 / 100,000 / 50,000, Davide's on 2026-09-13. A fake with a tidier figure would let a
+    // screen pass while drawing something no server ever sends.
+    var foundingPrice: Resources = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000),
+
+    var foundingPriceError: ApiError? = null,
+
     var buyProjectError: ApiError? = null,
 ) : OltreApi {
 
@@ -449,6 +457,11 @@ class FakeOltreApi(
         return refuseOrElse { treasuryError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(treasury) }
     }
 
+    override suspend fun foundingPrice(access: SessionToken): ApiResult<Resources> {
+        takeAlliance(AllianceRequest.FoundingPrice(access))
+        return refuseOrElse { foundingPriceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(foundingPrice) }
+    }
+
     // **It spends the pool for real when it answers**, which is the same choice `replays` makes for
     // the sync pair: a fake that answered the state it was handed would let a screen pass that never
     // redrew what it bought. What it does not model is the compare-and-set — that is the store's and
@@ -655,6 +668,7 @@ enum class AllianceRoute {
     DISBAND,
     TREASURY,
     BUY_PROJECT,
+    FOUNDING_PRICE,
 }
 
 sealed interface AllianceRequest {
@@ -668,6 +682,8 @@ sealed interface AllianceRequest {
     data class Roster(override val access: SessionToken) : AllianceRequest
 
     data class Treasury(override val access: SessionToken) : AllianceRequest
+
+    data class FoundingPrice(override val access: SessionToken) : AllianceRequest
 
     // A `Mutation` like the other eight acts, and not because it writes a colony — it does not.
     // Buying spends the pool and moves the level, so a test asserting what a screen *asked for*
@@ -728,6 +744,7 @@ val AllianceRequest.route: AllianceRoute
         is AllianceRequest.Disband -> AllianceRoute.DISBAND
         is AllianceRequest.Treasury -> AllianceRoute.TREASURY
         is AllianceRequest.BuyProject -> AllianceRoute.BUY_PROJECT
+        is AllianceRequest.FoundingPrice -> AllianceRoute.FOUNDING_PRICE
     }
 
 // **`:server`'s `applyVerb` said again on this side of the wire**, and the duplication is forced

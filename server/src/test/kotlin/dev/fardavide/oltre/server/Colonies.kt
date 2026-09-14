@@ -7,6 +7,8 @@ import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceLevel
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.VerbEnvelope
@@ -17,6 +19,24 @@ import kotlin.time.Instant
 // clock is a test that plays a different map every run — and a coverage number that moves without a
 // diff behind it. Every span in this module's tests is arithmetic on this constant.
 internal val TEST_NOW: Instant = Instant.parse("2026-08-25T12:00:00Z")
+
+// **Founds for nothing, so a test about rosters is not also a test about money.**
+//
+// `AllianceRepository.found` takes a price and has no default, which is deliberate: production states
+// what founding costs at the one route that founds, and a defaulted free founding on the interface is
+// the kind of thing that quietly becomes the norm. The forty tests in this module that are about
+// names, seats, roles and petitions all predate the price and none of them wants one, so they get an
+// **extension** with the old four-argument shape — the member has five required parameters, so a
+// four-argument call can only resolve here.
+//
+// A test that *is* about the price calls `found` with one, and `TreasuryIntegrationTest` and
+// `AllianceEndpointsTest` are where those live.
+internal suspend fun AllianceRepository.found(
+    player: PlayerId,
+    name: AllianceName,
+    tag: AllianceTag,
+    now: Instant,
+): Founded = found(player, name, tag, now, price = Resources.of())
 
 // **How many seats a brand-new alliance has**, read off the balance rather than written down.
 //

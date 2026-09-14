@@ -91,7 +91,7 @@ class AllianceSearchTest {
         val authentication = HeaderAuthenticator(players)
         repeat(21) { number ->
             val player = assertIs<Caller.Known>(authentication.identify(Credentials(null, "founder-$number"))).player
-            alliances.found(player, AllianceName("\uFDFA".repeat(30) + number.toString().padStart(2, '0')), AllianceTag("F$number"), TEST_NOW)
+            alliances.found(player, AllianceName("\uFDFA".repeat(30) + number.toString().padStart(2, '0')), AllianceTag("F" + number.toString().padStart(2, '0')), TEST_NOW)
         }
 
         val first = assertIs<Answer.Alliances>(searchAlliances(alliances, authentication, Credentials(null, "visitor"), "\uFDFA".repeat(30), null)).response
@@ -138,7 +138,7 @@ class AllianceSearchTest {
         val authentication = HeaderAuthenticator(players)
         val made = (25 downTo 1).map { number ->
             val player = assertIs<Caller.Known>(authentication.identify(Credentials(null, "founder-$number"))).player
-            assertIs<Founded.Made>(alliances.found(player, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F$number"), TEST_NOW)).alliance.alliance
+            assertIs<Founded.Made>(alliances.found(player, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F" + number.toString().padStart(2, '0')), TEST_NOW)).alliance.alliance
         }.sortedBy { it.name.value }
 
         val first = assertIs<Answer.Alliances>(searchAlliances(alliances, authentication, Credentials(null, "visitor"), "fleet", null)).response

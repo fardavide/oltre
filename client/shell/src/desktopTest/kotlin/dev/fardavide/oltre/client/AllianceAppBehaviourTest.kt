@@ -7,6 +7,7 @@ import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
@@ -162,8 +163,8 @@ class AllianceAppBehaviourTest {
         }
     }
 
-    // Not in one: a search and the founding block under it, so the price is known before anything is
-    // typed.
+    // Not in one: a search and the founding block under it, saying what founding costs before
+    // anything is typed — which today is nothing, because no route charges for it.
     @Test
     fun `a player in no alliance is offered a search and a way to found one`() {
         app(saved = colony(), api = unaffiliated()) {
@@ -190,14 +191,119 @@ class AllianceAppBehaviourTest {
 
     @Test
     fun `founding one sends the name and the tag that were typed`() {
-        val server = unaffiliated()
-        app(saved = colony(), api = server) {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
             alliance.typeAName("Ferro Alto").typeATag("FRA").found()
 
             alliance.assertFounded(name = "Ferro Alto", tag = "FRA")
+        }
+    }
+
+    // ── What founding costs ──────────────────────────────────────────────────────────────────
+
+    // **The price is stated before anything is typed** — `alliance-sheet.md` §7 — and it is the price
+    // the server advertises rather than one the client holds a copy of.
+    @Test
+    fun `the founding block states what an alliance costs`() {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+
+            AllianceRobot(this).assertReads(Strings.allianceFoundPrice(PRICE_LINE))
+        }
+    }
+
+    // **A colony that cannot pay is offered no control at all**, which is the same absence a tag the
+    // contract refuses earns — and the line beside it is what makes the absence answerable.
+    @Test
+    fun `a colony that cannot cover the price offers no control and says why`() {
+        app(saved = colony(), api = unaffiliated()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA")
+
+            alliance.assertCannotFound()
+            alliance.assertReads(Strings.allianceFoundShort())
+            alliance.assertFoundedNothing()
+        }
+    }
+
+    // A price the server has not answered for withholds the control rather than guessing at a
+    // figure: a button offered over an unknown price is one the route would refuse.
+    @Test
+    fun `a price the server did not answer for says so and offers no control`() {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { foundingPriceError = ApiError.Internal("no price today") }
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA")
+
+            alliance.assertReads(Strings.allianceFoundPriceUnread())
+            alliance.assertCannotFound()
+        }
+    }
+
+    // **Founding puts you inside the thing you founded, roster and pool and all** — and until this,
+    // it did not. Every alliance act answers with a standing and nothing else, so the roster the
+    // gateway hands back is `Unread`; the face drew an alliance with an empty roster and a treasury
+    // that said it had not been read, for the life of the process. That is what *"I create an
+    // alliance and it doesn't work"* looked like from the outside.
+    @Test
+    fun `founding one lands the player in it with a roster and a pool`() {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            // What the server answers a founder with: a seat, the roster it made, and an empty pool.
+            server.allianceStanding = AllianceStanding.Enlisted(ALLIANCE, AllianceRole.FOUNDER)
+            server.allianceRoster = ROSTER.copy(pending = emptyList())
+            server.treasury = TREASURY
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.assertSaysSeats(taken = 1, cap = 12)
+            alliance.assertRosterNames("Dead Reckoning")
+            alliance.assertReads(Strings.allianceTreasuryRule())
+        }
+    }
+
+    // The same hole from the other end: admitting somebody used to take the whole roster off the
+    // screen, because the answer carries a standing and the roster behind it went unread.
+    @Test
+    fun `answering a request leaves the roster on screen`() {
+        val server = enlisted()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            server.allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER, pending = emptyList())
+
+            alliance.answerTheFirstRequest(admit = true)
+
+            alliance.assertRosterNames("Dead Reckoning", "Slow Burn")
+        }
+    }
+
+    // Leaving takes the pool with it. Without this the next founding block would open over the
+    // previous alliance's figures, which is somebody else's money on your screen.
+    @Test
+    fun `leaving forgets the pool it could read`() {
+        val server = enlisted()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.assertReads(Strings.allianceTreasuryRule())
+            server.allianceStanding = AllianceStanding.Unaffiliated
+
+            alliance.depart()
+
+            alliance.assertReads(Strings.allianceFoundBody())
+            alliance.assertDoesNotRead(Strings.allianceTreasuryRule())
         }
     }
 
@@ -219,8 +325,9 @@ class AllianceAppBehaviourTest {
     // about the string that was there, so the value stays editable.
     @Test
     fun `a name somebody already has is refused on the field`() {
-        val server = unaffiliated().apply { createAllianceError = ApiError.AllianceNameTaken }
-        app(saved = colony(), api = server) {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { createAllianceError = ApiError.AllianceNameTaken }
+        app(saved = saved, api = server) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
@@ -233,8 +340,9 @@ class AllianceAppBehaviourTest {
 
     @Test
     fun `typing again clears the refusal and offers the control back`() {
-        val server = unaffiliated().apply { createAllianceError = ApiError.AllianceTagTaken }
-        app(saved = colony(), api = server) {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { createAllianceError = ApiError.AllianceTagTaken }
+        app(saved = saved, api = server) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
             alliance.typeAName("Ferro Alto").typeATag("FRA").found()
@@ -326,8 +434,8 @@ class AllianceAppBehaviourTest {
 
     @Test
     fun `founding with no signal leaves the fields untouched`() {
-        val server = unaffiliated()
-        app(saved = colony(), api = server) {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
             alliance.typeAName("Ferro Alto").typeATag("FRA")
@@ -340,17 +448,49 @@ class AllianceAppBehaviourTest {
         }
     }
 
-    // **A name the contract itself refuses never becomes a request.** A tag has to be uppercase
-    // ASCII, so `frz` is not a tag and `AllianceTag`'s own guard is what says so.
+    // **A tag the contract refuses offers no control at all**, which is the defect this replaces: the
+    // control used to appear the moment both fields held anything, and the tap swallowed the
+    // contract's refusal — so *Found it* over `frz` was a button that did nothing when pressed. The
+    // rule sits beside the field either way, so the absence is answerable rather than mute.
     @Test
-    fun `a tag the contract refuses is never sent`() {
+    fun `a tag the contract refuses offers no control and says what it wants`() {
         app(saved = colony(), api = unaffiliated()) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.typeAName("Ferro Alto").typeATag("frz").found()
+            alliance.typeAName("Ferro Alto").typeATag("frz")
 
+            alliance.assertCannotFound()
+            alliance.assertReads(Strings.allianceFoundTagRule())
             alliance.assertFoundedNothing()
+        }
+    }
+
+    // Two letters is a tag on the way to being one; three is the shortest the contract takes.
+    @Test
+    fun `a tag shorter than the contract takes offers no control`() {
+        app(saved = colony(), api = unaffiliated()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FR")
+
+            alliance.assertCannotFound()
+        }
+    }
+
+    // **The bound is a fact the field enforces**, `NameField`'s rule: a fifth character is declined
+    // rather than accepted and refused afterwards, so what is on screen is always sendable.
+    @Test
+    fun `the tag field stops at four characters`() {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRAL").typeATag("T").found()
+
+            alliance.assertFounded(name = "Ferro Alto", tag = "FRAL")
         }
     }
 
@@ -401,6 +541,14 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **A colony that can pay for an alliance**, which `colony()` deliberately cannot: its figures
+    // are round so the contribute chips' shares read as arithmetic, and 42,100 metal is nowhere near
+    // the 200,000 founding costs. Every test about the founding block takes this one; the treasury
+    // tests keep theirs.
+    private fun founderColony(): GameSnapshot = colony().let { poor ->
+        poor.copy(state = poor.state.copy(resources = Resources.of(metal = 500_000, crystal = 500_000, deuterium = 500_000)))
+    }
+
     private fun colony(): GameSnapshot = GameSnapshot(
         lastUpdatedAt = TEST_NOW,
         debugUsed = false,
@@ -419,15 +567,32 @@ class AllianceAppBehaviourTest {
         treasury = TREASURY
     }
 
-    private fun unaffiliated(): FakeOltreApi = FakeOltreApi().apply {
-        colony = this@AllianceAppBehaviourTest.colony()
+    // **The server's copy has to be as rich as the saved one**, because the sync on the way in is
+    // authoritative: a test that seeded a colony able to pay and left the fake holding the poor one
+    // would watch the rail overwrite it a frame later and then wonder where the control went.
+    private fun unaffiliated(saved: GameSnapshot = colony()): FakeOltreApi = FakeOltreApi().apply {
+        colony = saved
         founds = colony
         replays = true
         allianceStanding = AllianceStanding.Unaffiliated
         allianceSearch = AllianceSearchResponse(ApiVersion.CURRENT, "Aphelion", emptyList(), null)
     }
 
+    // The pair every founding test opens with: a colony that can pay, on the phone and on the server.
+    private fun founding(): Pair<GameSnapshot, FakeOltreApi> =
+        founderColony().let { rich -> rich to unaffiliated(rich) }
+
     private companion object {
+        // The founding price as the block writes it — `AllianceBalance.FOUNDING_PRICE` through the
+        // catalogue, so the assertion is about the figure the server charges rather than a string.
+        val PRICE_LINE = Strings.clauses(
+            listOf(
+                Strings.amountOfResource(Strings.groupedNumber(200_000), ResourceKind.METAL),
+                Strings.amountOfResource(Strings.groupedNumber(100_000), ResourceKind.CRYSTAL),
+                Strings.amountOfResource(Strings.groupedNumber(50_000), ResourceKind.DEUTERIUM),
+            ),
+        )
+
         val ALLIANCE = Alliance(
             id = AllianceId("ferro-alto"),
             name = AllianceName("Ferro Alto"),

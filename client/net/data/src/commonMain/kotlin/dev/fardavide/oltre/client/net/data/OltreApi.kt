@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.net.data
 
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
@@ -70,6 +71,11 @@ interface OltreApi {
         name: AllianceName,
         tag: AllianceTag,
     ): ApiResult<AllianceStanding>
+
+    // **What founding costs, read rather than known.** The balance lives in `:server` so a deploy can
+    // retune it — see `FoundingPriceResponse` — which is the same division the project catalogue
+    // already uses for its own prices.
+    suspend fun foundingPrice(access: SessionToken): ApiResult<Resources>
 
     suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding>
 

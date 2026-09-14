@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.FoundingPriceResponse
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
 import dev.fardavide.oltre.protocol.AllianceId
@@ -81,6 +82,41 @@ internal suspend fun readAlliance(
     Answer.Alliance(HttpStatusCode.OK, AllianceResponse(ApiVersion.CURRENT, standing))
 }
 
+// `GET /v1/alliance/founding` — what founding one costs today. **A route rather than a constant the
+// client holds**, so the balance round can move the price with a deploy; see `AllianceBalance
+// .FOUNDING_PRICE` and `FoundingPriceResponse`.
+//
+// It authenticates and then reads no state at all, which is deliberate: the price is a fact about the
+// world rather than about the caller, so a player deciding whether to save up is not also asking the
+// database a question.
+internal suspend fun foundingPrice(
+    authenticator: Authenticator,
+    credentials: Credentials,
+): Answer = answering {
+    when (val caller = authenticator.identify(credentials)) {
+        is Caller.Refused -> Answer.Failed(HttpStatusCode.Unauthorized, caller.error)
+        is Caller.Known -> Answer.FoundingPrice(
+            HttpStatusCode.OK,
+            FoundingPriceResponse(ApiVersion.CURRENT, AllianceBalance.FOUNDING_PRICE),
+        )
+    }
+}
+
+// `POST /v1/alliance`. **Founding costs the colony `AllianceBalance.FOUNDING_PRICE`**, and the charge
+// and the alliance land in one transaction inside `found` — see `AllianceRepository.found` for why
+// the store owns the pair and `foundAlliance` in `core` for what a charge actually is.
+//
+// **The price is passed rather than looked up in there**, so the balance stays out of the store and
+// the one place that decides what founding costs is this line.
+//
+// **No retry loop, unlike `buyAllianceProject`.** That one takes an optimistic version and can lose
+// it; this one reads the colony under a row lock it holds to the commit, so there is no window to
+// lose and nothing to try again.
+//
+// **A retried founding pays once.** `found` answers `AlreadyFounded` before it reaches the charge, so
+// a client whose 201 was lost on the way home gets its alliance back for free — which is the same
+// idempotence `foundColony` has one route over, arriving at the route that has no envelope to hang an
+// `IdempotencyKey` on.
 internal suspend fun foundAlliance(
     alliances: AllianceRepository,
     authenticator: Authenticator,
@@ -96,8 +132,15 @@ internal suspend fun foundAlliance(
         is Read.No -> return@answering read.answer
         is Read.Yes -> read.value
     }
-    when (val founded = alliances.found(player, request.name, request.tag, clock.now())) {
-        is Founded.Refused -> Answer.Failed(HttpStatusCode.Conflict, founded.error)
+    val founded = alliances.found(
+        player = player,
+        name = request.name,
+        tag = request.tag,
+        now = clock.now(),
+        price = AllianceBalance.FOUNDING_PRICE,
+    )
+    when (founded) {
+        is Founded.Refused -> Answer.Failed(founded.error.foundingStatus(), founded.error)
         is Founded.Made -> Answer.Alliance(
             HttpStatusCode.Created,
             AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Enlisted(founded.alliance.alliance, AllianceRole.FOUNDER)),
@@ -108,6 +151,17 @@ internal suspend fun foundAlliance(
         )
     }
 }
+
+// **`409` for everything except a colony that is not there**, which is `TreasuryRead.answer()`'s own
+// split said for the other route: a taken name, an account already in an alliance and a colony too
+// poor are all well-formed requests from an allowed caller that the world's state refuses, and that
+// is what 409 means. A player with no colony at all has asked about something that does not exist.
+//
+// **Not `402 Payment Required` for the price**, which is the tempting one: that status is about
+// paying *the service*, and reading it as "your colony is short" would be a second meaning nothing
+// else on this server uses.
+private fun ApiError.foundingStatus(): HttpStatusCode =
+    if (this == ApiError.NoColony) HttpStatusCode.NotFound else HttpStatusCode.Conflict
 
 internal suspend fun petitionAlliance(
     alliances: AllianceRepository,

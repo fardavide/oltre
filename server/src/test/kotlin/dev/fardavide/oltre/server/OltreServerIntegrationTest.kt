@@ -3,6 +3,7 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -464,6 +465,20 @@ class OltreServerIntegrationTest {
         clock.advanceBy(1.days)
         val played = post("/v1/sync", sync()).syncResponse().snapshot
         assertTrue(played.state.experience > Experience.NONE)
+        // **Founding is a route that charges**, and a day of mining does not pay for a charter — so
+        // the stock is topped up here rather than this becoming a test about the mine. The
+        // experience the roster reads is untouched, which is what the assertion below is about.
+        val grown = checkNotNull(colonies.colonyOf(founder))
+        colonies.write(
+            player = founder,
+            snapshot = grown.snapshot.copy(
+                state = grown.snapshot.state.copy(
+                    resources = Resources.of(metal = 500_000, crystal = 500_000, deuterium = 500_000),
+                ),
+            ),
+            applied = emptySet(),
+            expected = grown.version,
+        )
         assertEquals(HttpStatusCode.Created, postRaw("/v1/alliance", Protocol.json.encodeToString(
             CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
         )).status)
@@ -485,10 +500,10 @@ class OltreServerIntegrationTest {
 
     @Test
     fun `the search route forwards the query and cursor across two capped pages`() = testApplication {
-        server()
+        server(solvent = List(25) { "founder-$it" })
         repeat(25) { number ->
             assertEquals(HttpStatusCode.Created, postRaw("/v1/alliance", Protocol.json.encodeToString(
-                CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F$number")),
+                CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F" + number.toString().padStart(2, '0'))),
             ), player = "founder-$number").status)
         }
         val first = client.get("/v1/alliance/search") {
@@ -519,6 +534,12 @@ class OltreServerIntegrationTest {
         val colonies = InMemoryColonyRepository()
         val alliances = InMemoryAllianceRepository(colonies)
         val players = InMemoryPlayerRepository(colonies, alliances)
+        // The visitor founds an alliance at the end of this test, and founding is a route that
+        // charges — so they start with enough to pay for one.
+        colonies.found(
+            assertIs<Caller.Known>(HeaderAuthenticator(players).identify(Credentials(null, "visitor"))).player,
+            establishedColony(),
+        )
         application { oltre(colonies, players, alliances, clock, identity = null, limiter = oneRequestLimiter(), searchLimiter = oneRequestLimiter()) }
         val first = client.get("/v1/alliance/search?q=fleet") { header(Protocol.PLAYER_HEADER, "visitor") }
         assertEquals(HttpStatusCode.OK, first.status)
@@ -591,7 +612,7 @@ class OltreServerIntegrationTest {
 
     @Test
     fun `founding an alliance answers 201 with the founder role and the seats level zero grants`() = testApplication {
-        server()
+        server(solvent = listOf("davide"))
         val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
 
         val response = postRaw("/v1/alliance", Protocol.json.encodeToString(request))
@@ -608,7 +629,7 @@ class OltreServerIntegrationTest {
 
     @Test
     fun `a petition is read and withdrawn over its contract routes`() = testApplication {
-        server()
+        server(solvent = listOf("davide"))
         val created = postRaw("/v1/alliance", Protocol.json.encodeToString(CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))))
         val alliance = assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(created.bodyAsText()).standing).alliance
 
@@ -631,6 +652,11 @@ class OltreServerIntegrationTest {
         val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
         val authenticator = HeaderAuthenticator(players)
         val applicant = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "applicant"))).player
+        // Founding is a route that charges, so the founder starts with enough to pay for one.
+        colonies.found(
+            assertIs<Caller.Known>(authenticator.identify(Credentials(null, "davide"))).player,
+            establishedColony(),
+        )
         application { oltre(colonies, players, alliances, clock, identity = null) }
         val created = postRaw("/v1/alliance", Protocol.json.encodeToString(CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))))
         val alliance = assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(created.bodyAsText()).standing).alliance
@@ -667,14 +693,27 @@ class OltreServerIntegrationTest {
     // No identity, which is the shape `./gradlew :server:run` has and the one that keeps every test
     // above this line reading as it did at `#108`: a request names its player in a header. The
     // bearer half is `signed in` below, where a server *with* a session key is stood up.
-    private fun ApplicationTestBuilder.server(limiter: RateLimiter = RateLimiter(MovableClock(TEST_NOW))): MovableClock {
+    private suspend fun ApplicationTestBuilder.server(
+        limiter: RateLimiter = RateLimiter(MovableClock(TEST_NOW)),
+        // **Player headers that start out able to pay for an alliance.** Founding is a route that
+        // charges `AllianceBalance.FOUNDING_PRICE`, and over HTTP there is no other way to arrange
+        // that: `POST /v1/colony` mints a *fresh* colony, and a fresh colony holds 1,800 metal
+        // against a 200,000 charter. A test that founds says who can afford to.
+        solvent: List<String> = emptyList(),
+    ): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
         val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
+        val authenticator = HeaderAuthenticator(players)
+        for (header in solvent) {
+            val player = assertIs<Caller.Known>(authenticator.identify(Credentials(null, header))).player
+            colonies.found(player, establishedColony())
+        }
         application {
             oltre(
                 colonies,
-                InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds()),
+                players,
                 alliances,
                 clock,
                 identity = null,

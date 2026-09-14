@@ -14,6 +14,7 @@ import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
+import dev.fardavide.oltre.protocol.FoundingPriceResponse
 import dev.fardavide.oltre.protocol.TreasuryResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
@@ -75,6 +76,10 @@ internal sealed interface Answer {
     data class Roster(override val status: HttpStatusCode, val response: AllianceRosterResponse) : Answer
 
     data class Treasury(override val status: HttpStatusCode, val response: TreasuryResponse) : Answer
+
+    // What founding costs. Its own member for `Session`'s reason and no other: `respond` picks its
+    // serializer from the static type of what it is handed.
+    data class FoundingPrice(override val status: HttpStatusCode, val response: FoundingPriceResponse) : Answer
 
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }

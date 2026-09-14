@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.net.data.ApiResult
 import dev.fardavide.oltre.client.net.data.OltreApi
 import dev.fardavide.oltre.client.net.data.SessionKeeper
 import dev.fardavide.oltre.client.net.data.renewing
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
@@ -140,6 +141,13 @@ class AllianceGateway(
     // most check-ins never open this tab.
     suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> =
         sessions.renewing(access) { api.treasury(it) }
+
+    // **What founding costs, on its own read for the treasury's reason turned around.** The pool is
+    // only interesting to a member and this is only interesting to somebody who is not one, so
+    // neither belongs on `alliance()` — which every launch pays for. The shell asks for whichever
+    // of the two the standing it just read makes worth drawing.
+    suspend fun foundingPrice(access: SessionToken): ApiResult<Resources> =
+        sessions.renewing(access) { api.foundingPrice(it) }
 
     // **Buying answers with the whole face**, on `AllianceResponse`'s own shape: the pool, the
     // level and the progress come back together, so a control never has to fire a second request to
