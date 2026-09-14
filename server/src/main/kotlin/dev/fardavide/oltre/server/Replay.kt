@@ -1,24 +1,44 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.OfflineRule
 import dev.fardavide.oltre.protocol.RejectionReason
 import dev.fardavide.oltre.protocol.VerbEnvelope
+import dev.fardavide.oltre.protocol.VerbRefusal
 import dev.fardavide.oltre.protocol.VerbRejection
 import dev.fardavide.oltre.protocol.offlineRule
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-// The colony the sync hands back, and what became of what was sent. Exactly the three fields of a
-// `SyncResponse` minus the version — which is the route's to state, because it is a fact about the
-// contract being spoken and not about the colony.
+// The colony the sync hands back, what became of what was sent, and **what the accepted verbs owe
+// the pool**.
+//
+// The first three used to be described here as *exactly the three fields of a `SyncResponse` minus
+// the version*, and the treasury ends that: `contributed` goes nowhere near a response. It is what
+// the caller has to add to the alliance row **in the same transaction as the colony**, and it is on
+// this type because this is the only place the number can be computed correctly.
+//
+// **It cannot be derived from `applied`, and that is a real trap rather than a style note.** `replay`
+// puts a key into `applied` in two places — once when `core` accepts a verb, and once when the key
+// was already spent, because the colony coming back already contains it and reporting it as applied
+// is the truth. Summing the contribute envelopes over `applied` would therefore credit a
+// lost-response retry a second time, which is the exact double-spend `applied_verbs` exists to
+// prevent, arriving through the mechanism built to prevent it. So the sum is taken inside the
+// `Accepted` branch, where it happens exactly once.
 internal data class Replayed(
     val snapshot: GameSnapshot,
     val applied: Set<IdempotencyKey>,
     val rejected: List<VerbRejection>,
+    // Zero for every sync that contributed nothing, which is almost all of them. `Resources` and not
+    // a priced `Long`, because the pool is three columns and the pricing is the alliance ladder's
+    // business rather than the replay's.
+    val contributed: Resources,
 )
 
 // **How recently a galaxy-touching verb has to have been tapped for the server to act on it.**
@@ -63,6 +83,13 @@ internal fun replay(
     envelopes: List<VerbEnvelope>,
     alreadyApplied: Set<IdempotencyKey>,
     serverNow: Instant,
+    // **Who the caller pays into, and the only fact about another table this function is told.** Null
+    // is *in no alliance*, which is the one refusal a contribution can earn that `core` cannot see —
+    // `applyVerb` takes `(verb, state, at)` and must go on doing so, or `core` learns that alliances
+    // exist. Read by the caller before this is called and never looked up here: `replay` is
+    // documented as reading no clock and no store, and that is what makes it a pure function the
+    // retry loop can run a second time.
+    alliance: AllianceId? = null,
 ): Replayed {
     // A colony stamped in the future is met where it is rather than refused — the debug menu writes
     // one at the instant it was skipped to, and a server clock can step backwards on its own.
@@ -77,6 +104,15 @@ internal fun replay(
     val applied = LinkedHashSet<IdempotencyKey>()
     val rejected = mutableListOf<VerbRejection>()
     val answered = mutableSetOf<IdempotencyKey>()
+    // Three counters rather than a running `Resources`, because `Resources` has no public `plus` and
+    // deliberately does not get one: it is a colony's stock, its addition is `advance`'s business,
+    // and a pool is not a colony store. Whole units, which is all the server can read — the fine
+    // fields are `internal` to `core` — so a hand-crafted basket carrying a fraction of a unit loses
+    // that fraction between the debit and the credit. At most one unit per sync, always against the
+    // caller, and reachable only by a client attacking itself; recorded rather than guarded.
+    var poolMetal = 0L
+    var poolCrystal = 0L
+    var poolDeuterium = 0L
 
     for (envelope in envelopes) {
         val key = envelope.idempotencyKey
@@ -109,6 +145,18 @@ internal fun replay(
             continue
         }
 
+        // **The one refusal minted here rather than by `core`, and it has to be before the verb is
+        // applied rather than after.** A contribution from a player in no alliance has nowhere to
+        // land, and applying it first would debit the colony and then discover there is no pool —
+        // which is the one shape this whole slice is arranged to make impossible.
+        //
+        // It is a `Refused` and not a `NotQueueable`: `RejectionReason`'s two members are about
+        // whether the verb could be judged at all, and this one was judged.
+        if (envelope.verb is ClientVerb.Contribute && alliance == null) {
+            rejected += VerbRejection(envelope, RejectionReason.Refused(VerbRefusal.NOT_IN_AN_ALLIANCE))
+            continue
+        }
+
         // Advance first, then apply *at that instant* — `GameSession.acting`'s order, and
         // load-bearing for its reason: applying a verb to a colony that has not accrued the time
         // yet spends resources it does not have.
@@ -117,6 +165,14 @@ internal fun replay(
                 state = outcome.state
                 lastAcceptedAt = at
                 applied += key
+                // **Counted here and nowhere else** — inside the branch where a verb was actually
+                // applied, which is what makes a retried envelope credit the pool once. See
+                // `Replayed`.
+                (envelope.verb as? ClientVerb.Contribute)?.let { paid ->
+                    poolMetal += paid.amount.metal
+                    poolCrystal += paid.amount.crystal
+                    poolDeuterium += paid.amount.deuterium
+                }
             }
 
             is VerbOutcome.Refused -> {
@@ -136,6 +192,7 @@ internal fun replay(
         ),
         applied = applied,
         rejected = rejected,
+        contributed = Resources.of(metal = poolMetal, crystal = poolCrystal, deuterium = poolDeuterium),
     )
 }
 

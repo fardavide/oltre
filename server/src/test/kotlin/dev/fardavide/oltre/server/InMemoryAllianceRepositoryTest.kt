@@ -33,7 +33,7 @@ class InMemoryAllianceRepositoryTest {
         val enlisted = assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW))
         assertEquals(made.alliance, enlisted.alliance)
         assertEquals(AllianceRole.FOUNDER, enlisted.seat.role)
-        assertEquals(AllianceSeats(1, 20), enlisted.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), enlisted.alliance.alliance.seats)
         assertEquals(NAME, enlisted.alliance.alliance.name)
         assertEquals(TAG, enlisted.alliance.alliance.tag)
     }
@@ -86,7 +86,7 @@ class InMemoryAllianceRepositoryTest {
         val replacement = assertIs<Founded.Made>(repository.found(PlayerId("rival"), NAME, TAG, TEST_NOW))
 
         kotlin.test.assertNotEquals(old.alliance.alliance.id, replacement.alliance.alliance.id)
-        assertEquals(AllianceSeats(1, 20), replacement.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), replacement.alliance.alliance.seats)
     }
 
     @Test
@@ -275,7 +275,7 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(AllianceRole.MEMBER, member.seat.role)
         assertEquals(TEST_NOW, member.seat.joinedAt)
         assertEquals(0L, member.seat.contributed)
-        assertEquals(AllianceSeats(2, 20), member.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), member.alliance.alliance.seats)
         assertEquals(pending.alliance.version.next(), member.alliance.version)
         assertEquals(member.alliance, assertIs<Affiliation.Enlisted>(approved.affiliation).alliance)
     }
@@ -290,7 +290,7 @@ class InMemoryAllianceRepositoryTest {
 
         assertEquals(Affiliation.Unaffiliated, repository.allianceOf(player, TEST_NOW))
         val caller = assertIs<Affiliation.Enlisted>(declined.affiliation)
-        assertEquals(AllianceSeats(1, 20), caller.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), caller.alliance.alliance.seats)
         assertEquals(pending.alliance.version.next(), caller.alliance.version)
     }
 
@@ -307,7 +307,7 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(Affiliation.Unaffiliated, left.affiliation)
         assertEquals(Affiliation.Unaffiliated, repository.allianceOf(player, TEST_NOW))
         val retained = assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW))
-        assertEquals(AllianceSeats(1, 20), retained.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), retained.alliance.alliance.seats)
         assertEquals(AllianceRole.FOUNDER, retained.seat.role)
         assertEquals(member.alliance.version.next(), retained.alliance.version)
     }
@@ -330,8 +330,8 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(firstFounderBefore, repository.allianceOf(founder, TEST_NOW))
         assertEquals(otherFounderBefore, repository.allianceOf(otherFounder, TEST_NOW))
         assertEquals(memberBefore, repository.allianceOf(player, TEST_NOW))
-        assertEquals(AllianceSeats(1, 20), firstFounderBefore.alliance.alliance.seats)
-        assertEquals(AllianceSeats(2, 20), otherFounderBefore.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), firstFounderBefore.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), otherFounderBefore.alliance.alliance.seats)
         assertEquals(other.alliance.alliance.id, memberBefore.alliance.alliance.id)
     }
 
@@ -407,7 +407,7 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(Affiliation.Unaffiliated, repository.allianceOf(player, TEST_NOW))
         val caller = assertIs<Affiliation.Enlisted>(removed.affiliation)
         assertEquals(AllianceRole.FOUNDER, caller.seat.role)
-        assertEquals(AllianceSeats(1, 20), caller.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), caller.alliance.alliance.seats)
         assertEquals(member.alliance.version.next(), caller.alliance.version)
     }
 

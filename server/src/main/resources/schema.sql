@@ -126,6 +126,30 @@ CREATE TABLE IF NOT EXISTS alliances (
 
 CREATE INDEX IF NOT EXISTS alliances_normalised_name ON alliances (normalised_name COLLATE "C");
 
+-- **The treasury.** `ALTER` rather than four more lines in the `CREATE` above, for the reason
+-- `players.display_name` states: this file is applied at startup against a database that already
+-- has `alliances`, and `CREATE TABLE IF NOT EXISTS` on an existing table is a no-op — so columns
+-- added to that statement would exist on a fresh database and on no deployed one.
+--
+-- **The pool is in whole units, and that is forced rather than chosen.** `Resources`' three backing
+-- properties are `internal` to `core` and its only public constructor takes whole units, so the
+-- server has no way to build one from fine units and no business reaching for it. A contribution is
+-- whole units by construction.
+--
+-- **This is the first cross-row write in the game, and it needs no version of its own.** A colony is
+-- one document with exactly one writer and takes an optimistic compare-and-set; a pool is columns
+-- with *every member* writing, and `pool_metal = pool_metal + ?` is atomic under the row lock. The
+-- two land in one transaction — see `ColonyRepository.write` — so a lost compare-and-set on the
+-- colony rolls the credit back with it, which is exactly right: nothing was contributed.
+--
+-- `seats_bought` is what the project catalogue sells. Separate from `experience` because the two
+-- answer different questions — the level is what the alliance has *done*, this is what it has
+-- *spent on* — and because the level is monotonic while a retired project would want this to move.
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_metal     bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_crystal   bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_deuterium bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS seats_bought   integer NOT NULL DEFAULT 0;
+
 -- One seat per player; its public surrogate id never reveals the account id to another member.
 -- Both cascades preserve account deletion and make disbanding one parent-row delete.
 CREATE TABLE IF NOT EXISTS alliance_members (

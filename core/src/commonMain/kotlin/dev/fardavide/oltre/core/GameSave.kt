@@ -56,6 +56,32 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 19 — the treasury: resources can leave a colony for an alliance pool, so the event log can
+    //     contain a `ResourcesContributed`. **Nothing is added to `GameState` at all**, which makes
+    //     this the second identity hop in the table and the first whose reason is not a defaulted
+    //     key — the 6 -> 7 hop above no longer gets to call itself "the only" one.
+    //
+    //     The version moves for what the log can now *hold*. An unknown polymorphic discriminator is
+    //     a hard decode failure whatever a decoder is told about unknown keys, so without the bump
+    //     an older build meeting a contributed colony answers `DecodeResult.Failure`, which is
+    //     indistinguishable from corruption, and `ColonyRow.colonyFrom` says a stored colony could
+    //     not be read. With it the refusal is a *designed* one: `DecodeResult.Obsolete(19, …)`, an
+    //     operator holding the log knows to deploy a newer build rather than restore a backup, and
+    //     `colonies.schema_version` makes the rows that can hold a contribution countable in SQL.
+    //     That is exactly the distinction the two `DecodeResult` members exist for.
+    //
+    //     **The toll is that everybody updates, and it is paid deliberately now rather than later.**
+    //     `ApiVersion.OLDEST_SERVED` moves with it, so an installed build gets a clean 426 telling
+    //     it to update instead of a snapshot it cannot decode. Today the installed audience is
+    //     internal testers; at public launch the same change needs a server able to serve two
+    //     snapshot shapes, which nothing here can do. See `#144` §1 and §5.
+    // 18 — the fog: what the player has charted, as an interval of systems per galaxy, nested inside
+    //     `galaxy` beside `surveyed` and the pins. **Written up here a version late** — the hop
+    //     landed with its migration commented and no paragraph on this list, which is the one thing
+    //     this list exists to prevent, since a version missing from it is a version the next reader
+    //     cannot date. It folds the save's own contents rather than writing a default: a colony
+    //     carried forward demonstrably reached the systems it surveyed, and the hop widens an hour
+    //     of flight either side of each. See the migration for the two things it cannot recover.
     // 17 — the settings sheet: where the alert question is asked, which seven kinds are on, and how
     //     many notifications the answers arrive in. **The fourth behavioural hop and the first that
     //     could have made a colony louder** — which is exactly why it does not. Schemas 9, 14 and 15
@@ -122,7 +148,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 18
+    const val SCHEMA_VERSION: Int = 19
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -185,7 +211,10 @@ object GameSave {
         // untouched, because a survey only ever *adds* to that set. Fourth hop, fourth time the
         // answer is migrate rather than retire, and the shallowest of the four: one absent key.
         5 to { root -> root.withState("surveys" to JsonArray(emptyList())) },
-        // 6 -> 7: `debugUsed`, and the only hop in the table that is the identity function. The key
+        // 6 -> 7: `debugUsed`, and the first of the two hops in the table that are the identity
+        // function — 18 -> 19 is the other, and the pair are identities for different reasons worth
+        // telling apart: this one adds a key that carries a default, and that one adds nothing at
+        // all and moves the version for what an existing field may now contain. The key here
         // is on the envelope rather than in the state, and it carries a default — so a save written
         // before the flag existed decodes with `false`, which is the truth about it: nothing could
         // have debugged a colony saved by a build that had no debug menu. The entry is here rather
@@ -446,6 +475,26 @@ object GameSave {
                 }
             root.withState("galaxy" to JsonObject(galaxy + ("charted" to JsonArray(spans))))
         },
+        // 18 -> 19: the treasury, and **the identity function is the honest answer here rather than
+        // a placeholder** — which is the distinction the 6 -> 7 entry above drew and this one has to
+        // draw again for a different reason.
+        //
+        // There is nothing to migrate because there is nothing new to migrate *to*: no key is added
+        // to `GameState`, no key is removed, and no record is rewritten. A colony saved at 18 is
+        // byte-for-byte a valid colony at 19, because every field it holds means the same thing.
+        //
+        // What changed is the set of values one field can take. `eventLog` can now contain a
+        // `ResourcesContributed`, and a build that has never heard that discriminator cannot decode
+        // it — so the version is what turns that meeting into `DecodeResult.Obsolete` rather than a
+        // failure that reads like corruption. The hop's whole job is to exist, so that
+        // `migratedToCurrent` — which reads a missing step as "this build cannot get there" — can
+        // carry an 18 forward instead of refusing it.
+        //
+        // Note what this hop must *not* do, on the rule the 4 -> 5 entry states: it does not
+        // re-encode `eventLog` or any other record. A save at 18 holds no contribution by
+        // construction, so there is nothing in it to rewrite, and re-encoding a log that is already
+        // correct is how a hop loses something a player earned.
+        18 to { root -> root },
     )
 
     private val EVENT_LOG = ListSerializer(Event.serializer())
@@ -536,6 +585,20 @@ object GameSave {
         OBSOLETE_SCHEMAS[version]?.let { reason ->
             return DecodeResult.Obsolete(schemaVersion = version, reason = reason)
         }
+        // **A save from the future is a decision too, so it is `Obsolete` and not `Failure`** — and
+        // the distinction is what the schema-19 bump is *for*. `Obsolete` means this build refuses
+        // to carry a save forward on purpose; until now only the retired-schema direction said so,
+        // and a colony written by a newer build fell through to the same member as a truncated file.
+        // Both leave a player in the same place, so nothing on a screen moves; what moves is what an
+        // operator holding `colonies` reads, which is the difference between *restore a backup* and
+        // *deploy a newer build*. See `ColonyRow.colonyFrom`, whose two messages have been written
+        // for this since the day it was added.
+        if (version > SCHEMA_VERSION) {
+            return DecodeResult.Obsolete(
+                schemaVersion = version,
+                reason = "written by a newer build; this one reads $SCHEMA_VERSION",
+            )
+        }
         val element = migratedToCurrent(root, from = version)
             ?: return DecodeResult.Failure(
                 "unsupported save schema $version, this build reads $SCHEMA_VERSION",
@@ -552,8 +615,11 @@ object GameSave {
         return DecodeResult.Success(snapshot)
     }
 
-    // Null when this build cannot get there: an unknown version, one from the future, or an
-    // older one whose step is missing. Guessing is what the version check exists to prevent.
+    // Null when this build cannot get there: an older version whose step is missing from the table.
+    // Guessing is what the version check exists to prevent. **A version from the future never
+    // reaches here** — `decode` answers `Obsolete` for it before calling this, because refusing a
+    // newer save is a decision rather than a gap — but the guard stays as a total function's floor:
+    // this one is `private` today and the loop below would not terminate without it.
     private fun migratedToCurrent(root: JsonObject, from: Int): JsonObject? {
         if (from > SCHEMA_VERSION) return null
         var element = root

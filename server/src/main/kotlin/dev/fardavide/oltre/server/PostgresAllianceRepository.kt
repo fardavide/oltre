@@ -3,12 +3,14 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.JoinRequest
 import java.sql.Connection
@@ -292,6 +294,64 @@ internal class PostgresAllianceRepository(
             AllianceChange.Applied(Affiliation.Unaffiliated)
         }
 
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead = dataSource.transaction { connection ->
+        val enlisted = when (val affiliation = connection.selectAffiliation(player)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@transaction TreasuryRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> affiliation
+        }
+        TreasuryRead.Present(enlisted.alliance, enlisted.seat.contributed, enlisted.seat.role)
+    }
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = dataSource.transaction { connection ->
+        val enlisted = when (val affiliation = connection.selectAffiliation(caller)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@transaction TreasuryRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> affiliation
+        }
+        // **The parent row is locked before it is read**, which is what the other eight acts already
+        // do through `changeAlliance`. It matters more here than anywhere else: two admins buying
+        // the same project in the same second would otherwise both read the same price and both
+        // spend it, and the pool takes an unconditional increment elsewhere rather than a
+        // compare-and-set, so nothing further down would catch it.
+        val stored = when (val lookup = connection.selectAlliance(enlisted.alliance.alliance.id, lockParent = true)) {
+            AllianceLookup.Absent -> return@transaction TreasuryRead.Refused(ApiError.NoSuchAlliance)
+            is AllianceLookup.Present -> lookup.alliance
+        }
+        if (stored.version != expected) return@transaction TreasuryRead.Stale
+        when (enlisted.seat.role) {
+            AllianceRole.FOUNDER, AllianceRole.ADMIN -> Unit
+            AllianceRole.MEMBER -> return@transaction TreasuryRead.Refused(ApiError.AllianceRoleTooLow)
+        }
+        if (AllianceBalance.isExhausted(project, stored.alliance.level, stored.seatsBought)) {
+            return@transaction TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
+        }
+        val cost = AllianceBalance.costOf(project, stored.seatsBought)
+        if (!stored.pool.covers(cost)) return@transaction TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
+
+        connection.update(BUY_PROJECT) {
+            setLong(1, cost.metal)
+            setLong(2, cost.crystal)
+            setLong(3, cost.deuterium)
+            // Monotonic: a project only ever adds. See `alliance-sheet.md` §3.
+            setLong(4, AllianceBalance.projectAward(cost))
+            setInt(5, seatsAddedBy(project))
+            setString(6, stored.alliance.id.value)
+        }
+        val bought = when (val lookup = connection.selectAlliance(stored.alliance.id, lockParent = false)) {
+            AllianceLookup.Absent -> return@transaction TreasuryRead.Refused(ApiError.NoSuchAlliance)
+            is AllianceLookup.Present -> lookup.alliance
+        }
+        TreasuryRead.Present(bought, enlisted.seat.contributed, enlisted.seat.role)
+    }
+
     private suspend fun changeAlliance(
         caller: PlayerId,
         alliance: AllianceId,
@@ -403,6 +463,8 @@ private fun ResultSet.seat(alliance: AllianceId, player: PlayerId): Seat = Seat(
     getLong("contributed"),
 )
 
+// Every statement in this file selects `a.*`, so the treasury's four columns arrive here without a
+// single query changing — which is the payoff of the `ALTER` in `schema.sql` rather than a coincidence.
 private fun ResultSet.storedAlliance(): StoredAlliance = allianceFrom(
     AllianceId(getString("id")),
     AllianceName(getString("name")),
@@ -411,6 +473,12 @@ private fun ResultSet.storedAlliance(): StoredAlliance = allianceFrom(
     Instant.parse(getObject("created_at", OffsetDateTime::class.java).toInstant().toString()),
     getLong("experience"),
     getInt("seat_count"),
+    Resources.of(
+        metal = getLong("pool_metal"),
+        crystal = getLong("pool_crystal"),
+        deuterium = getLong("pool_deuterium"),
+    ),
+    getInt("seats_bought"),
 )
 
 private const val SELECT_AFFILIATION = """
@@ -450,6 +518,26 @@ private const val SELECT_PETITION = """
 private const val INSERT_PETITION = """
     INSERT INTO alliance_requests (id, player_id, alliance_id, requested_at) VALUES (?, ?, ?, ?)
 """
+
+// Spends the pool and pays the ladder in one statement, with `version = version + 1` so the eight
+// acts that *do* take a compare-and-set cannot assert a version they read before the purchase.
+private const val BUY_PROJECT = """
+    UPDATE alliances
+    SET pool_metal = pool_metal - ?,
+        pool_crystal = pool_crystal - ?,
+        pool_deuterium = pool_deuterium - ?,
+        experience = experience + ?,
+        seats_bought = seats_bought + ?,
+        version = version + 1
+    WHERE id = ?
+"""
+
+// A `when` with no `else`, so a second project cannot be added to the catalogue without somebody
+// saying what it does to a roster. Zero is a legitimate answer for a project that buys something
+// else; there is no such project yet, and this is where the day there is one becomes visible.
+private fun seatsAddedBy(project: AllianceProject): Int = when (project) {
+    AllianceProject.CHARTER_EXPANSION -> 1
+}
 
 private const val INSERT_ALLIANCE = """
     INSERT INTO alliances (id, name, normalised_name, tag, normalised_tag, created_at, experience, version)

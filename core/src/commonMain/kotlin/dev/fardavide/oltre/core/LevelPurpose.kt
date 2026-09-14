@@ -306,4 +306,10 @@ private fun Resources.amountOf(kind: ResourceKind): Long = when (kind) {
 // ladders at and what the balance benchmark has divided every payback by since it was written. A
 // basket of three has to become one number before a cost and an hourly gain can be compared at
 // all, and this is the ratio the game already believes in rather than a new one invented here.
-internal fun Resources.priced(): Long = ResourceKind.entries.sumOf { it.weight * amountOf(it) }
+//
+// **Public since the treasury**, and the widening is deliberate rather than incidental: the
+// alliance's own ladder prices a contribution on the same 1 : 2 : 3, and the alternative was
+// re-deriving the weights in `:server` — two copies of the game's own ratio with no test comparing
+// them, which is the drift this file's own comment about `LevelPurpose` already complains about
+// elsewhere. It stays a reading of a basket and decides nothing.
+fun Resources.priced(): Long = ResourceKind.entries.sumOf { it.weight * amountOf(it) }

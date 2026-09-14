@@ -30,7 +30,8 @@ class AuthEndpointsTest {
 
     private val clock = MovableClock(TEST_NOW)
     private val colonies = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies), ids = sequentialPlayerIds())
+    private val alliances = InMemoryAllianceRepository(colonies)
+    private val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
     private val source = FakeJwksSource(jwksOf(providerKey))
     private val sessions = Sessions(TEST_SIGNING_KEY, clock)
     private val identity = Identity(
@@ -383,10 +384,10 @@ class AuthEndpointsTest {
         deleteAccount(authenticator, players, credentials)
 
     private suspend fun foundWith(token: SessionToken): Answer =
-        foundColony(colonies, authenticator, clock, bearer(token), emptySync())
+        foundColony(colonies, alliances, authenticator, clock, bearer(token), emptySync())
 
     private suspend fun syncWith(token: SessionToken): Answer =
-        syncColony(colonies, authenticator, clock, bearer(token), emptySync())
+        syncColony(colonies, alliances, authenticator, clock, bearer(token), emptySync())
 
     private fun emptySync(): String =
         Protocol.json.encodeToString(SyncRequest(ApiVersion.CURRENT, emptyList()))

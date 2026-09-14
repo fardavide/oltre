@@ -32,7 +32,8 @@ import kotlin.time.Duration.Companion.days
 class EndpointsTest {
 
     private val repository = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(repository, InMemoryAllianceRepository(repository), ids = sequentialPlayerIds())
+    private val alliances = InMemoryAllianceRepository(repository)
+    private val players = InMemoryPlayerRepository(repository, alliances, ids = sequentialPlayerIds())
     private val authenticator = HeaderAuthenticator(players)
     private val clock = MovableClock(TEST_NOW)
 
@@ -297,6 +298,7 @@ class EndpointsTest {
         // `ApiError` in it reads to `#112`'s client as `Unreachable`, which it retries forever.
         val answer = syncColony(
             repository,
+            alliances,
             HeaderAuthenticator(UnreachablePlayerRepository()),
             clock,
             Credentials(authorization = null, playerHeader = DAVIDE),
@@ -313,13 +315,13 @@ class EndpointsTest {
         body: String = body(),
         player: String? = DAVIDE,
         colonies: ColonyRepository = repository,
-    ): Answer = foundColony(colonies, authenticator, clock, credentials(player), body)
+    ): Answer = foundColony(colonies, alliances, authenticator, clock, credentials(player), body)
 
     private suspend fun sync(
         body: String = body(),
         player: String? = DAVIDE,
         colonies: ColonyRepository = repository,
-    ): Answer = syncColony(colonies, authenticator, clock, credentials(player), body)
+    ): Answer = syncColony(colonies, alliances, authenticator, clock, credentials(player), body)
 
     // The id `davide` resolves to, asked of the store rather than guessed. `players.id` is a
     // surrogate key since `#110`, so the header value is a subject and no longer the id.

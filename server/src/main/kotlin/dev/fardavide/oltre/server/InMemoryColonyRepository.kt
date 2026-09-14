@@ -20,6 +20,13 @@ internal class InMemoryColonyRepository : ColonyRepository {
     private val lock = Mutex()
     private val colonies = mutableMapOf<PlayerId, StoredColony>()
 
+    // **Set once, after construction, because the two stores refer to each other.** The alliance
+    // repository needs the colonies to read a member's last sync and their experience; the colonies
+    // need the alliance to credit a pool in the same write. In Postgres that circularity does not
+    // exist — both are statements in one transaction on one connection — so it is a property of this
+    // implementation and not of the design, which is why it is a `var` here and a parameter nowhere.
+    var pools: InMemoryAllianceRepository? = null
+
     // `applied_verbs` keyed the way the table is: the pair, not the key alone. Two players can mint
     // the same string — nothing about an idempotency key is globally unique, and the wire says so by
     // refusing to check anything but that one was minted — so a set of bare keys would let one
@@ -44,15 +51,25 @@ internal class InMemoryColonyRepository : ColonyRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
-    ): WriteResult = lock.withLock {
-        // **A colony that is not there loses exactly as a colony at another version does**, and the
-        // two are one comparison rather than two branches on purpose: `UPDATE … WHERE player_id = ?
-        // AND version = ?` touches no row in either case and cannot tell them apart either. A store
-        // that answered them differently would be a store the unit tests could not stand in for.
-        if (colonies[player]?.version != expected) return@withLock WriteResult.STALE
-        colonies[player] = StoredColony(snapshot, expected.next())
-        this.applied += applied.map { player to it }
-        WriteResult.WRITTEN
+        credit: PoolCredit?,
+    ): WriteResult {
+        lock.withLock {
+            // **A colony that is not there loses exactly as a colony at another version does**, and
+            // the two are one comparison rather than two branches on purpose: `UPDATE … WHERE
+            // player_id = ? AND version = ?` touches no row in either case and cannot tell them
+            // apart either. A store that answered them differently would be a store the unit tests
+            // could not stand in for.
+            if (colonies[player]?.version != expected) return WriteResult.STALE
+            colonies[player] = StoredColony(snapshot, expected.next())
+            this.applied += applied.map { player to it }
+        }
+        // **After the compare-and-set and only if it won**, which is the whole of what "one
+        // transaction" means for the two rows: a lost CAS credits nothing, so the resources never
+        // left and never arrived. The credit is outside the lock because the alliance store has a
+        // lock of its own and taking both in one order here and the other order there is how two
+        // maps deadlock.
+        credit?.let { pools?.credit(it) }
+        return WriteResult.WRITTEN
     }
 
     // **The cascade, by hand.** `schema.sql` hangs `colonies` and `applied_verbs` off `players` with

@@ -4,6 +4,7 @@ import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
@@ -60,6 +61,7 @@ internal class UnreachableColonyRepository : ColonyRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult = error("no route to host")
 }
 
@@ -106,6 +108,15 @@ internal class UnreachableAllianceRepository : AllianceRepository {
     override suspend fun rename(caller: PlayerId, alliance: AllianceId, name: AllianceName, tag: AllianceTag, expected: AllianceVersion): AllianceChange = error("no route to host")
 
     override suspend fun disband(caller: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead = error("no route to host")
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = error("no route to host")
 }
 
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
@@ -128,6 +139,7 @@ internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult = throw NullPointerException()
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = throw NullPointerException()
@@ -198,15 +210,20 @@ internal class ContendedColonyRepository(
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult {
         attempts++
-        if (contentions <= 0) return store.write(player, snapshot, applied, expected)
+        if (contentions <= 0) return store.write(player, snapshot, applied, expected, credit)
         contentions--
         // The other device gets there first. It writes the colony as it stands — what matters is
         // that the version moves and the keys it spent are recorded — and this caller's assertion is
         // then out of date, which the store says for itself.
+        //
+        // **It carries no credit of its own**, which is what makes this double able to prove the
+        // property that matters: a losing write must contribute nothing, so the pool after a
+        // contended sync has to hold exactly one contribution rather than two.
         val current = checkNotNull(store.colonyOf(player)) { "the other device has no colony to write" }
         store.write(player, current.snapshot, otherDeviceApplied, expected = current.version)
-        return store.write(player, snapshot, applied, expected)
+        return store.write(player, snapshot, applied, expected, credit)
     }
 }

@@ -76,6 +76,17 @@ class ExperienceTest {
         state = advance(state, from = now, to = now + 1.days)
         check("the fleet coming home")
 
+        // The thirteenth verb, and the one this walk would have stopped covering silently. It pays
+        // nothing, so the total must not move — which is a weaker claim than the others here and
+        // exactly why it has to be walked rather than taken from the table: the failure it guards
+        // against is an append that bypassed `logging`, and that append would show up as the log
+        // growing while the carried total did not.
+        now += 1.days
+        state = assertIs<ContributeResult.Started>(
+            contribute(state, Resources.of(metal = 100, crystal = 25), at = now),
+        ).state
+        check("a contribution paid in")
+
         // And the whole point of the exercise: the equality above is not the equality of two zeroes.
         assertTrue(state.experience > Experience.NONE, "the colony earned nothing to check")
     }

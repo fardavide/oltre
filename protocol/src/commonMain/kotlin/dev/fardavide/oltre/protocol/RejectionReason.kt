@@ -24,9 +24,10 @@ sealed interface RejectionReason {
     data object NotQueueable : RejectionReason
 }
 
-// **`core`'s refusals, flattened.** Every one of these is a member of one of the six result types in
-// `core` that can say no; the seventh through twelfth verbs — the four alert controls and the two
-// settings ladders — cannot refuse at all, so nothing here comes from them.
+// **`core`'s refusals, flattened — and, since the treasury, one that is not `core`'s at all.** Every
+// line but the last is a member of one of the seven result types in `core` that can say no; the four
+// alert controls and the two settings ladders cannot refuse at all, so nothing here comes from them.
+// `NOT_IN_AN_ALLIANCE` is the exception and says so where it is written.
 //
 // Flat rather than one nested taxonomy per verb, and that is a deliberate loss of precision. The
 // verb is on the envelope this reason is attached to, so nothing is unrecoverable; what the shape
@@ -49,9 +50,12 @@ enum class VerbRefusal {
     // `startUpgrade`, `startResearch`, `startAdaptation`.
     REQUIREMENTS_NOT_MET,
 
-    // `startUpgrade`, `startResearch`, `startAdaptation`, `buildShips`, `startSurvey`. The commonest
-    // one by far, and the one an offline queue exists to catch: the stores at the instant the player
-    // tapped are not the stores the server has.
+    // `startUpgrade`, `startResearch`, `startAdaptation`, `buildShips`, `startSurvey`, `contribute`.
+    // The commonest one by far, and the one an offline queue exists to catch: the stores at the
+    // instant the player tapped are not the stores the server has. **`contribute` reuses it rather
+    // than minting a sixth spelling of the same sentence** — the verb is on the envelope, so nothing
+    // is lost by sharing, and a `NOT_ENOUGH_TO_CONTRIBUTE` beside this would be the flat shape's one
+    // rule broken for one caller.
     INSUFFICIENT_RESOURCES,
 
     // `buildShips` — an empty manifest. A refusal rather than a no-op, because a success here would
@@ -95,4 +99,20 @@ enum class VerbRefusal {
     // `INSUFFICIENT_RESOURCES`, because the two are answered by different things: one is waited out,
     // the other is bought at the Shipyard.
     NO_IDLE_SCOUT,
+
+    // `contribute` — a basket of nothing. A refusal rather than a no-op, on `NOTHING_TO_BUILD`'s
+    // reasoning one verb over: a success here would debit nothing and append a
+    // `ResourcesContributed` saying a colony did something it did not do.
+    NOTHING_OFFERED,
+
+    // `contribute` — **and the first constant in this enum that no `core` result type produces.**
+    // Every other line here is a member of one of the six result types in `core` that can say no;
+    // this one is minted in the server's `replay`, which is the only place that knows whether the
+    // caller holds a seat. It has to be, because `applyVerb` takes `(verb, state, at)` and nothing
+    // else, and that seam is what keeps `core` from learning that alliances exist.
+    //
+    // A third `RejectionReason` member was considered instead and rejected: `RejectionReason`'s two
+    // members are about *whether the verb could be judged at all*, and this one was judged and
+    // refused, which is exactly what `Refused` means.
+    NOT_IN_AN_ALLIANCE,
 }

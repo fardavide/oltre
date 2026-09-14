@@ -6,6 +6,7 @@ import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.VerbEnvelope
@@ -16,6 +17,15 @@ import kotlin.time.Instant
 // clock is a test that plays a different map every run — and a coverage number that moves without a
 // diff behind it. Every span in this module's tests is arithmetic on this constant.
 internal val TEST_NOW: Instant = Instant.parse("2026-08-25T12:00:00Z")
+
+// **How many seats a brand-new alliance has**, read off the balance rather than written down.
+//
+// It was a flat 20 until the treasury, and every roster assertion in this module spelled the 20 out.
+// The cap is `SEAT_BASE + level + purchased` now, so those assertions were about to become a list of
+// literals that would all have to move together the next time a balance round touches one number —
+// and the thing they are each actually asserting is *the alliance has not bought or earned any seats
+// yet*, which is what this says.
+internal val OPENING_SEATS: Int = AllianceBalance.seatCap(AllianceLevel(0), seatsBought = 0)
 
 // A colony as it is the moment it is founded, at a seed that is written down rather than drawn.
 internal fun freshColony(at: Instant = TEST_NOW, seed: Long = 20260825): GameSnapshot = GameSnapshot(

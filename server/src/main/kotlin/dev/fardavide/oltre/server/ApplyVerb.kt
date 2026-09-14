@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.BuildShipsResult
+import dev.fardavide.oltre.core.ContributeResult
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
@@ -8,6 +9,7 @@ import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.contribute
 import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.setAlertDelivery
 import dev.fardavide.oltre.core.setAlertMode
@@ -23,7 +25,7 @@ import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.VerbRefusal
 import kotlin.time.Instant
 
-// **What `core` said, in the one shape the replay can carry.** Six of the twelve verbs return a
+// **What `core` said, in the one shape the replay can carry.** Seven of the thirteen verbs return a
 // result type that can refuse and six return a bare `GameState`, so a loop over envelopes would
 // otherwise have to know which kind each verb is — which is exactly the knowledge `ClientVerb`
 // exists to hold on its own behalf.
@@ -37,8 +39,8 @@ internal sealed interface VerbOutcome {
     data class Refused(val refusal: VerbRefusal) : VerbOutcome
 }
 
-// **The twelve arms, and a `when` with no `else`** — the second half of the guard `ClientVerb`
-// itself sets. A thirteenth verb cannot reach this file without somebody deciding which `core`
+// **The thirteen arms, and a `when` with no `else`** — the second half of the guard `ClientVerb`
+// itself sets. A fourteenth verb cannot reach this file without somebody deciding which `core`
 // function it is, and a verb missing from here would be a tap that works on the phone, updates the
 // screen, and comes back undone on the next sync.
 //
@@ -74,13 +76,23 @@ internal fun applyVerb(verb: ClientVerb, state: GameState, at: Instant): VerbOut
     is ClientVerb.SetAlertMode -> VerbOutcome.Accepted(setAlertMode(state, verb.mode))
     is ClientVerb.ToggleAlertCategory -> VerbOutcome.Accepted(toggleAlertCategory(state, verb.category))
     is ClientVerb.SetAlertDelivery -> VerbOutcome.Accepted(setAlertDelivery(state, verb.delivery))
+
+    // **The thirteenth, and the signature above is what keeps it honest.** `applyVerb` takes
+    // `(verb, state, at)` and nothing else, so there is no way for an alliance to be consulted here
+    // — which is the point rather than a limitation. `core` judges affordability and emptiness; the
+    // *you are in no alliance* refusal is minted in `replay`, which is the only function in the
+    // engine that knows who the caller is.
+    is ClientVerb.Contribute -> contribute(state, verb.amount, at).outcome()
 }
 
-// ── The six flattenings ───────────────────────────────────────────────────────────────────────
+// ── The seven flattenings ─────────────────────────────────────────────────────────────────────
 //
-// `VerbRefusal` is these six types collapsed into fifteen constants, and each function below is one
-// half of that collapse. Exhaustive `when`s with no `else`, so a refusal added to a `core` result
-// type fails to compile here rather than arriving at the client as a success.
+// `VerbRefusal` is these seven types collapsed into sixteen constants, and each function below is
+// one half of that collapse. Exhaustive `when`s with no `else`, so a refusal added to a `core`
+// result type fails to compile here rather than arriving at the client as a success.
+//
+// The enum has a seventeenth constant these functions never produce — `NOT_IN_AN_ALLIANCE`, which is
+// `replay`'s and says so where it is written.
 //
 // What the flattening deliberately loses is precision — `INSUFFICIENT_RESOURCES` reads the same
 // whichever of five verbs produced it — and what it must never lose is accuracy, because the
@@ -131,4 +143,12 @@ internal fun StartSurveyResult.outcome(): VerbOutcome = when (this) {
     StartSurveyResult.AlreadySurveyed -> VerbOutcome.Refused(VerbRefusal.ALREADY_SURVEYED)
     StartSurveyResult.NoIdleScout -> VerbOutcome.Refused(VerbRefusal.NO_IDLE_SCOUT)
     StartSurveyResult.InsufficientResources -> VerbOutcome.Refused(VerbRefusal.INSUFFICIENT_RESOURCES)
+}
+
+// The seventh, and the shortest — two refusals, because two is all `core` can see. Everything else a
+// contribution can be refused for is somebody else's business; see `replay`.
+internal fun ContributeResult.outcome(): VerbOutcome = when (this) {
+    is ContributeResult.Started -> VerbOutcome.Accepted(state)
+    ContributeResult.InsufficientResources -> VerbOutcome.Refused(VerbRefusal.INSUFFICIENT_RESOURCES)
+    ContributeResult.NothingOffered -> VerbOutcome.Refused(VerbRefusal.NOTHING_OFFERED)
 }

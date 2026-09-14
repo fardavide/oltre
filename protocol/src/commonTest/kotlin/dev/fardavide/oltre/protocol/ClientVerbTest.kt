@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
@@ -45,6 +46,7 @@ private enum class VerbId {
     SET_ALERT_MODE,
     TOGGLE_ALERT_CATEGORY,
     SET_ALERT_DELIVERY,
+    CONTRIBUTE,
 }
 
 private fun idOf(verb: ClientVerb): VerbId = when (verb) {
@@ -60,6 +62,7 @@ private fun idOf(verb: ClientVerb): VerbId = when (verb) {
     is ClientVerb.SetAlertMode -> VerbId.SET_ALERT_MODE
     is ClientVerb.ToggleAlertCategory -> VerbId.TOGGLE_ALERT_CATEGORY
     is ClientVerb.SetAlertDelivery -> VerbId.SET_ALERT_DELIVERY
+    is ClientVerb.Contribute -> VerbId.CONTRIBUTE
 }
 
 // One of each, carrying values that are not the type's default — a sample that happened to encode
@@ -82,6 +85,9 @@ internal val VERB_SAMPLES: List<ClientVerb> = listOf(
     ClientVerb.SetAlertMode(AlertMode.BY_CATEGORY),
     ClientVerb.ToggleAlertCategory(AlertCategory.PROBES),
     ClientVerb.SetAlertDelivery(AlertDelivery.TOTAL),
+    // Three resources rather than one, because a basket that happened to be metal-only would
+    // round-trip through a serializer that had lost the other two fields.
+    ClientVerb.Contribute(Resources.of(metal = 4_210, crystal = 960, deuterium = 120)),
 )
 
 class ClientVerbTest {
@@ -128,6 +134,7 @@ class ClientVerbTest {
                 "SetAlertMode",
                 "ToggleAlertCategory",
                 "SetAlertDelivery",
+                "Contribute",
             ),
             encoded,
         )
@@ -136,11 +143,17 @@ class ClientVerbTest {
     // `#106` §3's table read back off the type. The split is not a detail of this slice: it is what
     // the outbox in `#112` branches on and what `#113` has to explain to a player who tapped a world
     // row on a train.
+    //
+    // **The name of this test changed at the treasury and that is the interesting part.** It read
+    // *"only the two galaxy touching verbs"* for as long as the split was about coordinates. It is
+    // not any more: `contribute` touches no world, and it looks-don't-act because membership, a
+    // seat and a vault are facts about other people that `core` cannot replay. What the rule is
+    // really about is whether a refusal can be re-derived from this colony alone.
     @Test
-    fun `only the two galaxy touching verbs refuse to be queued`() {
+    fun `the three verbs whose refusals are about other people refuse to be queued`() {
         val looking = VERB_SAMPLES.filter { it.offlineRule == OfflineRule.LOOK_DONT_ACT }
         assertEquals(
-            setOf(VerbId.START_RUN, VerbId.START_SURVEY),
+            setOf(VerbId.START_RUN, VerbId.START_SURVEY, VerbId.CONTRIBUTE),
             looking.mapTo(mutableSetOf(), ::idOf),
         )
     }
@@ -148,6 +161,6 @@ class ClientVerbTest {
     @Test
     fun `every other verb is queued and validated`() {
         val queued = VERB_SAMPLES.filter { it.offlineRule == OfflineRule.QUEUE_AND_VALIDATE }
-        assertEquals(VERB_SAMPLES.size - 2, queued.size)
+        assertEquals(VERB_SAMPLES.size - 3, queued.size)
     }
 }

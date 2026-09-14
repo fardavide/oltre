@@ -590,7 +590,7 @@ class OltreServerIntegrationTest {
     }
 
     @Test
-    fun `founding an alliance answers 201 with the founder role and twenty seats`() = testApplication {
+    fun `founding an alliance answers 201 with the founder role and the seats level zero grants`() = testApplication {
         server()
         val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
 
@@ -603,7 +603,7 @@ class OltreServerIntegrationTest {
         assertEquals(AllianceRole.FOUNDER, enlisted.role)
         assertEquals(request.name, enlisted.alliance.name)
         assertEquals(request.tag, enlisted.alliance.tag)
-        assertEquals(AllianceSeats(1, 20), enlisted.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), enlisted.alliance.seats)
     }
 
     @Test

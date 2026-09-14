@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.IdempotencyKey
 
 // **Which write a colony is a descendant of, and the only thing that makes two devices safe.**
@@ -93,7 +96,8 @@ internal interface ColonyRepository {
 
     suspend fun appliedAmong(player: PlayerId, keys: Set<IdempotencyKey>): Set<IdempotencyKey>
 
-    // Replaces the colony **only if it is still at `expected`**, and records the keys with it.
+    // Replaces the colony **only if it is still at `expected`**, records the keys with it, and — if
+    // there is one — credits the pool in the same transaction.
     // `WriteResult.STALE` is not an error: it is the caller being told to read and replay again,
     // which `Replay.kt` is a pure function so that it can.
     suspend fun write(
@@ -101,5 +105,38 @@ internal interface ColonyRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit? = null,
     ): WriteResult
 }
+
+// **The first write in this game that touches two rows**, and it is here rather than on
+// `AllianceRepository` because the atomicity is the whole reason it exists. `alliance-sheet.md` §1.2
+// is right that writing a second row synchronously is what the colony's concurrency scheme was built
+// not to do — **for colonies**. A colony is one document with exactly one writer and takes an
+// optimistic compare-and-set; a pool is columns with every member writing, and
+// `pool_metal = pool_metal + ?` is atomic under the row lock and needs no version at all.
+//
+// What they need is to land or fail together, and `write` is already the method that means that:
+// *"`write` takes the colony **and** the keys, because the two have to land or fail together… One
+// method is what lets the store make it one transaction; two would make the atomicity the caller's
+// problem and the caller cannot solve it."* The credit is the third thing in that sentence. If the
+// compare-and-set loses, the whole transaction rolls back and nothing was contributed — which is
+// exactly right, because `STALE` means read and replay again.
+//
+// **The rejected alternative is the outbox shape** — a `pending_contributions` row written with the
+// colony and drained when the alliance is next read. That is §1.2's own recommendation and it is
+// right for a cross-*colony* write, where the receiver's row has another owner. Here both rows are
+// in the same Postgres and one transaction covers them, so at-least-once delivery buys nothing and
+// costs a window in which the resources have left the colony and have not arrived in the pool — a
+// player watching two numbers that do not add up.
+internal data class PoolCredit(
+    val alliance: AllianceId,
+    // Which seat gets the standing. `alliance_members.contributed` is the column the succession rule
+    // reads when it looks for the best active contributor, and until this slice it was zero for
+    // everybody — so that step of the rule has had no signal to run on since the day it shipped.
+    val member: AllianceMemberId,
+    val amount: Resources,
+    // Priced on the game's 1 : 2 : 3 by the caller, so the SQL adds a number rather than knowing a
+    // ratio. See `AllianceBalance.award`.
+    val experience: Long,
+)

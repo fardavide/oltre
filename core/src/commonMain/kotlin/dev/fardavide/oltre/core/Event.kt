@@ -133,4 +133,26 @@ sealed interface Event {
         val worldsFound: Int,
         override val at: Instant,
     ) : Event
+
+    // **The thirteenth, and the first entry in this log about something outside the colony.**
+    // Everything above happens *to* a colony and can be replayed from it; this is resources leaving
+    // one for a pool `core` does not know exists. What makes it belong here anyway is that the
+    // debit is a thing that happened to this colony at an instant, and this list is where those
+    // live — the pool's side of the transaction is the server's and is a column rather than an
+    // event.
+    //
+    // **It has no partner and needs none.** The pattern above is start-then-completion, and a
+    // contribution is both at once: the resources are gone the moment the verb is accepted, there
+    // is no job, nothing is scheduled, and `FutureEvents` gains no term. The *name* says so —
+    // `ResourcesContributed` rather than `ContributionStarted`.
+    //
+    // The amount is carried whole rather than priced, because the log records what happened and the
+    // 1 : 2 : 3 is an interpretation of it. The server prices it for the alliance's own ladder; a
+    // reader here wants the basket.
+    @Serializable
+    @SerialName("ResourcesContributed")
+    data class ResourcesContributed(
+        val amount: Resources,
+        override val at: Instant,
+    ) : Event
 }
