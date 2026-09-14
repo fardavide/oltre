@@ -10,7 +10,9 @@ import androidx.compose.ui.test.performTextInput
 import dev.fardavide.oltre.client.alliance.ui.AllianceTestTags
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.net.data.AllianceRequest
+import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.JoinDecision
 import kotlin.test.assertEquals
@@ -30,7 +32,7 @@ internal class AllianceRobot(private val app: AppRobot) {
     }
 
     fun requestTheFirstSeat() = apply {
-        test.onNodeWithText(English.resolve(dev.fardavide.oltre.client.design.text.Strings.allianceRequestSeat()))
+        test.onNodeWithText(English.resolve(Strings.allianceRequestSeat()))
             .performScrollTo()
             .performClick()
         test.waitForIdle()
@@ -86,7 +88,7 @@ internal class AllianceRobot(private val app: AppRobot) {
     }
 
     fun assertSaysSeats(taken: Int, cap: Int) = apply {
-        assertReads(dev.fardavide.oltre.client.design.text.Strings.allianceSeatsLine(taken, cap))
+        assertReads(Strings.allianceSeatsLine(taken, cap))
     }
 
     fun assertNothingToConfirm() = apply {
@@ -118,6 +120,48 @@ internal class AllianceRobot(private val app: AppRobot) {
     fun assertBoughtAProject() = apply {
         val bought = app.server.allianceRequests().filterIsInstance<AllianceRequest.BuyProject>()
         assertEquals(1, bought.size, "projects bought: $bought")
+    }
+
+    fun withdraw() = apply {
+        test.onNodeWithTag(AllianceTestTags.WITHDRAW).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The second roster row, which is the first one a founder may remove — their own is a plain
+    // readout rather than a dead control.
+    fun removeTheSecondMember() = apply {
+        test.onNodeWithText(English.resolve(Strings.allianceRemove())).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    fun assertCanFound() = apply {
+        test.onNodeWithTag(AllianceTestTags.FOUND_ACTION).assertIsDisplayed()
+    }
+
+    fun assertCannotFound() = apply {
+        test.onNodeWithTag(AllianceTestTags.FOUND_ACTION).assertDoesNotExist()
+    }
+
+    fun assertFounded(name: String, tag: String) = apply {
+        val created = app.server.allianceRequests().filterIsInstance<AllianceRequest.Create>()
+        assertEquals(1, created.size, "alliances founded: $created")
+        assertEquals(name, created.single().name.value)
+        assertEquals(tag, created.single().tag.value)
+    }
+
+    fun assertAskedToJoin(alliance: AllianceId) = apply {
+        val asked = app.server.allianceRequests().filterIsInstance<AllianceRequest.RequestToJoin>()
+        assertEquals(listOf(alliance), asked.map { it.alliance })
+    }
+
+    fun assertDetached() = apply {
+        val left = app.server.allianceRequests().filterIsInstance<AllianceRequest.Leave>()
+        assertEquals(1, left.size, "detachments: $left")
+    }
+
+    fun assertRemovedAMember() = apply {
+        val removed = app.server.allianceRequests().filterIsInstance<AllianceRequest.RemoveMember>()
+        assertEquals(1, removed.size, "removals: $removed")
     }
 
     fun assertAnsweredARequest(admitted: Boolean) = apply {

@@ -144,6 +144,63 @@ class AllianceScreenScreenshotTest {
         capture("alliance_held", AllianceUiState.Held)
     }
 
+    // Asked and not yet answered. Words rather than a spinner: nothing on this screen animates.
+    @Test
+    fun `asking the server`() {
+        capture("alliance_asking", AllianceUiState.Asking)
+    }
+
+    // A member rather than a founder: no pending list at all — `null` on the wire means *not yours
+    // to see*, which is a different screen from *nobody is waiting*. And a way out, which a founder
+    // with company does not get.
+    @Test
+    fun `in one as a plain member`() {
+        capture(
+            "alliance_enlisted_member",
+            enlisted().copy(
+                pending = null,
+                roster = ROSTER.map { it.copy(removable = false) },
+                departure = DepartureUiState(action = Strings.allianceLeaveAction(), disbands = false),
+            ),
+            height = 1_200,
+        )
+    }
+
+    // The good empty state, at full strength, naming where a request comes from — with no control
+    // and no word about time.
+    @Test
+    fun `nobody is waiting`() {
+        capture(
+            "alliance_nobody_waiting",
+            enlisted().let { it.copy(pending = it.pending?.copy(rows = emptyList())) },
+            height = 1_300,
+        )
+    }
+
+    // Nothing left to build: the catalogue empties rather than offering a row that takes the pool
+    // and moves nothing.
+    @Test
+    fun `nothing left to build`() {
+        capture("alliance_projects_done", enlisted(projects = emptyList()), height = 1_300)
+    }
+
+    // A colony with almost nothing in it: three chips floor to zero and do not press, which is
+    // `core`'s own `NothingOffered` refusal arriving one layer earlier.
+    @Test
+    fun `a colony with nothing much to give`() {
+        capture(
+            "alliance_chips_inert",
+            enlisted().let { face ->
+                face.copy(
+                    treasury = face.treasury.copy(
+                        chips = CHIPS.mapIndexed { index, chip -> chip.copy(enabled = index == 3) },
+                    ),
+                )
+            },
+            height = 1_300,
+        )
+    }
+
     private fun capture(
         name: String,
         state: AllianceUiState,

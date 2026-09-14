@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
@@ -22,6 +23,7 @@ import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceStanding
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.ExperienceReading
@@ -182,7 +184,108 @@ class AllianceAppBehaviourTest {
 
             alliance.search("Aphelion")
 
-            alliance.assertReads(Strings.allianceSearchEmpty(dev.fardavide.oltre.client.design.text.TextRes("Aphelion")))
+            alliance.assertReads(Strings.allianceSearchEmpty(TextRes("Aphelion")))
+        }
+    }
+
+    @Test
+    fun `founding one sends the name and the tag that were typed`() {
+        val server = unaffiliated()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.assertFounded(name = "Ferro Alto", tag = "FRA")
+        }
+    }
+
+    // **Absent, never greyed.** A name with no tag is not a thing that can be committed, so there is
+    // no control to press rather than one that answers no.
+    @Test
+    fun `a name with no tag offers no control at all`() {
+        app(saved = colony(), api = unaffiliated()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto")
+
+            alliance.assertCannotFound()
+        }
+    }
+
+    // **The first refusal in this app a finger can reach**, and it lands on the field: the answer was
+    // about the string that was there, so the value stays editable.
+    @Test
+    fun `a name somebody already has is refused on the field`() {
+        val server = unaffiliated().apply { createAllianceError = ApiError.AllianceNameTaken }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.assertReads(Strings.allianceNameTaken(TextRes("Ferro Alto")))
+            alliance.assertCannotFound()
+        }
+    }
+
+    @Test
+    fun `typing again clears the refusal and offers the control back`() {
+        val server = unaffiliated().apply { createAllianceError = ApiError.AllianceTagTaken }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.typeATag("X")
+
+            alliance.assertCanFound()
+        }
+    }
+
+    @Test
+    fun `asking to join sends the alliance that was tapped`() {
+        val server = unaffiliated().apply {
+            allianceSearch = AllianceSearchResponse(ApiVersion.CURRENT, "ferro", listOf(ALLIANCE), null)
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.search("Ferro").requestTheFirstSeat()
+
+            alliance.assertAskedToJoin(ALLIANCE.id)
+        }
+    }
+
+    // Nothing about a petition expires (`alliance-sheet.md` §1.4), so the waiting face has no
+    // countdown and no word about time — only a way to take it back.
+    @Test
+    fun `a pending petition offers a way to withdraw it`() {
+        val server = unaffiliated().apply { allianceStanding = AllianceStanding.Petitioning(ALLIANCE) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.assertReads(Strings.allianceWaitingBody())
+            alliance.withdraw()
+
+            alliance.assertDetached()
+        }
+    }
+
+    @Test
+    fun `a founder removes a member from the roster`() {
+        val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.removeTheSecondMember()
+
+            alliance.assertRemovedAMember()
         }
     }
 
@@ -219,6 +322,14 @@ class AllianceAppBehaviourTest {
             tag = AllianceTag("FRA"),
             level = AllianceLevel(7),
             seats = AllianceSeats(taken = 1, cap = 12),
+        )
+
+        val MEMBER = AllianceMember(
+            id = AllianceMemberId("seat-2"),
+            profile = PlayerProfile(name = CommanderName("Slow Burn"), mark = null),
+            role = AllianceRole.MEMBER,
+            experience = ExperienceReading.Known(Experience(4_380)),
+            lastSyncedAt = TEST_NOW,
         )
 
         val ROSTER = AllianceRosterResponse(
