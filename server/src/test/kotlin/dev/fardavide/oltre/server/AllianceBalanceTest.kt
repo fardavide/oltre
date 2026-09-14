@@ -5,6 +5,7 @@ import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceProject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 // **Every number under test here is invented rather than measured**, and the tests say so by
@@ -119,6 +120,31 @@ class AllianceBalanceTest {
         assertTrue(
             !AllianceBalance.isExhausted(AllianceProject.CHARTER_EXPANSION, AllianceLevel(0), seatsBought = 0),
         )
+    }
+
+    // **The roof over the walk.** `progressOf` loops over an alliance-supplied number, so the bound
+    // is what makes it a total function rather than one that is merely unlikely to run long — and the
+    // gauge reads full-but-not-past rather than overflowing its own span.
+    @Test
+    fun `a treasury nothing could fill still reads as a level and a share of one`() {
+        val progress = AllianceBalance.progressOf(Long.MAX_VALUE / 2)
+
+        assertTrue(progress.intoLevel < progress.span, "the gauge ran past its own end")
+        assertTrue(progress.level.value > 0)
+    }
+
+    @Test
+    fun `a negative total is refused rather than read as a level`() {
+        assertFailsWith<IllegalArgumentException> { AllianceBalance.progressOf(-1) }
+    }
+
+    // The same roof on the price curve, which is the other loop over a stored number. Unreachable by
+    // play — the seat cap stops the charter long before this — and a bound all the same.
+    @Test
+    fun `a charter bought absurdly often still has a price`() {
+        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, timesBought = 4_000)
+
+        assertTrue(AllianceBalance.award(cost) > 0)
     }
 
     @Test

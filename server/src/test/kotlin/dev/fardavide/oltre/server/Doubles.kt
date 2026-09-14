@@ -119,6 +119,24 @@ internal class UnreachableAllianceRepository : AllianceRepository {
     ): TreasuryRead = error("no route to host")
 }
 
+// **Another admin, buying the same project in the same second, every time.** The route reads the
+// version and then asserts it, so a purchase that loses is retried against the row that won; this
+// double never lets one land, which is the only way to reach the answer the caller gets after
+// `WRITE_ATTEMPTS`.
+//
+// It delegates everything else, because what is under test is the loop rather than the store.
+internal class ContendedAllianceRepository(
+    private val store: AllianceRepository,
+) : AllianceRepository by store {
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = TreasuryRead.Stale
+}
+
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
 // `catch` on both route files reads `e.message`, and a `NullPointerException`, a
 // `ConcurrentModificationException` or a driver's own internal error routinely carries none — so

@@ -289,6 +289,85 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // ── What happens when the far end is not there ───────────────────────────────────────────
+    //
+    // **Every alliance control is server-backed**, so the arms below are most of what this feature
+    // does on a train — and a control that answered nothing at all is the failure the whole
+    // no-dead-control rule exists to prevent.
+
+    @Test
+    fun `a search that cannot reach the server leaves the field alone`() {
+        val server = unaffiliated()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            server.offline = true
+
+            alliance.search("Ferro")
+
+            alliance.assertReads(Strings.allianceSearchHeld())
+        }
+    }
+
+    // A refusal on a search is not a refusal on a name — there is nothing to put on a field, so the
+    // results simply do not arrive and the idle line stands.
+    @Test
+    fun `a refused search shows no results and no refusal on a field`() {
+        val server = unaffiliated().apply { searchAlliancesError = ApiError.TooManyRequests(retryAfterSeconds = 30) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.search("Ferro")
+
+            alliance.assertReads(Strings.allianceSearchIdle())
+        }
+    }
+
+    @Test
+    fun `founding with no signal leaves the fields untouched`() {
+        val server = unaffiliated()
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.typeAName("Ferro Alto").typeATag("FRA")
+            server.offline = true
+
+            alliance.found()
+
+            // Nothing red: the server never answered, so there is nothing to say about the strings.
+            alliance.assertReads(Strings.allianceSearchHeld())
+        }
+    }
+
+    // **A name the contract itself refuses never becomes a request.** A tag has to be uppercase
+    // ASCII, so `frz` is not a tag and `AllianceTag`'s own guard is what says so.
+    @Test
+    fun `a tag the contract refuses is never sent`() {
+        app(saved = colony(), api = unaffiliated()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("frz").found()
+
+            alliance.assertFoundedNothing()
+        }
+    }
+
+    // The treasury route refusing does not take the roster away with it: the alliance is still a
+    // place, and the panel says its pool has not been read.
+    @Test
+    fun `a treasury the server refused leaves the alliance readable`() {
+        val server = enlisted().apply { treasuryError = ApiError.Internal("no treasury today") }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.assertReads(Strings.allianceTreasuryUnread())
+            alliance.assertSaysSeats(taken = 1, cap = 12)
+        }
+    }
+
     private fun colony(): GameSnapshot = GameSnapshot(
         lastUpdatedAt = TEST_NOW,
         debugUsed = false,

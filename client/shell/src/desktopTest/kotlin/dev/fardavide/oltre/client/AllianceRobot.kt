@@ -149,6 +149,11 @@ internal class AllianceRobot(private val app: AppRobot) {
         assertEquals(tag, created.single().tag.value)
     }
 
+    fun assertFoundedNothing() = apply {
+        val created = app.server.allianceRequests().filterIsInstance<AllianceRequest.Create>()
+        assertTrue(created.isEmpty(), "an alliance was founded: $created")
+    }
+
     fun assertAskedToJoin(alliance: AllianceId) = apply {
         val asked = app.server.allianceRequests().filterIsInstance<AllianceRequest.RequestToJoin>()
         assertEquals(listOf(alliance), asked.map { it.alliance })

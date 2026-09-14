@@ -98,9 +98,18 @@ internal object AllianceBalance {
 
     // What it costs to leave `level` behind. Never zero, so the gauge always has somewhere to go —
     // `ExperienceBalance.spanOf`'s own guarantee, which `AllianceProgress` turns into a `require`.
+    //
+    // **It saturates rather than overflowing, and that is a fix rather than a flourish.** A 45%
+    // compounding curve leaves `Long` somewhere around level 110, and the first cut of this multiplied
+    // straight through: `spanOf` went *negative*, `AllianceProgress`'s own guard rejected it, and a
+    // route raised `IllegalArgumentException` on a number read out of a column. No treasury in this
+    // game can reach that by play — but `experience` is a stored `bigint`, and a total the server
+    // will not read is worse than one it reads as very large.
     fun spanOf(level: AllianceLevel): Long {
         var span = LEVEL_BASE
-        repeat(level.value) { span = span * LEVEL_GROWTH_PERCENT / 100 }
+        repeat(level.value) {
+            span = if (span > MAX_SPAN / LEVEL_GROWTH_PERCENT) MAX_SPAN else span * LEVEL_GROWTH_PERCENT / 100
+        }
         return span
     }
 
@@ -137,18 +146,23 @@ internal object AllianceBalance {
         (SEAT_BASE + SEATS_PER_LEVEL * level.value + SEATS_PER_CHARTER * seatsBought).coerceAtMost(SEAT_CAP)
 
     // What the next one costs, given how many have already been bought.
+    // **It saturates too, and for the same reason `spanOf` does** — `Resources.of` refuses a figure
+    // past what its fine-unit backing can hold, so a price that ran away would not be an odd number
+    // on a screen but a raise inside a route.
     fun costOf(project: AllianceProject, timesBought: Int): Resources = when (project) {
-        AllianceProject.CHARTER_EXPANSION -> {
-            var metal = CHARTER_BASE.metal
-            var crystal = CHARTER_BASE.crystal
-            var deuterium = CHARTER_BASE.deuterium
-            repeat(timesBought.coerceAtMost(MAX_REPEATS)) {
-                metal = metal * CHARTER_GROWTH_PERCENT / 100
-                crystal = crystal * CHARTER_GROWTH_PERCENT / 100
-                deuterium = deuterium * CHARTER_GROWTH_PERCENT / 100
-            }
-            Resources.of(metal = metal, crystal = crystal, deuterium = deuterium)
+        AllianceProject.CHARTER_EXPANSION -> Resources.of(
+            metal = CHARTER_BASE.metal.grownBy(timesBought),
+            crystal = CHARTER_BASE.crystal.grownBy(timesBought),
+            deuterium = CHARTER_BASE.deuterium.grownBy(timesBought),
+        )
+    }
+
+    private fun Long.grownBy(times: Int): Long {
+        var value = this
+        repeat(times.coerceAtMost(MAX_REPEATS)) {
+            value = if (value > MAX_UNITS / CHARTER_GROWTH_PERCENT) MAX_UNITS else value * CHARTER_GROWTH_PERCENT / 100
         }
+        return value
     }
 
     // Whether buying it again would change anything. **A project that cannot move its own number is
@@ -162,4 +176,11 @@ internal object AllianceBalance {
     // an unbounded one is an unbounded loop; neither is reachable by play.
     private const val MAX_LEVEL: Int = 200
     private const val MAX_REPEATS: Int = 64
+
+    // Where the two curves saturate. `MAX_SPAN` is far below `Long.MAX_VALUE` so the sum of every
+    // span below a level cannot overflow either; `MAX_UNITS` is what `Resources.of` will accept,
+    // which is `Long.MAX_VALUE` divided by the fine-unit scale. Both are ceilings for arithmetic
+    // rather than balance numbers — no treasury in this game reaches within many orders of either.
+    private const val MAX_SPAN: Long = Long.MAX_VALUE / 1_000_000
+    private const val MAX_UNITS: Long = Long.MAX_VALUE / 3_600_000
 }

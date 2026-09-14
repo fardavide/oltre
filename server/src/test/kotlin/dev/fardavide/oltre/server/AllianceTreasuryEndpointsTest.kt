@@ -146,6 +146,76 @@ class AllianceTreasuryEndpointsTest {
         assertIs<ApiError.Internal>(answer.error())
     }
 
+    // **A project that can no longer move its own number is absent from the catalogue**, and buying
+    // it anyway is refused rather than taking the pool for nothing — which is the dead control
+    // wearing a price tag.
+    @Test
+    fun `a roster already at its ceiling cannot buy more seats`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        creditThePool(davide, Resources.of(metal = 400_000_000, crystal = 200_000_000, deuterium = 100_000_000))
+        // Bought until the cap is reached, which is what a very rich alliance does.
+        repeat(20) { buy(davide) }
+
+        val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
+
+        assertEquals(emptyList(), answer.response.projects)
+        assertEquals(ApiError.AllianceTreasuryShort, buy(davide).error())
+    }
+
+    // **The version is read here rather than sent by the client**, so a purchase that loses the
+    // compare-and-set is retried against the row that won. Losing every attempt is `StaleAlliance`,
+    // and the client's answer to that is to read again.
+    @Test
+    fun `a purchase that keeps losing the race is a stale alliance rather than a wrong answer`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        creditThePool(davide, Resources.of(metal = 400_000, crystal = 200_000, deuterium = 100_000))
+
+        val answer = buyAllianceProject(
+            ContendedAllianceRepository(alliances),
+            authenticator,
+            clock,
+            credentials(davide),
+            Protocol.json.encodeToString(
+                BuyProjectRequest.serializer(),
+                BuyProjectRequest(ApiVersion.CURRENT, AllianceProject.CHARTER_EXPANSION),
+            ),
+        )
+
+        assertEquals(HttpStatusCode.Conflict, answer.status)
+        assertEquals(ApiError.StaleAlliance, answer.error())
+    }
+
+    @Test
+    fun `a caller with no seat buys nothing`() = runTest {
+        val davide = givenAPlayer()
+
+        val answer = buy(davide)
+
+        assertEquals(HttpStatusCode.NotFound, answer.status)
+        assertEquals(ApiError.NotInAnAlliance, answer.error())
+    }
+
+    // **A credit for an alliance that is no longer there lands nowhere**, which is what a disband
+    // racing a sync looks like. It is a no-op rather than a failure: the colony's own write already
+    // won or lost on its own terms.
+    @Test
+    fun `crediting an alliance that has gone changes nothing`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        val seat = assertIs<Affiliation.Enlisted>(alliances.allianceOf(davide, TEST_NOW)).seat
+
+        alliances.credit(
+            PoolCredit(
+                alliance = dev.fardavide.oltre.protocol.AllianceId("gone"),
+                member = seat.id,
+                amount = Resources.of(metal = 10),
+                experience = 10,
+            ),
+        )
+
+        val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
+        assertEquals(Resources.of(), answer.response.pool)
+    }
+
     // ── The harness ──────────────────────────────────────────────────────────────────────────
 
     private suspend fun buy(player: PlayerId): Answer = buyAllianceProject(
