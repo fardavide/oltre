@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.net.data
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
@@ -18,6 +19,7 @@ import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 
 // **What came back, and there are three answers because there are three different things to do.**
@@ -97,6 +99,15 @@ interface OltreApi {
         member: AllianceMemberId,
         role: AllianceRole,
     ): ApiResult<AllianceStanding>
+
+    // **The pool, and what it could buy.** Its own route rather than a field on the alliance read,
+    // which is the whole of `alliance-sheet.md` §1.3 as it applies here: the alliance's five fields
+    // were argued to completeness before its routes shipped so that the treasury would have to be a
+    // new door. Contributing is not here at all — it is `ClientVerb.Contribute` and goes up the sync
+    // pair like every other verb, because it is the one alliance act that mutates a `GameState`.
+    suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse>
+
+    suspend fun buyProject(access: SessionToken, project: AllianceProject): ApiResult<TreasuryResponse>
 
     // **Two methods rather than one taking a provider, because the provider is the path.** That is
     // `Auth.kt`'s call and it is not cosmetic: the two tokens are verified against different

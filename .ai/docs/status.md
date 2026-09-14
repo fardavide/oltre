@@ -1,8 +1,50 @@
 # Status
 
-Updated: 2026-09-13 (0.22.0 — Alliance roster backend; screens remain a separate slice)
+Updated: 2026-09-14 (0.24.0 — the treasury, and the alliance's real screens)
 
 ## Landed
+
+- **0.24.0 the treasury, and the screens that were never built (#144, and #143 finished)** — slice 8
+  of the alliance epic, plus the slice before it that had been closed without landing. **PR #156's
+  own body says it does not close #143 and GitHub closed it anyway**, so the Alliance tab shipped as
+  an honest "Coming soon" screen and `:client:alliance:presentation` never existed. Davide's call on
+  2026-09-14: one PR, both.
+  **Resources leave a colony for the first time.** `contribute` is `core`'s thirteenth verb with two
+  refusals and no more — a basket the colony cannot cover, and a basket of nothing — because
+  membership, a seat and a vault are facts about other people and `core` holds one colony.
+  `Event.ResourcesContributed` is priced at `Experience.NONE` (Davide, 2026-09-14): a flat award is
+  farmed by splitting one contribution into ten, and a scaled one is the tap `experience-sheet.md`
+  §3 exists to prevent.
+  **Save schema 18 → 19 is the identity function**, and that is the interesting part: nothing is
+  added to `GameState`. The version moves for what the event log may now *hold*, so an older build
+  meets a designed refusal instead of one indistinguishable from corruption — and `DecodeResult` now
+  answers `Obsolete` for a save from the *future* as well as for a retired schema, which is what
+  makes `ColonyRow.colonyFrom`'s two messages true in both directions. Schema 18's own paragraph was
+  missing from the ladder and is written up here too.
+  **`ApiVersion.CURRENT` and `OLDEST_SERVED` both move to 2, and the verb is not what moved them —
+  the snapshot is.** Left at 1, an installed client is handed a 200 carrying a snapshot it cannot
+  decode and told the contract is broken; moved, it gets a clean 426 saying update the app. **So the
+  server deploys before the release merges** — see Needs you.
+  The cross-row write lands in `ColonyRepository.write`, which already meant *these things land or
+  fail together*: the colony keeps its compare-and-set, the pool takes an in-database increment, and
+  the credit is computed inside `replay`'s `Accepted` branch and never from `applied`, which holds
+  keys that were already spent — summing those would credit a lost-response retry twice.
+  `AllianceBalance` is new and lives in `:server`, so a ladder nobody can simulate is retuned by a
+  deploy rather than a release. **Every number in it is invented rather than measured** — `:sim`
+  cannot model a roster, which makes this the first mechanic in Oltre with no simulator. The seat cap
+  stops being a flat 20 and becomes what the level granted plus what the pool bought, so the first
+  contribution moves the roster header before any project exists. **One project ships** — Charter
+  Expansion, +2 seats, repeatable at ×1.5 — because it is the only alliance-owned number that exists
+  to move; the design frame's other two placeholders had nothing behind them and are recorded as
+  refused rather than deferred.
+  The screens are the four faces `alliance-sheet.md` §7 settled: a search and a founding block when
+  you are in no alliance, a waiting face, and the roster + treasury + projects when you are. The
+  contribute ladder is 10 / 25 / 50 / All with the absolute figure printed above each share and
+  **floored**, and `All` alone raises the delete face's two-step confirm (Davide, 2026-09-14).
+  Contributing is `LOOK_DONT_ACT`, so offline it refuses in red with a sentence rather than promising
+  amber — and the resources do not leave the colony until the server has taken them, which is what
+  makes the stock and the pool add up at every instant. Twelve screenshot baselines, ten behaviour
+  tests, six integration tests against real Postgres. See `alliance-sheet.md` and `decisions.md`.
 
 - **Alliance roster backend (#140)** — authenticated members read their own roster
   with surrogate IDs, chosen profiles, roles, earned experience, and last colony sync.

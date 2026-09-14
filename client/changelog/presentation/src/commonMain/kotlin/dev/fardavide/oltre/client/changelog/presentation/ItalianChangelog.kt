@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.24.0", "2026-09-14", "L'alleanza, e un fondo comune",
+            "Cercane una per nome, chiedi di entrare, o fondane una tua con nome e sigla.",
+            "Versa una parte delle tue scorte nel fondo. Quello che entra non esce.",
+            "Versare alza il livello dell'alleanza, e il livello compra posti.",
+        ),
+        release(
             "0.23.1", "2026-09-13", "Il cambio di Navi se lo ricorda",
             "Lascialo su Flotte, controlla la colonia, torna — è ancora Flotte.",
             "Cantiere e Flotte sono parole ora, come il cambio della galassia.",

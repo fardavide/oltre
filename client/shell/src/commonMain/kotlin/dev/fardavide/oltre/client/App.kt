@@ -13,7 +13,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
+import dev.fardavide.oltre.client.alliance.data.AllianceGateway
+import dev.fardavide.oltre.client.alliance.domain.AllianceState
+import dev.fardavide.oltre.client.alliance.presentation.allianceUiState
+import dev.fardavide.oltre.client.alliance.presentation.basket
+import dev.fardavide.oltre.client.alliance.presentation.contributeConfirmUiState
+import dev.fardavide.oltre.client.alliance.presentation.foundingUiState
+import dev.fardavide.oltre.client.alliance.presentation.searchUiState
+import dev.fardavide.oltre.client.alliance.ui.AllianceActions
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
+import dev.fardavide.oltre.client.alliance.ui.ContributeChipUiState
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
 import dev.fardavide.oltre.client.auth.data.defaultProviderSignIn
@@ -47,14 +56,20 @@ import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.save.data.defaultOutboxFile
 import dev.fardavide.oltre.client.save.data.defaultSessionFile
 import dev.fardavide.oltre.client.settings.ui.AccountUiState
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.PlayerMark
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import dev.fardavide.oltre.protocol.offlineRule
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
@@ -249,6 +264,10 @@ fun App(
             val sessions = remember(api, sessionStore, wallClock) {
                 SessionKeeper(api = api, store = sessionStore, clock = wallClock)
             }
+            // **The fourth object, and the only one that is not about a colony.** An alliance is an
+            // account's, not a save's: it survives a colony being deleted and it is nowhere in the
+            // save file. It holds a token no screen ever sees, exactly as the three below do.
+            val alliances = remember(api, sessions) { AllianceGateway(api = api, sessions = sessions) }
             val colony = remember(api, outbox, keys, wallClock, sessions) {
                 ColonySync(
                     api = api,
@@ -290,6 +309,7 @@ fun App(
             // this file already makes for the watched row's label.
             var refusedRun by remember { mutableStateOf<GalaxyCoordinate?>(null) }
             var refusedProbe by remember { mutableStateOf(false) }
+            var refusedContribution by remember { mutableStateOf(false) }
             // Whether the account deletion has been refused, which is the third refusal and the one
             // with a face of its own.
             var deleteRefused by remember { mutableStateOf(false) }
@@ -331,6 +351,30 @@ fun App(
             // closing, and a **name** landing on the server. A mark landing must not, which is the
             // frame's own split and what `writeProfile`'s `renaming` says out loud.
             var nameDraft by remember { mutableStateOf<String?>(null) }
+            // ── The alliance ────────────────────────────────────────────────────────────────
+            //
+            // **The standing is the gateway's and this is the copy a frame reads.** `AllianceGateway`
+            // holds it behind a mutex so two taps cannot interleave; a composable cannot read through
+            // a mutex, so every answer is mirrored here, in the same statement that produced it.
+            var standing by remember { mutableStateOf<AllianceState>(AllianceState.Unread) }
+            // What the player typed, and what came back for it. Screen state rather than account
+            // state: a query survives no round trip and is nobody's business but this tab's.
+            var allianceQuery by remember { mutableStateOf("") }
+            var allianceResults by remember { mutableStateOf<AllianceSearchResponse?>(null) }
+            var allianceAsking by remember { mutableStateOf(false) }
+            // The pool, read on its own rather than with the standing — see `AllianceGateway
+            // .treasury` for why. Null is *not read yet*, which the panel says in one line.
+            var treasury by remember { mutableStateOf<TreasuryResponse?>(null) }
+            // The founding block's two fields, and the two refusals that can land on them. **Both at
+            // once**, because one commit sends both — and each clears on the first keystroke in its
+            // own field, since the answer was about the string that was there.
+            var foundName by remember { mutableStateOf("") }
+            var foundTag by remember { mutableStateOf("") }
+            var nameTaken by remember { mutableStateOf(false) }
+            var tagTaken by remember { mutableStateOf(false) }
+            // The basket `All` is asking about. Null is *no confirm is up*; the two-step face is the
+            // one thing on this tab that is a mode.
+            var confirming by remember { mutableStateOf<ContributeChipUiState?>(null) }
             // **One profile write at a time, because the row goes up whole.** The mark commits as it
             // is touched and the name has a button — the frame's own split — which makes them the one
             // pair of controls in this app that can be pressed inside each other's round trip. Two
@@ -575,6 +619,32 @@ fun App(
                 }
             }
 
+            // **The alliance, read the way the profile is: on the way in, and again whenever it is
+            // still unread.** It is three requests behind one call — the standing, the roster and the
+            // treasury — and `AllianceGateway` is what makes them one answer, so nothing here has to
+            // know that a roster is a second route.
+            //
+            // A refusal leaves the standing where it was, for `readProfile`'s reason: an alliance
+            // route refused for a stale token is a sync about to be refused for the same one, and the
+            // gate is where that is answered once.
+            suspend fun readAlliance(access: SessionToken) {
+                when (val answer = alliances.alliance(access)) {
+                    is ApiResult.Answered -> standing = answer.value
+                    is ApiResult.Refused, ApiResult.Unreachable -> Unit
+                }
+                // The pool, and only when there is one to read. A player in no alliance has no
+                // treasury, and asking for one would be a request that can only be refused.
+                if (standing is AllianceState.Enlisted) {
+                    when (val pool = alliances.treasury(access)) {
+                        is ApiResult.Answered -> treasury = pool.value
+                        // Left unread rather than cleared: a panel that had a pool a moment ago is
+                        // better drawing the one it has than emptying itself because one request
+                        // did not land.
+                        is ApiResult.Refused, ApiResult.Unreachable -> Unit
+                    }
+                }
+            }
+
             // The release this build is, which is the head of the changelog: there is no generated
             // `BuildConfig` in this build and one string does not earn source generation.
             // `ReleaseCatalogueIntegrationTest` is what keeps the two in step — it fails the build if
@@ -744,6 +814,9 @@ fun App(
                 // resolved rather than a second `current()`: `Unreachable` falls through above, and
                 // asking again here would spend a second failed renewal to learn what is in hand.
                 if (credential is Credential.Held) readProfile(credential.access)
+                // And the alliance, on the same credential and for the same reason: it is an
+                // account's rather than a colony's, so nothing the sync does will ever fetch it.
+                if (credential is Credential.Held) readAlliance(credential.access)
                 // **`sync` when this device holds a colony and `found` when it does not**, and the
                 // difference is not a shortcut: `found` sends no envelopes, so a launch that always
                 // founded would leave a queue written before the app was closed sitting on disk until
@@ -932,9 +1005,15 @@ fun App(
                                 // default over a named account and the editor stayed amber with
                                 // nothing ever trying again. Same minute as the queue's retry and the
                                 // same argument: it is the resolution the chrome line prints at.
-                                if (profile == null) {
+                                if (profile == null || standing == AllianceState.Unread) {
                                     when (val credential = sessions.current()) {
-                                        is Credential.Held -> readProfile(credential.access)
+                                        is Credential.Held -> {
+                                            if (profile == null) readProfile(credential.access)
+                                            // The alliance rides the same minute for the same
+                                            // reason: a launch that never got it would otherwise
+                                            // leave this tab asking for the life of the process.
+                                            if (standing == AllianceState.Unread) readAlliance(credential.access)
+                                        }
                                         // No credential and no network are both answered elsewhere —
                                         // the sync above is what turns a dead one into a gate. Asking
                                         // twice would be two answers to one fact.
@@ -955,6 +1034,13 @@ fun App(
                     when (verb) {
                         is ClientVerb.StartRun -> refusedRun = verb.target
                         is ClientVerb.StartSurvey -> refusedProbe = true
+                        // **The third look-don't-act verb, and the first whose refusal is not about
+                        // a coordinate.** A contribution cannot be queued because membership, a seat
+                        // and a vault are facts about other people, so with no signal the chips
+                        // refuse in red with a sentence rather than promising amber — and the
+                        // resources stay in the colony until the server has taken them, which is
+                        // what makes the stock and the pool add up at every instant.
+                        is ClientVerb.Contribute -> refusedContribution = true
 
                         // The other ten are queued rather than refused, so nothing here can reach
                         // them — `Outbox.queue` reads the same rule and writes them to the file. The
@@ -1009,7 +1095,7 @@ fun App(
                     is ClientVerb.SetAlertMode -> held.alertMode?.key
                     is ClientVerb.ToggleAlertCategory -> held.alertCategory(verb.category)
                     is ClientVerb.SetAlertDelivery -> held.alertDelivery?.key
-                    is ClientVerb.StartRun, is ClientVerb.StartSurvey -> null
+                    is ClientVerb.StartRun, is ClientVerb.StartSurvey, is ClientVerb.Contribute -> null
                 }
 
                 fun dispatch(verb: ClientVerb) {
@@ -1017,6 +1103,7 @@ fun App(
                     // it was on: a sentence about a tap the player has moved past is furniture.
                     refusedRun = null
                     refusedProbe = false
+                    refusedContribution = false
                     deleteRefused = false
                     scope.launch {
                         val wall = wallClock.now()
@@ -1043,6 +1130,79 @@ fun App(
 
                             is ActOutcome.Failed ->
                                 arrive(SyncOutcome.Failed(outcome.error), debugClock, wall)
+                        }
+                    }
+                }
+
+                // ── The alliance's own taps ─────────────────────────────────────────────────
+                //
+                // **Every one of them is a route rather than a verb, except the contribution.** The
+                // eight acts mutate no `GameState` and have nothing to replay, so they are answered
+                // directly and the standing they hand back is the authoritative one. Contributing is
+                // the exception and goes through `dispatch` like every other verb, because it takes
+                // resources out of a colony.
+                fun actOnAlliance(call: suspend (SessionToken) -> ApiResult<AllianceState>) {
+                    scope.launch {
+                        when (val credential = sessions.current()) {
+                            is Credential.Held -> when (val answer = call(credential.access)) {
+                                is ApiResult.Answered -> standing = answer.value
+                                // **The two refusals this feature can actually reach from a finger**,
+                                // and they land on the fields rather than in a block — the answer is
+                                // about the string that was there, and the value stays editable.
+                                is ApiResult.Refused -> {
+                                    nameTaken = answer.error == ApiError.AllianceNameTaken
+                                    tagTaken = answer.error == ApiError.AllianceTagTaken
+                                }
+                                ApiResult.Unreachable -> reachable = false
+                            }
+                            Credential.Gone, Credential.Unreachable -> reachable = false
+                        }
+                    }
+                }
+
+                fun searchAlliances(query: String) {
+                    allianceQuery = query
+                    // A refusal on the founding fields is about a name, not about a search — but a
+                    // player who has started typing elsewhere has moved past it either way.
+                    if (query.isBlank()) {
+                        allianceResults = null
+                        return
+                    }
+                    allianceAsking = true
+                    scope.launch {
+                        try {
+                            when (val credential = sessions.current()) {
+                                is Credential.Held ->
+                                    when (val answer = alliances.searchAlliances(credential.access, query, null)) {
+                                        is ApiResult.Answered -> allianceResults = answer.value
+                                        is ApiResult.Refused -> allianceResults = null
+                                        ApiResult.Unreachable -> reachable = false
+                                    }
+                                Credential.Gone, Credential.Unreachable -> reachable = false
+                            }
+                        } finally {
+                            allianceAsking = false
+                        }
+                    }
+                }
+
+                fun buyProject(project: AllianceProject) {
+                    scope.launch {
+                        when (val credential = sessions.current()) {
+                            is Credential.Held -> when (val bought = alliances.buyProject(credential.access, project)) {
+                                is ApiResult.Answered -> {
+                                    treasury = bought.value
+                                    // **And the alliance again, because the seat cap is not on the
+                                    // treasury.** Buying seats moves the roster header, and a screen
+                                    // that only redrew the pool would leave `3 of 5` over a roster
+                                    // that now has seven. Two requests, stated here rather than
+                                    // hidden inside one gateway call.
+                                    readAlliance(credential.access)
+                                }
+                                is ApiResult.Refused -> Unit
+                                ApiResult.Unreachable -> reachable = false
+                            }
+                            Credential.Gone, Credential.Unreachable -> reachable = false
                         }
                     }
                 }
@@ -1626,6 +1786,18 @@ fun App(
                             body = Strings.refusedProbeBody(compact = compact),
                         )
                     }
+                    // **The third, and it has no width-aware clause.** A run's sentence names a
+                    // coordinate and drops it in a Slide Over pane; this one is about the network and
+                    // has nothing optional in it — every word of it is the reason the resources are
+                    // still in the colony.
+                    val contributionRefusal = if (!refusedContribution) {
+                        null
+                    } else {
+                        RefusalUiState(
+                            lead = Strings.refusedContributionLead(),
+                            body = Strings.refusedContributionBody(),
+                        )
+                    }
 
                     MainScaffold(
                         // The one new piece of chrome, and null on a colony with signal — see
@@ -1855,11 +2027,84 @@ fun App(
                                 },
                             )
                         },
-                        // The alliance's own tab, ahead of its real screen (`#143`). `AllianceScreen`
-                        // is a real screen in its own module (`:client:alliance:ui`) per `OltreTab.kt`'s
-                        // own doc comment — not a shell-owned placeholder — and decides nothing, so it
-                        // takes no parameters beyond the scroll every destination gets.
-                        alliance = { scroll -> AllianceScreen(scrollState = scroll) },
+                        // **The alliance, and the destination is two screens chosen by account state
+                        // rather than by a toggle** — `alliance-sheet.md` §7. Which of the four faces
+                        // is `:client:alliance:presentation`'s call; what is here is the three things
+                        // only the composition root has: what the player typed, what the colony holds,
+                        // and whether the server has been reachable.
+                        alliance = { scroll ->
+                            AllianceScreen(
+                                state = allianceUiState(
+                                    standing = standing,
+                                    reachable = reachable,
+                                    search = searchUiState(
+                                        query = allianceQuery,
+                                        answer = allianceResults,
+                                        asking = allianceAsking,
+                                        reachable = reachable,
+                                    ),
+                                    founding = foundingUiState(foundName, foundTag, nameTaken, tagTaken),
+                                    // **The colony's own stock, which is what a share is a share
+                                    // of.** It is the live one rather than the one the tab opened
+                                    // with: the chips restate their figures every second the rail
+                                    // does, so what a chip promises is never a number that has
+                                    // expired.
+                                    colony = current.state.resources,
+                                    treasury = treasury,
+                                ),
+                                actions = AllianceActions(
+                                    onQueryChange = ::searchAlliances,
+                                    onRequestSeat = { row ->
+                                        actOnAlliance { alliances.requestToJoin(it, row.id) }
+                                    },
+                                    // A keystroke clears the refusal on its own field and leaves the
+                                    // other one standing, because one commit can be refused twice.
+                                    onNameChange = { foundName = it; nameTaken = false },
+                                    onTagChange = { foundTag = it; tagTaken = false },
+                                    onFound = {
+                                        val name = runCatching { AllianceName(foundName.trim()) }.getOrNull()
+                                        val tag = runCatching { AllianceTag(foundTag.trim()) }.getOrNull()
+                                        // **Refused by the contract before it is sent**, which is what
+                                        // the value classes are for: a name past its bound or a tag
+                                        // with a lower-case letter never becomes a request.
+                                        if (name != null && tag != null) {
+                                            actOnAlliance { alliances.createAlliance(it, name, tag) }
+                                        }
+                                    },
+                                    onWithdraw = { actOnAlliance { alliances.leaveAlliance(it) } },
+                                    onAnswer = { row, admitted ->
+                                        actOnAlliance {
+                                            alliances.answerRequest(
+                                                it,
+                                                row.id,
+                                                if (admitted) JoinDecision.ADMITTED else JoinDecision.DECLINED,
+                                            )
+                                        }
+                                    },
+                                    onRemove = { row -> actOnAlliance { alliances.removeMember(it, row.id) } },
+                                    // **`All` raises the two-step face and the three shares send on
+                                    // the tap** — Davide, 2026-09-14. The friction is on the one tap
+                                    // that empties a colony and that nothing can undo.
+                                    onContribute = { chip ->
+                                        if (chip.confirms) {
+                                            confirming = chip
+                                        } else {
+                                            dispatch(ClientVerb.Contribute(chip.basket()))
+                                        }
+                                    },
+                                    onBuy = { row -> buyProject(row.project) },
+                                    onDepart = { actOnAlliance { alliances.leaveAlliance(it) } },
+                                ),
+                                confirm = confirming?.let { contributeConfirmUiState() },
+                                onConfirmContribute = {
+                                    confirming?.let { dispatch(ClientVerb.Contribute(it.basket())) }
+                                    confirming = null
+                                },
+                                onKeepContribute = { confirming = null },
+                                refusal = contributionRefusal,
+                                scrollState = scroll,
+                            )
+                        },
                         // **Tapping the gear again closes what it opened**, which is one of the four
                         // ways out the design names and the only one that is a control rather than a
                         // gesture. The strip is still on screen behind the scrim, so it is reachable

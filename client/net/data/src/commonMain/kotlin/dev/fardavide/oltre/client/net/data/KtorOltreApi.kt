@@ -3,6 +3,8 @@ package dev.fardavide.oltre.client.net.data
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
+import dev.fardavide.oltre.protocol.BuyProjectRequest
 import dev.fardavide.oltre.protocol.AllianceResponse
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
@@ -32,6 +34,7 @@ import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
@@ -183,6 +186,22 @@ class KtorOltreApi(
                 bearer(access)
             }
         }.standing()
+
+    override suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> =
+        send(TreasuryResponse.serializer()) {
+            client.get(baseUrl + "/v1/alliance/treasury") { bearer(access) }
+        }
+
+    override suspend fun buyProject(access: SessionToken, project: AllianceProject): ApiResult<TreasuryResponse> =
+        send(TreasuryResponse.serializer()) {
+            post(
+                "/v1/alliance/projects",
+                BuyProjectRequest(ApiVersion.CURRENT, project),
+                BuyProjectRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }
 
     // **The unauthenticated surface**, and the one that carries no session because it is what makes
     // one. Two methods because the provider is the path — see `OltreApi` and `Auth.kt`.

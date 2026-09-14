@@ -57,8 +57,8 @@ internal fun arrivalOf(saved: GameState?, resumed: GameState): Arrival? {
     )
 }
 
-// Exhaustive on `Event`, so a twelfth kind of event has to decide whether it is something a row
-// can announce — and the fleet slice is the first to be asked: `FleetDispatched` arrived with 0.3.0
+// Exhaustive on `Event`, so a fourteenth kind of event has to decide whether it is something a row
+// can announce — and the fleet slice was the first to be asked: `FleetDispatched` arrived with 0.3.0
 // and this refused to compile until it was answered, which is exactly what the exhaustiveness is
 // for. Most events are not announcements. A build *starting* is something the player did rather
 // than something they came back to; a run landing already has the fleet strip at the top of the
@@ -92,6 +92,11 @@ private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.ShipsBuilt,
     is Event.SurveyStarted,
     is Event.SurveyCompleted,
+    // A contribution is something the player did, not something they came back to — the clearest
+    // entry in this table, and the only one that cannot become ambiguous the way `ShipsBuilt` did:
+    // it settles at the instant it is applied, schedules nothing, and there is no future in which it
+    // lands while the app is closed.
+    is Event.ResourcesContributed,
     -> null
 }
 

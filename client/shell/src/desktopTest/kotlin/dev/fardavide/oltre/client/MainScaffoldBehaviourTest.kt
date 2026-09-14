@@ -8,7 +8,9 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ComposeUiTest
+import dev.fardavide.oltre.client.alliance.ui.AllianceActions
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
+import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -315,12 +317,22 @@ class MainScaffoldBehaviourTest {
     // **The Alliance tab's real screen, not a marker** — the one test in this file that drives the
     // actual composable rather than a stand-in, because the whole point of `AllianceScreen` is the
     // words it says, and a marker cannot be wrong about them.
+    //
+    // It read the coming-soon copy until the screens landed; what it asserts now is the face a tab
+    // opened with no network draws, which is the one the shell can reach without a gateway.
     @Test
-    fun `the Alliance tab shows the coming-soon screen`() {
-        scaffold(alliance = { scroll -> AllianceScreen(scrollState = scroll) }) {
+    fun `the Alliance tab shows the face it is handed`() {
+        scaffold(
+            alliance = { scroll ->
+                AllianceScreen(
+                    state = AllianceUiState.Held,
+                    actions = AllianceActions(),
+                    scrollState = scroll,
+                )
+            },
+        ) {
             onNodeWithTag(ShellTestTags.tab(OltreTab.ALLIANCE)).performClick()
-            onNodeWithText(English.resolve(Strings.allianceComingSoonTitle())).assertIsDisplayed()
-            onNodeWithText(English.resolve(Strings.allianceComingSoonBody())).assertIsDisplayed()
+            onNodeWithText(English.resolve(Strings.allianceSearchHeld())).assertIsDisplayed()
         }
     }
 

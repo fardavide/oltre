@@ -44,8 +44,10 @@ include(":sim")
 // Alliance rules are pure data; its gateway combines authenticated transport answers.
 include(":client:alliance:data")
 include(":client:alliance:domain")
-// The tab, ahead of the feature it names (#143, narrowed): a screen with nothing to decide, so
-// `ui` alone — see its build file for the `module-rules` reasoning.
+// The screens, and the layer that decides what goes on them. `ui` alone was right while the tab was
+// one sentence (#143, narrowed); the roster, the search, the treasury and the projects are four
+// surfaces with rules behind them, so `presentation` arrives with the work rather than ahead of it.
+include(":client:alliance:presentation")
 include(":client:alliance:ui")
 // What changed since the build you last opened. `domain` is the only layer that could exist before
 // the design came back: a version is three integers and "is there anything new" is a rule about two

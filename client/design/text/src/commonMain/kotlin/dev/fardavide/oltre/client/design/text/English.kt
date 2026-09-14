@@ -507,6 +507,75 @@ object English : Translations {
         StringId.AllianceComingSoonTitle -> "Coming soon"
         StringId.AllianceComingSoonBody ->
             "The alliance is being built. This tab will show it once it's ready."
+        // The alliance. Words rather than a spinner for every waiting state — nothing here animates.
+        StringId.AllianceAsking -> "Asking the server."
+        StringId.AllianceSearchLabel -> "Find one"
+        StringId.AllianceSearchIdle -> "Type a name to find an alliance to join."
+        // The string in full ink and then a stop: naming what was not found is what tells a player
+        // their spelling was read, which a bare "no results" does not.
+        StringId.AllianceSearchEmpty -> "Nothing called “${args.text(0)}”."
+        // **Held dims what acts, never what informs.** A search has nothing to show with no network,
+        // so it is told apart from empty in words alone.
+        StringId.AllianceSearchHeld -> "A search asks the server. There is nothing to search while there is no network."
+        StringId.AllianceRequestSeat -> "Request"
+        StringId.AllianceWithdraw -> "Withdraw"
+        StringId.AllianceFoundLabel -> "Found your own"
+        StringId.AllianceFoundBody -> "A name, a tag, and a price that makes it a decision rather than a formality."
+        StringId.AllianceFoundName -> "Name"
+        StringId.AllianceFoundTag -> "Tag"
+        StringId.AllianceFoundAction -> "Found it"
+        // **The first refusal in this app a finger can reach**, and it lands on the field rather
+        // than in a block: the answer is about the string that was there, so it clears on the first
+        // keystroke and the value stays editable.
+        StringId.AllianceNameTaken -> "“${args.text(0)}” is already somebody's."
+        StringId.AllianceTagTaken -> "“${args.text(0)}” is already somebody's."
+        StringId.AllianceWaitingOn -> "Waiting on ${args.text(0)}."
+        StringId.AllianceWaitingBody ->
+            "Your request sits until somebody answers it. Nothing expires, and nobody is told you are waiting."
+        StringId.AllianceSeatsLine -> "${args.number(0)} of ${args.number(1)} seats"
+        StringId.AllianceLevelBadge -> "LV ${args.number(0)}"
+        StringId.AlliancePendingLabel -> "Waiting"
+        StringId.AlliancePendingEmpty -> "Nobody is waiting. A request arrives when somebody finds you by name."
+        StringId.AllianceAccept -> "Accept"
+        StringId.AllianceDecline -> "Decline"
+        StringId.AllianceRosterLabel -> "Roster"
+        StringId.AllianceRoleFounder -> "FOUNDER"
+        StringId.AllianceRoleAdmin -> "ADMIN"
+        // **Its own word rather than `Decline` reused.** The two controls look alike and mean
+        // opposite things — one answers somebody asking to come in, the other puts somebody out —
+        // and a button that said the wrong one would be the clearest kind of mislabelled control.
+        StringId.AllianceRemove -> "Remove"
+        StringId.AllianceTreasuryLabel -> "Treasury"
+        // **Above the first tap, every time it is drawn, and never dismissible.** It is the whole of
+        // why the pool is safe against alt accounts, and a player who has not read it can otherwise
+        // discover it only by trying.
+        StringId.AllianceTreasuryRule -> "What goes in stays in."
+        StringId.AllianceTreasuryUnread -> "The pool has not been read yet."
+        StringId.AlliancePaidIn -> "You have paid in ${args.text(0)}."
+        // A word rather than 100%, because reaching for everything is not arithmetic.
+        StringId.AllianceShareAll -> "All"
+        StringId.AllianceShare -> "${args.number(0)}%"
+        StringId.AllianceContributeNothing -> "There is nothing to pay in."
+        StringId.AllianceConfirmAllTitle -> "Everything you have?"
+        StringId.AllianceConfirmAllBody ->
+            "This empties the colony into the pool, and nothing in this game ever takes it back out."
+        StringId.AllianceConfirmAllAction -> "Pay it all in"
+        StringId.AllianceConfirmAllKeep -> "Keep it"
+        StringId.AllianceProjectsLabel -> "Projects"
+        StringId.AllianceProjectsEmpty -> "Nothing left to build. The pool keeps paying into the level."
+        StringId.AllianceProjectCharter -> "Charter Expansion"
+        StringId.AllianceProjectCharterEffect -> "Two more seats on the roster, and a level toward the next."
+        StringId.AllianceProjectBuy -> "Buy"
+        StringId.AllianceProjectBought -> "BOUGHT ${args.number(0)}×"
+        StringId.AllianceProjectShort -> "The pool is short of this."
+        StringId.AllianceLeaveAction -> "Leave"
+        StringId.AllianceDisbandAction -> "Disband"
+        // The red refusal the three chips answer with offline. It names what did *not* happen to the
+        // colony, because the whole point of not queueing is that the resources are still there.
+        StringId.RefusedContributionLead -> "That did not reach the pool."
+        StringId.RefusedContributionBody ->
+            "A contribution cannot wait for a signal — the alliance has to agree you are still in it. " +
+                "Nothing left your colony."
         StringId.StepperFewer -> "−"
         StringId.StepperMore -> "+"
         StringId.DepositGap -> " "

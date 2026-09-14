@@ -1129,6 +1129,108 @@ object Strings {
 
     fun allianceComingSoonBody(): TextRes = message(StringId.AllianceComingSoonBody)
 
+    // ── The alliance ────────────────────────────────────────────────────────────────────────
+
+    fun allianceAsking(): TextRes = message(StringId.AllianceAsking)
+
+    fun allianceSearchLabel(): TextRes = message(StringId.AllianceSearchLabel)
+
+    fun allianceSearchIdle(): TextRes = message(StringId.AllianceSearchIdle)
+
+    // **A player's own string, and therefore `Raw`** — the query they typed, the name somebody else
+    // chose. It is outside the catalogue by construction, which is exactly what `TextRes.Raw` is for.
+    fun allianceSearchEmpty(query: TextRes): TextRes = message(StringId.AllianceSearchEmpty, Arg.Text(query))
+
+    fun allianceSearchHeld(): TextRes = message(StringId.AllianceSearchHeld)
+
+    fun allianceRequestSeat(): TextRes = message(StringId.AllianceRequestSeat)
+
+    fun allianceWithdraw(): TextRes = message(StringId.AllianceWithdraw)
+
+    fun allianceFoundLabel(): TextRes = message(StringId.AllianceFoundLabel)
+
+    fun allianceFoundBody(): TextRes = message(StringId.AllianceFoundBody)
+
+    fun allianceFoundName(): TextRes = message(StringId.AllianceFoundName)
+
+    fun allianceFoundTag(): TextRes = message(StringId.AllianceFoundTag)
+
+    fun allianceFoundAction(): TextRes = message(StringId.AllianceFoundAction)
+
+    fun allianceNameTaken(name: TextRes): TextRes = message(StringId.AllianceNameTaken, Arg.Text(name))
+
+    fun allianceTagTaken(tag: TextRes): TextRes = message(StringId.AllianceTagTaken, Arg.Text(tag))
+
+    fun allianceWaitingOn(name: TextRes): TextRes = message(StringId.AllianceWaitingOn, Arg.Text(name))
+
+    fun allianceWaitingBody(): TextRes = message(StringId.AllianceWaitingBody)
+
+    fun allianceSeatsLine(taken: Int, cap: Int): TextRes =
+        message(StringId.AllianceSeatsLine, Arg.Number(taken.toLong()), Arg.Number(cap.toLong()))
+
+    fun allianceLevelBadge(level: Int): TextRes = message(StringId.AllianceLevelBadge, Arg.Number(level.toLong()))
+
+    fun alliancePendingLabel(): TextRes = message(StringId.AlliancePendingLabel)
+
+    fun alliancePendingEmpty(): TextRes = message(StringId.AlliancePendingEmpty)
+
+    fun allianceAccept(): TextRes = message(StringId.AllianceAccept)
+
+    fun allianceDecline(): TextRes = message(StringId.AllianceDecline)
+
+    fun allianceRosterLabel(): TextRes = message(StringId.AllianceRosterLabel)
+
+    fun allianceRoleFounder(): TextRes = message(StringId.AllianceRoleFounder)
+
+    fun allianceRoleAdmin(): TextRes = message(StringId.AllianceRoleAdmin)
+
+    fun allianceRemove(): TextRes = message(StringId.AllianceRemove)
+
+    fun allianceTreasuryLabel(): TextRes = message(StringId.AllianceTreasuryLabel)
+
+    fun allianceTreasuryRule(): TextRes = message(StringId.AllianceTreasuryRule)
+
+    fun allianceTreasuryUnread(): TextRes = message(StringId.AllianceTreasuryUnread)
+
+    fun alliancePaidIn(total: TextRes): TextRes = message(StringId.AlliancePaidIn, Arg.Text(total))
+
+    fun allianceShareAll(): TextRes = message(StringId.AllianceShareAll)
+
+    fun allianceShare(percent: Int): TextRes = message(StringId.AllianceShare, Arg.Number(percent.toLong()))
+
+    fun allianceContributeNothing(): TextRes = message(StringId.AllianceContributeNothing)
+
+    fun allianceConfirmAllTitle(): TextRes = message(StringId.AllianceConfirmAllTitle)
+
+    fun allianceConfirmAllBody(): TextRes = message(StringId.AllianceConfirmAllBody)
+
+    fun allianceConfirmAllAction(): TextRes = message(StringId.AllianceConfirmAllAction)
+
+    fun allianceConfirmAllKeep(): TextRes = message(StringId.AllianceConfirmAllKeep)
+
+    fun allianceProjectsLabel(): TextRes = message(StringId.AllianceProjectsLabel)
+
+    fun allianceProjectsEmpty(): TextRes = message(StringId.AllianceProjectsEmpty)
+
+    fun allianceProjectCharter(): TextRes = message(StringId.AllianceProjectCharter)
+
+    fun allianceProjectCharterEffect(): TextRes = message(StringId.AllianceProjectCharterEffect)
+
+    fun allianceProjectBuy(): TextRes = message(StringId.AllianceProjectBuy)
+
+    fun allianceProjectBought(times: Int): TextRes =
+        message(StringId.AllianceProjectBought, Arg.Number(times.toLong()))
+
+    fun allianceProjectShort(): TextRes = message(StringId.AllianceProjectShort)
+
+    fun allianceLeaveAction(): TextRes = message(StringId.AllianceLeaveAction)
+
+    fun allianceDisbandAction(): TextRes = message(StringId.AllianceDisbandAction)
+
+    fun refusedContributionLead(): TextRes = message(StringId.RefusedContributionLead)
+
+    fun refusedContributionBody(): TextRes = message(StringId.RefusedContributionBody)
+
     // The stepper's two faces. **A true minus sign, not a hyphen** — the same glyph `signed` spends,
     // and the reason it is an entry rather than a literal in the sheet: which mark a language uses
     // for "one fewer" is the language's, and one of the two is already in the table.

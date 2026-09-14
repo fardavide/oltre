@@ -1,8 +1,10 @@
 package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.core.BuildShipsResult
+import dev.fardavide.oltre.core.ContributeResult
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartRunResult
@@ -10,6 +12,7 @@ import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.contribute
 import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.setAlertDelivery
 import dev.fardavide.oltre.core.setAlertMode
@@ -22,8 +25,12 @@ import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.toggleAlertCategory
 import dev.fardavide.oltre.core.toggleFlightAlerts
 import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProgress
+import dev.fardavide.oltre.protocol.AllianceProject
+import dev.fardavide.oltre.protocol.AllianceProjectOffer
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
@@ -44,6 +51,7 @@ import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.protocol.VerbRejection
 import kotlin.time.Duration.Companion.days
@@ -178,6 +186,33 @@ class FakeOltreApi(
     var searchAlliancesError: ApiError? = null,
 
     var setMemberRoleError: ApiError? = null,
+
+    // **A pool with one thing to spend it on, and enough in it to spend.** The default is the happy
+    // path for the same reason every other default on this fake is: a fake whose untouched state
+    // refuses is a fake that makes every test which is *not* about refusal script its way out of one.
+    // A test that wants an empty treasury, an exhausted catalogue or a short pool says so.
+    //
+    // The offer is present rather than the list being empty, because an empty catalogue is the one
+    // state the screen has to draw differently, and a default that produced it would make that the
+    // state every test saw by accident.
+    var treasury: TreasuryResponse = TreasuryResponse(
+        apiVersion = ApiVersion.CURRENT,
+        pool = Resources.of(metal = 60_000, crystal = 30_000, deuterium = 15_000),
+        contributed = 0,
+        progress = AllianceProgress(level = AllianceLevel(0), earned = 0, intoLevel = 0, span = 100_000),
+        projects = listOf(
+            AllianceProjectOffer(
+                project = AllianceProject.CHARTER_EXPANSION,
+                cost = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000),
+                affordable = true,
+                timesBought = 0,
+            ),
+        ),
+    ),
+
+    var treasuryError: ApiError? = null,
+
+    var buyProjectError: ApiError? = null,
 ) : OltreApi {
 
 
@@ -409,6 +444,32 @@ class FakeOltreApi(
         return refuseOrElse { setMemberRoleError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
     }
 
+    override suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> {
+        takeAlliance(AllianceRequest.Treasury(access))
+        return refuseOrElse { treasuryError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(treasury) }
+    }
+
+    // **It spends the pool for real when it answers**, which is the same choice `replays` makes for
+    // the sync pair: a fake that answered the state it was handed would let a screen pass that never
+    // redrew what it bought. What it does not model is the compare-and-set — that is the store's and
+    // has one home.
+    override suspend fun buyProject(access: SessionToken, project: AllianceProject): ApiResult<TreasuryResponse> {
+        takeAlliance(AllianceRequest.BuyProject(access, project))
+        return refuseOrElse {
+            buyProjectError?.let { return@refuseOrElse ApiResult.Refused(it) }
+            val offer = treasury.projects.firstOrNull { it.project == project }
+                ?: return@refuseOrElse ApiResult.Refused(ApiError.AllianceTreasuryShort)
+            if (!offer.affordable) return@refuseOrElse ApiResult.Refused(ApiError.AllianceTreasuryShort)
+            treasury = treasury.copy(
+                pool = treasury.pool.minus(offer.cost),
+                projects = treasury.projects.map {
+                    if (it.project == project) it.copy(timesBought = it.timesBought + 1) else it
+                },
+            )
+            ApiResult.Answered(treasury)
+        }
+    }
+
     override suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
         signIn(AuthProvider.APPLE, idToken, nonce)
 
@@ -592,6 +653,8 @@ enum class AllianceRoute {
     REMOVE_MEMBER,
     LEAVE,
     DISBAND,
+    TREASURY,
+    BUY_PROJECT,
 }
 
 sealed interface AllianceRequest {
@@ -603,6 +666,13 @@ sealed interface AllianceRequest {
     data class Standing(override val access: SessionToken) : AllianceRequest
 
     data class Roster(override val access: SessionToken) : AllianceRequest
+
+    data class Treasury(override val access: SessionToken) : AllianceRequest
+
+    // A `Mutation` like the other eight acts, and not because it writes a colony — it does not.
+    // Buying spends the pool and moves the level, so a test asserting what a screen *asked for*
+    // needs to tell it apart from the reads above.
+    data class BuyProject(override val access: SessionToken, val project: AllianceProject) : Mutation
 
     data class Search(
         override val access: SessionToken,
@@ -656,6 +726,8 @@ val AllianceRequest.route: AllianceRoute
         is AllianceRequest.RemoveMember -> AllianceRoute.REMOVE_MEMBER
         is AllianceRequest.Leave -> AllianceRoute.LEAVE
         is AllianceRequest.Disband -> AllianceRoute.DISBAND
+        is AllianceRequest.Treasury -> AllianceRoute.TREASURY
+        is AllianceRequest.BuyProject -> AllianceRoute.BUY_PROJECT
     }
 
 // **`:server`'s `applyVerb` said again on this side of the wire**, and the duplication is forced
@@ -699,4 +771,10 @@ private fun applyVerb(verb: ClientVerb, state: GameState, at: Instant): GameStat
     is ClientVerb.SetAlertMode -> setAlertMode(state, verb.mode)
     is ClientVerb.ToggleAlertCategory -> toggleAlertCategory(state, verb.category)
     is ClientVerb.SetAlertDelivery -> setAlertDelivery(state, verb.delivery)
+
+    // **The debit, and only the debit.** Where the resources land is a second row in a second table
+    // and this fake stands in for a server, not for a database — a test that wants to watch the pool
+    // grow scripts `treasury` and asserts on it. What has to be right here is that the colony comes
+    // back poorer, because that is what the screen redraws.
+    is ClientVerb.Contribute -> (contribute(state, verb.amount, at) as? ContributeResult.Started)?.state
 } ?: state

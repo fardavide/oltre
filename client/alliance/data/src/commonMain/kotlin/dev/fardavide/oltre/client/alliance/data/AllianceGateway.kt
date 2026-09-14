@@ -9,6 +9,7 @@ import dev.fardavide.oltre.client.net.data.renewing
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
@@ -17,6 +18,7 @@ import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -123,4 +125,29 @@ class AllianceGateway(
         is ApiResult.Refused -> answer
         ApiResult.Unreachable -> ApiResult.Unreachable
     }
+
+    // ── The treasury ────────────────────────────────────────────────────────────────────────
+    //
+    // **Its own read, not folded into `alliance()` above**, and the split is the feature's own
+    // shape rather than a convenience. The roster is what makes an alliance a *place* — no roster,
+    // no screen — so `alliance()` is not answered until it lands. The treasury is a panel on that
+    // screen: a server mid-deploy that refuses it leaves an alliance perfectly readable with its
+    // pool unread, which is a state the face already draws, and folding it in would have meant
+    // taking the roster away to say the pool could not be fetched.
+    //
+    // It also keeps the cost honest. `alliance()` is called on every launch and every idle minute
+    // the standing is unread; a third request on that path would be paid by every check-in, and
+    // most check-ins never open this tab.
+    suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> =
+        sessions.renewing(access) { api.treasury(it) }
+
+    // **Buying answers with the whole face**, on `AllianceResponse`'s own shape: the pool, the
+    // level and the progress come back together, so a control never has to fire a second request to
+    // know what it did.
+    //
+    // What it does *not* carry is the seat cap, which is on the alliance rather than the treasury —
+    // so a purchase that widens the roster needs `alliance()` again to see it. That is the caller's
+    // to do and the shell does it, rather than this method quietly making two requests.
+    suspend fun buyProject(access: SessionToken, project: AllianceProject): ApiResult<TreasuryResponse> =
+        sessions.renewing(access) { api.buyProject(it, project) }
 }

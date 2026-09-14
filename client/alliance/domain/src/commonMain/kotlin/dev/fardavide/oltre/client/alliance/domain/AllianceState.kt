@@ -12,6 +12,10 @@ sealed interface AllianceState {
 
     data class Petitioning(val alliance: Alliance) : AllianceState
 
+    // **No treasury on here, deliberately.** The roster is what makes an alliance a place and is
+    // read with the standing; the pool is a panel on the screen that standing produces, read on its
+    // own — see `AllianceGateway.treasury`. Putting it here would have made every launch pay for a
+    // request most check-ins never look at.
     data class Enlisted(
         val alliance: Alliance,
         val role: AllianceRole,
