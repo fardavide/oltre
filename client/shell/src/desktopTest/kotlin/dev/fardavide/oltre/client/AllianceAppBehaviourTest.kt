@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.net.data.AllianceRoute
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
@@ -190,6 +191,95 @@ class AllianceAppBehaviourTest {
             alliance.assertRosterRowReads(row = 1, text = Strings.allianceRoleAdmin())
             alliance.assertRosterRowReads(row = 2, text = Strings.levelBadge(0))
             alliance.assertNoWayOut()
+        }
+    }
+
+    // **The alliance as an admin sees it**, which is the third viewer role and the one no test had
+    // ever taken. Every enlisted test above views as a founder or as a plain member, so half of
+    // `AlliancePowers` — every arm that begins `ADMIN ->` — had never run on a screen.
+    //
+    // What an admin is, stated as three differences from the founder beside them:
+    //
+    //  - they **answer petitions**, so the pending section is theirs too;
+    //  - they **remove plain members and nobody else** — not the founder, not another admin, which
+    //    is the one place `canRemove` reads its target's role rather than its own;
+    //  - they **leave** rather than disband, because the alliance is not theirs to end.
+    @Test
+    fun `an admin answers petitions, removes only plain members, and leaves rather than disbands`() {
+        val server = enlisted().apply {
+            allianceStanding = AllianceStanding.Enlisted(
+                ALLIANCE.copy(seats = AllianceSeats(taken = 3, cap = 12)),
+                AllianceRole.ADMIN,
+            )
+            allianceRoster = ROSTER.copy(
+                members = ROSTER.members + listOf(
+                    MEMBER.copy(
+                        id = AllianceMemberId("seat-2"),
+                        profile = PlayerProfile(name = CommanderName("Ferro Secondo"), mark = null),
+                        role = AllianceRole.ADMIN,
+                    ),
+                    MEMBER,
+                ),
+            )
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            // The queue is drawn, because an admin is somebody who can answer it.
+            alliance.assertReads(Strings.allianceAccept())
+            // The founder's row and the other admin's offer nothing; the plain member's does.
+            alliance.assertRowOffersRemoval(row = 0, offered = false)
+            alliance.assertRowOffersRemoval(row = 1, offered = false)
+            alliance.assertRowOffersRemoval(row = 2, offered = true)
+            // And the way out is Leave, never Disband.
+            alliance.assertReads(Strings.allianceLeaveAction())
+            alliance.assertDoesNotRead(Strings.allianceDisbandAction())
+        }
+    }
+
+    // **A pending list sent to a plain member is not believed.** On the wire `null` means *not
+    // yours to see*, so a member never receives one — which is exactly why the client withholds the
+    // section on the **role** rather than on the null. That guard had never been exercised: every
+    // member-viewer test is handed `pending = null`, so the safe half short-circuits before the
+    // question is asked, and a server that leaked the queue would have drawn it.
+    @Test
+    fun `a member is not shown a queue they could not answer, even if the server sends one`() {
+        val server = enlisted().apply {
+            allianceStanding = AllianceStanding.Enlisted(ALLIANCE, AllianceRole.MEMBER)
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            // `ROSTER` carries a petition, and this viewer is a plain member.
+            alliance.assertDoesNotRead(Strings.alliancePendingLabel())
+            alliance.assertDoesNotRead(Strings.allianceAccept())
+            // The rest of the alliance is still theirs to read.
+            alliance.assertReads(Strings.allianceTreasuryRule())
+        }
+    }
+
+    // **The face every cold open goes through, and the one nothing had ever drawn.** Until the
+    // server answers, the destination is neither seeking nor enlisted — it is a sentence, in words
+    // rather than a spinner, because nothing on this screen animates. Ten lines of `Centred` that no
+    // behaviour test had rendered, on the state a player meets before any other.
+    @Test
+    fun `the tab says it is asking until the server answers`() {
+        val server = unaffiliated()
+        server.holdAlliance(AllianceRoute.STANDING)
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.assertReads(Strings.allianceAsking())
+            // Not the search, not the founding block — there is no standing yet to draw either from.
+            alliance.assertDoesNotRead(Strings.allianceFoundBody())
+
+            server.answerAlliance(AllianceRoute.STANDING)
+            alliance.settle()
+
+            alliance.assertReads(Strings.allianceFoundBody())
         }
     }
 

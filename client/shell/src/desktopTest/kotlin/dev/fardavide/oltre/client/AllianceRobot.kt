@@ -84,6 +84,12 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.waitForIdle()
     }
 
+    // Let a held answer land. Its own name rather than a bare `waitForIdle` in a test body, for the
+    // reason every other method here has one: a test says what happened, not how it was awaited.
+    fun settle() = apply {
+        test.waitForIdle()
+    }
+
     // ── What it reads ────────────────────────────────────────────────────────────────────────
 
     fun assertReads(text: TextRes) = apply {
@@ -120,6 +126,15 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row))
             .performScrollTo()
             .assert(hasAnyDescendant(hasText(English.resolve(text))))
+    }
+
+    // Whether one roster row carries a Remove control. Row-scoped rather than counted, because
+    // *which* row may be removed is the whole of what `canRemove` decides — a count would pass with
+    // the right number of controls on the wrong people.
+    fun assertRowOffersRemoval(row: Int, offered: Boolean) = apply {
+        val node = test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row)).performScrollTo()
+        val remove = hasAnyDescendant(hasText(English.resolve(Strings.allianceRemove())))
+        node.assert(if (offered) remove else !remove)
     }
 
     // **Absent, not greyed** — a founder who cannot leave and cannot disband is offered no control
