@@ -113,6 +113,21 @@ internal class AllianceRobot(private val app: AppRobot) {
         }
     }
 
+    // Scoped to one roster row, for `assertRosterNames`' reason and then some: a level badge is the
+    // worst thing to match by text alone, because the player strip carries the signed-in
+    // commander's own — so `LV 0` on the chrome would answer for `LV 0` on a member.
+    fun assertRosterRowReads(row: Int, text: TextRes) = apply {
+        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row))
+            .performScrollTo()
+            .assert(hasAnyDescendant(hasText(English.resolve(text))))
+    }
+
+    // **Absent, not greyed** — a founder who cannot leave and cannot disband is offered no control
+    // rather than one that refuses. The hole is the design's; see `alliance-sheet.md`.
+    fun assertNoWayOut() = apply {
+        test.onNodeWithTag(AllianceTestTags.DEPARTURE).assertDoesNotExist()
+    }
+
     fun depart() = apply {
         test.onNodeWithTag(AllianceTestTags.DEPARTURE).performScrollTo().performClick()
         test.waitForIdle()

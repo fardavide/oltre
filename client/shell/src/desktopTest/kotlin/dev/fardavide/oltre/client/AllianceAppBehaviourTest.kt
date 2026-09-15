@@ -153,6 +153,46 @@ class AllianceAppBehaviourTest {
 
     // **The good empty state, at full strength and naming where a request comes from** — a founder
     // with nobody waiting is not an error and gets no control.
+    // **The hole the design draws rather than hides** — `alliance-sheet.md`'s first open item, and
+    // until now no test had ever put it on screen. A founder cannot leave while anybody else is on
+    // the roster, and handing an alliance on is an act nobody has designed, so they are offered
+    // *nothing*: no Leave, no Disband. That is three states in one composition, each of which was a
+    // `when` arm no behaviour test reached —
+    //
+    //  - a founder with company gets no departure control at all;
+    //  - an **admin**'s role is drawn on their roster row, where a plain member's is not;
+    //  - a member whose colony predates the experience column reads `LV 0` rather than blank, which
+    //    is an honest unknown rather than *this player has done nothing*.
+    @Test
+    fun `a founder with company is offered no way out, beside an admin and an unread level`() {
+        val server = enlisted().apply {
+            allianceStanding = AllianceStanding.Enlisted(
+                ALLIANCE.copy(seats = AllianceSeats(taken = 3, cap = 12)),
+                AllianceRole.FOUNDER,
+            )
+            allianceRoster = ROSTER.copy(
+                members = ROSTER.members + listOf(
+                    MEMBER.copy(
+                        id = AllianceMemberId("seat-3"),
+                        profile = PlayerProfile(name = CommanderName("Ferro Secondo"), mark = null),
+                        role = AllianceRole.ADMIN,
+                    ),
+                    MEMBER.copy(experience = ExperienceReading.Unknown),
+                ),
+                pending = emptyList(),
+            )
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.assertRosterNames("Dead Reckoning", "Ferro Secondo", "Slow Burn")
+            alliance.assertRosterRowReads(row = 1, text = Strings.allianceRoleAdmin())
+            alliance.assertRosterRowReads(row = 2, text = Strings.levelBadge(0))
+            alliance.assertNoWayOut()
+        }
+    }
+
     @Test
     fun `nobody waiting is a sentence rather than a hole`() {
         val server = enlisted().apply { allianceRoster = ROSTER.copy(pending = emptyList()) }
