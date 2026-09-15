@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -142,6 +143,7 @@ private fun HeldFace() {
 }
 
 @Composable
+@NonRestartableComposable
 private fun Centred(text: TextRes, tag: String) {
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp)) {
         Text(
@@ -523,6 +525,7 @@ private fun ProjectRow(row: ProjectRowUiState, index: Int, actions: AllianceActi
 // search takes whatever is typed, and a name or a tag past its bound is a value the contract refuses,
 // so the field is what stops it existing rather than a message after the fact.
 @Composable
+@NonRestartableComposable
 private fun Field(
     value: String,
     onChange: (String) -> Unit,
@@ -557,6 +560,7 @@ private fun Field(
 }
 
 @Composable
+@NonRestartableComposable
 private fun Refusal(text: TextRes, tag: String) {
     Text(
         text = text.resolve(),
@@ -571,7 +575,17 @@ private fun Refusal(text: TextRes, tag: String) {
 // optional tag is a branch, and a branch only one caller ever takes is a branch nothing can cover.
 // `AllianceTestTags.UNNAMED` is what an element nobody drives carries, which keeps the helpers
 // straight-line and leaves the tag list honest about what a robot can reach.
+//
+// **And every one of them is `@NonRestartableComposable`**, which is the same sentence about
+// branches nothing can cover, said to the compiler instead. Each is a stateless leaf that reads
+// nothing but its parameters, so a restart scope of its own can do nothing its caller's cannot —
+// and Compose generates one anyway unless told not to, which is a `$changed` check per parameter
+// whose false arm only runs on a recomposition with identical values. A screenshot composes once
+// and never recomposes, so that arm is unreachable by the kind of test that draws these. The
+// `test-coverage` skill names the pattern; `Committing` in 0.15.4 was ten branches of machinery
+// over a `Row`.
 @Composable
+@NonRestartableComposable
 private fun Note(text: TextRes, tag: String = AllianceTestTags.UNNAMED, full: Boolean = false) {
     Text(
         text = text.resolve(),
@@ -584,6 +598,7 @@ private fun Note(text: TextRes, tag: String = AllianceTestTags.UNNAMED, full: Bo
 }
 
 @Composable
+@NonRestartableComposable
 private fun Title(text: TextRes, modifier: Modifier = Modifier) {
     Text(
         text = text.resolve(),
@@ -596,6 +611,7 @@ private fun Title(text: TextRes, modifier: Modifier = Modifier) {
 }
 
 @Composable
+@NonRestartableComposable
 private fun Caption(text: TextRes, modifier: Modifier = Modifier, tag: String = AllianceTestTags.UNNAMED) {
     Text(
         text = text.resolve(),
@@ -608,6 +624,7 @@ private fun Caption(text: TextRes, modifier: Modifier = Modifier, tag: String = 
 }
 
 @Composable
+@NonRestartableComposable
 private fun Tag(text: TextRes) {
     Text(
         text = text.resolve(),
@@ -620,6 +637,7 @@ private fun Tag(text: TextRes) {
 }
 
 @Composable
+@NonRestartableComposable
 private fun Badge(text: TextRes, tag: String = AllianceTestTags.UNNAMED) {
     Text(
         text = text.resolve(),
@@ -633,6 +651,7 @@ private fun Badge(text: TextRes, tag: String = AllianceTestTags.UNNAMED) {
 }
 
 @Composable
+@NonRestartableComposable
 private fun Ghost(
     text: TextRes,
     onClick: () -> Unit,
@@ -657,6 +676,7 @@ private fun Ghost(
 }
 
 @Composable
+@NonRestartableComposable
 private fun Filled(
     text: TextRes,
     onClick: () -> Unit,
