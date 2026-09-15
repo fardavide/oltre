@@ -11,8 +11,9 @@ import dev.fardavide.oltre.protocol.AllianceProject
 // `alliance-sheet.md` §8: `:sim` drives one colony against no opponents, there is no bot that joins
 // an alliance and no roster to measure, so **this is the first mechanic in Oltre with no simulator at
 // all.** Every other balance object in this repository was fitted against a thirty-day run; these
-// came from arithmetic and will come from a device. The balance round (`#145`) is what replaces them,
-// and it should treat nothing here as evidence.
+// came from arithmetic and will come from a device. The balance round (`#145`) **ran on 2026-09-15
+// and moved none of them** — see the table below. What would replace them is a roster with more than
+// one person in it, and there is not one yet, so nothing here has become evidence.
 //
 // **It lives in `:server` and not in `:protocol` and certainly not in `core`.** The wire carries the
 // level and the progress toward the next one, so the client renders what it is told and needs no
@@ -20,18 +21,25 @@ import dev.fardavide.oltre.protocol.AllianceProject
 // That is worth more here than anywhere else in the game, precisely because the first real reading
 // will come from a roster that does not exist yet.
 //
-// **Where each dial stands, as of round 33 (2026-09-15).** Davide's call that day was *play first*:
-// 0.25.1 is on TestFlight with every number below at its arithmetic value, and a dial moved before
-// the reading destroys the reading.
+// **Where each dial stands, as of round 33 (2026-09-15).** Davide's call that day was *play first*;
+// 0.25.1 went to TestFlight with every number below at its arithmetic value, he founded an alliance
+// on it, and the reading came back **"they good"** — so nothing moved and `#145` closed.
 //
 // | Dial | Standing |
 // |---|---|
-// | `FOUNDING_PRICE` | **Davide's**, 2026-09-13. Confirm on the install |
+// | `FOUNDING_PRICE` | **Davide's**, 2026-09-13. Confirmed on the install, 2026-09-15 |
 // | the gate | **Davide's**, 2026-09-15: there is none |
 // | `award` (`k = 1`) | fixed by identity — doubling it and the ladder together changes nothing |
-// | `PROJECT_AWARD_PERCENT` | **arithmetic**, held for the install |
-// | `LEVEL_BASE` / `LEVEL_GROWTH_PERCENT` | **arithmetic**, held for the install |
-// | `SEAT_BASE` / `SEATS_PER_LEVEL` / `SEAT_CAP` | **arithmetic**, held for the install |
+// | `PROJECT_AWARD_PERCENT` | **arithmetic**, confirmed by play, unmoved |
+// | `LEVEL_BASE` / `LEVEL_GROWTH_PERCENT` | **arithmetic**, confirmed by play, unmoved |
+// | `SEAT_BASE` / `SEATS_PER_LEVEL` / `SEAT_CAP` | **arithmetic**, confirmed by play, unmoved |
+//
+// **They still say arithmetic rather than measured, and that is deliberate.** Confirmed-by-play and
+// fitted-to-a-reading are different things: the confirmation was one sentence answering four
+// separately-scoped questions, given by a founder on **a roster of one**. Nobody has yet filled a
+// seat, bought a Charter Expansion with somebody else's contribution, or watched the gauge move on
+// anything but their own income — so the seat dials in particular were confirmed by a player who
+// could not yet feel them. The first measurement waits on a second member, not on a new round.
 internal object AllianceBalance {
 
     // ── The ladder ───────────────────────────────────────────────────────────────────────────

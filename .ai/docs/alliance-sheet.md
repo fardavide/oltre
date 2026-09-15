@@ -27,14 +27,14 @@ argument, a proposal or a flag, in the shape [`galaxy-sheet.md`](galaxy-sheet.md
 | There is an **admin role** between founder and member, and succession runs *admin → best contributor → and they must be active* | yes | Davide, 2026-09-05 |
 | The level runs on the **total only** — no per-member average beside it | yes | Davide, 2026-09-05 |
 | Where the alliance lives in the UI | **Claude Design's**, from the round trip | Davide, 2026-09-05 |
-| The price, the gate, the ladder, the caps | open — the balance round | §5, §9 |
+| The price, the gate, the ladder, the caps | **all settled** — the balance round ran and closed | §5.1, §9, `balance-log.md` round 33 |
 | Inactivity for succession is **30 days without a colony sync** | yes | Davide, 2026-09-12, issue #138 |
 | A founder replaced by succession becomes an **admin**, with no automatic restoration | yes | Davide, 2026-09-12, issue #138 |
 | An admin may **remove members only**, never another admin or the founder | yes | Davide, 2026-09-12, issue #138 |
 | The lifecycle uses a **temporary cap of 20 members**, including founder and admins | yes | Davide, 2026-09-12, issue #138; curve deferred to balance |
 | A pending join request must be **withdrawn before founding or petitioning a different alliance**; retrying the same petition preserves it | yes | Davide, 2026-09-12, issue #138 |
 | **There is no level gate on founding** — the price does the work | yes | Davide, 2026-09-15, issue #145 |
-| The ladder, the project lump and the member cap are **held at their arithmetic values until the install has been played** | yes | Davide, 2026-09-15, issue #145 |
+| The ladder, the project lump and the member cap **stay at their arithmetic values** — the install was played and the reading was *"they good"* | yes | Davide, 2026-09-15, issue #145 |
 
 ---
 
@@ -311,6 +311,11 @@ and `ApiVersion` bump that §1.3 makes unavoidable for any of the four.
 > thing: round 32 measured surveys at 36.3% of a month's points, so a player who works the colony and
 > never flies a probe is about a week behind one who does (`BalanceBenchmark`'s build-only floor is
 > Lv 8 at day 7 against `:sim:run`'s Lv 11). See `balance-log.md` round 33.
+>
+> **Played and confirmed** (Davide, 2026-09-15, issue #145). He founded one on the 0.25.1 build and
+> the reading on the price, the project lump, the ladder base and the seat base was *"they good"*, so
+> all four stand as shipped. See `balance-log.md` round 33 for what that reading does and does not
+> license — it is one answer to four scoped questions, on a roster of one.
 >
 > **Still open below:** the day unit in the duration format — until that exists the block says the
 > colony is short rather than how long until it is not.
@@ -736,10 +741,13 @@ Notes belonging to the whole epic rather than one slice:
 
 1. **The price and the gate on founding** (§5.1) — both settled: the price is Davide's of 2026-09-13
    and is charged since 0.25.0; **there is no gate**, Davide's of 2026-09-15 (`balance-log.md` round
-   33). What is left is a reading from an install, not a call.
+   33). The reading from the install came in the same day — *"they good"* — so nothing is left here.
 2. **What "active" means** for succession — settled 2026-09-12: a colony sync within 30 days (§0).
 3. **Which powers an admin gets** (§5.3) — settled 2026-09-12: answer requests and remove members only;
    rename, disband and setting roles stay with the founder. A replaced founder becomes an admin (§0).
-4. **The anti-alt levers** (§2) — member cap, per-member contribution ceiling, sub-linear XP curve, or
-   an accepted residual.
-5. **The ladder's step and the member cap's curve** — the balance round, and it has no simulator (§8).
+4. **The anti-alt levers** (§2) — settled as **an accepted residual**, by timing rather than by
+   choice: the ceiling needed a timestamped contributions column before the treasury slice shipped,
+   and it shipped at 0.24.0 (`balance-log.md` round 33). Buying it back is a migration now.
+5. **The ladder's step and the member cap's curve** — settled 2026-09-15: they stay at their
+   arithmetic values, confirmed by the install. Still never *measured* — there is no simulator (§8)
+   and no roster bigger than one, so the first real reading waits on a second member.
