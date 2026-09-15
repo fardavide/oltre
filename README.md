@@ -227,6 +227,22 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.25.0 — 2026-09-14
+
+- **Founding an alliance costs something.** 200,000 metal, 100,000 crystal and 50,000 deuterium, out
+  of your colony, stated on the founding block before you type anything. Short of it, there is no
+  button and a line says why.
+- **Founding an alliance works.** *Found it* used to appear the moment both boxes held something and
+  then do nothing when the tag was not one the game accepts. It now waits until the name and the tag
+  are ones it can send, and the tag box says what it wants.
+- **A tag is three or four capitals or digits**, and the keyboard offers capitals for it and a capital
+  at every word of the name.
+- **The roster fills in after you act on it.** Founding one, admitting somebody or removing them left
+  the roster empty and the treasury unread until the app was restarted; all three now read the
+  alliance back.
+- **This release moves the save format and the server contract again**, so every device has to be on
+  this build to keep playing.
+
 ### 0.24.0 — 2026-09-14
 
 - **The alliance is real.** Search for one by name, ask to join it, or found your own with a name and

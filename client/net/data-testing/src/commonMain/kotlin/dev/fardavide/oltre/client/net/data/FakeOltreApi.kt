@@ -212,6 +212,14 @@ class FakeOltreApi(
 
     var treasuryError: ApiError? = null,
 
+    // **The real number, not a round one**, so a test that asserts the founding block draws the
+    // price is asserting the price the game actually charges — `AllianceBalance.FOUNDING_PRICE`,
+    // 200,000 / 100,000 / 50,000, Davide's on 2026-09-13. A fake with a tidier figure would let a
+    // screen pass while drawing something no server ever sends.
+    var foundingPrice: Resources = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000),
+
+    var foundingPriceError: ApiError? = null,
+
     var buyProjectError: ApiError? = null,
 ) : OltreApi {
 
@@ -382,13 +390,30 @@ class FakeOltreApi(
         return refuseOrElse { answerRequestError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
     }
 
+    // **It charges the colony for real when it answers**, which is `buyProject`'s choice below and
+    // the reason it matters more here: founding is the only alliance act that spends a *colony*, so
+    // a fake that handed the standing back untouched would let a screen pass that took the price and
+    // never redrew the rail. What it does not model is the transaction — that is the store's.
     override suspend fun createAlliance(
         access: SessionToken,
         name: AllianceName,
         tag: AllianceTag,
     ): ApiResult<AllianceStanding> {
         takeAlliance(AllianceRequest.Create(access, name, tag))
-        return refuseOrElse { createAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+        return refuseOrElse {
+            createAllianceError?.let { return@refuseOrElse ApiResult.Refused(it) }
+            // **A fake holding no colony is not modelling one**, which is why this charges rather
+            // than refusing `NoColony`: the plumbing tests in `:client:alliance:data` never give it
+            // one because they are about renewal and caching, and the real route's `NoColony` is
+            // unreachable from this client anyway — the founding block is drawn from the synced
+            // colony's own stock, so a player without one never sees the control.
+            val held = colony ?: return@refuseOrElse ApiResult.Answered(allianceStanding)
+            if (!held.state.resources.covers(foundingPrice)) {
+                return@refuseOrElse ApiResult.Refused(ApiError.AllianceFoundingUnaffordable)
+            }
+            colony = held.copy(state = held.state.copy(resources = held.state.resources.minus(foundingPrice)))
+            ApiResult.Answered(allianceStanding)
+        }
     }
 
     override suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding> {
@@ -447,6 +472,11 @@ class FakeOltreApi(
     override suspend fun treasury(access: SessionToken): ApiResult<TreasuryResponse> {
         takeAlliance(AllianceRequest.Treasury(access))
         return refuseOrElse { treasuryError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(treasury) }
+    }
+
+    override suspend fun foundingPrice(access: SessionToken): ApiResult<Resources> {
+        takeAlliance(AllianceRequest.FoundingPrice(access))
+        return refuseOrElse { foundingPriceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(foundingPrice) }
     }
 
     // **It spends the pool for real when it answers**, which is the same choice `replays` makes for
@@ -655,6 +685,7 @@ enum class AllianceRoute {
     DISBAND,
     TREASURY,
     BUY_PROJECT,
+    FOUNDING_PRICE,
 }
 
 sealed interface AllianceRequest {
@@ -668,6 +699,8 @@ sealed interface AllianceRequest {
     data class Roster(override val access: SessionToken) : AllianceRequest
 
     data class Treasury(override val access: SessionToken) : AllianceRequest
+
+    data class FoundingPrice(override val access: SessionToken) : AllianceRequest
 
     // A `Mutation` like the other eight acts, and not because it writes a colony — it does not.
     // Buying spends the pool and moves the level, so a test asserting what a screen *asked for*
@@ -728,6 +761,7 @@ val AllianceRequest.route: AllianceRoute
         is AllianceRequest.Disband -> AllianceRoute.DISBAND
         is AllianceRequest.Treasury -> AllianceRoute.TREASURY
         is AllianceRequest.BuyProject -> AllianceRoute.BUY_PROJECT
+        is AllianceRequest.FoundingPrice -> AllianceRoute.FOUNDING_PRICE
     }
 
 // **`:server`'s `applyVerb` said again on this side of the wire**, and the duplication is forced

@@ -1,7 +1,10 @@
 package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -81,14 +84,68 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.waitForIdle()
     }
 
+    // Let a held answer land. Its own name rather than a bare `waitForIdle` in a test body, for the
+    // reason every other method here has one: a test says what happened, not how it was awaited.
+    fun settle() = apply {
+        test.waitForIdle()
+    }
+
     // ── What it reads ────────────────────────────────────────────────────────────────────────
 
     fun assertReads(text: TextRes) = apply {
         test.onNodeWithText(English.resolve(text)).performScrollTo().assertIsDisplayed()
     }
 
+    fun assertDoesNotRead(text: TextRes) = apply {
+        test.onNodeWithText(English.resolve(text)).assertDoesNotExist()
+    }
+
     fun assertSaysSeats(taken: Int, cap: Int) = apply {
         assertReads(Strings.allianceSeatsLine(taken, cap))
+    }
+
+    // **Who is actually drawn on the roster**, which is the half that went missing: every alliance
+    // act answers with a standing alone, so a screen that did not follow it with a roster read drew
+    // a card with no rows in it and no way to tell that from an alliance of nobody.
+    //
+    // By row rather than by text, because the player strip carries the signed-in commander's name
+    // too — a bare text query matches both and cannot tell a roster from a chrome line.
+    fun assertRosterNames(vararg names: String) = apply {
+        names.forEachIndexed { index, name ->
+            test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, index))
+                .performScrollTo()
+                .assertIsDisplayed()
+                .assert(hasAnyDescendant(hasText(name)))
+        }
+    }
+
+    // Scoped to one roster row, for `assertRosterNames`' reason and then some: a level badge is the
+    // worst thing to match by text alone, because the player strip carries the signed-in
+    // commander's own — so `LV 0` on the chrome would answer for `LV 0` on a member.
+    fun assertRosterRowReads(row: Int, text: TextRes) = apply {
+        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row))
+            .performScrollTo()
+            .assert(hasAnyDescendant(hasText(English.resolve(text))))
+    }
+
+    // Whether one roster row carries a Remove control. Row-scoped rather than counted, because
+    // *which* row may be removed is the whole of what `canRemove` decides — a count would pass with
+    // the right number of controls on the wrong people.
+    fun assertRowOffersRemoval(row: Int, offered: Boolean) = apply {
+        val node = test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row)).performScrollTo()
+        val remove = hasAnyDescendant(hasText(English.resolve(Strings.allianceRemove())))
+        node.assert(if (offered) remove else !remove)
+    }
+
+    // **Absent, not greyed** — a founder who cannot leave and cannot disband is offered no control
+    // rather than one that refuses. The hole is the design's; see `alliance-sheet.md`.
+    fun assertNoWayOut() = apply {
+        test.onNodeWithTag(AllianceTestTags.DEPARTURE).assertDoesNotExist()
+    }
+
+    fun depart() = apply {
+        test.onNodeWithTag(AllianceTestTags.DEPARTURE).performScrollTo().performClick()
+        test.waitForIdle()
     }
 
     fun assertNothingToConfirm() = apply {
@@ -116,6 +173,25 @@ internal class AllianceRobot(private val app: AppRobot) {
         .flatMap { it.envelopes }
         .map { it.verb }
         .filterIsInstance<ClientVerb.Contribute>()
+
+    // **What the server holds once the founding is answered.** The charge is the server's — `core`
+    // takes the price out inside the route's transaction — so the colony on the fake is the honest
+    // place to read it, exactly as the contribution assertions above read the sync envelopes.
+    fun assertColonyCharged(metal: Long, crystal: Long, deuterium: Long) = apply {
+        val held = checkNotNull(app.server.colony) { "the server holds no colony" }.state.resources
+        assertEquals(metal, held.metal, "metal")
+        assertEquals(crystal, held.crystal, "crystal")
+        assertEquals(deuterium, held.deuterium, "deuterium")
+    }
+
+    // And that the phone went back for it. Without the sync the tap fires, the rail keeps drawing
+    // stock the server has already spent, and nothing on screen says otherwise until the next
+    // minute tick.
+    fun assertReadTheColonyBack() = apply {
+        val founded = app.server.allianceRequests().indexOfFirst { it is AllianceRequest.Create }
+        assertTrue(founded >= 0, "nothing was founded")
+        assertTrue(app.server.syncs().isNotEmpty(), "the colony was never read back after founding")
+    }
 
     fun assertBoughtAProject() = apply {
         val bought = app.server.allianceRequests().filterIsInstance<AllianceRequest.BuyProject>()

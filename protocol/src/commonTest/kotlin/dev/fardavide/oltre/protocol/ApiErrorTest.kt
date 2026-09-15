@@ -26,6 +26,7 @@ private enum class ErrorId {
     ALLIANCE_ROLE_TOO_LOW,
     STALE_ALLIANCE,
     ALLIANCE_TREASURY_SHORT,
+    ALLIANCE_FOUNDING_UNAFFORDABLE,
     INTERNAL,
 }
 
@@ -46,6 +47,7 @@ private fun idOf(error: ApiError): ErrorId = when (error) {
     ApiError.AllianceRoleTooLow -> ErrorId.ALLIANCE_ROLE_TOO_LOW
     ApiError.StaleAlliance -> ErrorId.STALE_ALLIANCE
     ApiError.AllianceTreasuryShort -> ErrorId.ALLIANCE_TREASURY_SHORT
+    ApiError.AllianceFoundingUnaffordable -> ErrorId.ALLIANCE_FOUNDING_UNAFFORDABLE
     is ApiError.Internal -> ErrorId.INTERNAL
 }
 
@@ -69,6 +71,7 @@ private val SAMPLES: List<ApiError> = listOf(
     ApiError.AllianceRoleTooLow,
     ApiError.StaleAlliance,
     ApiError.AllianceTreasuryShort,
+    ApiError.AllianceFoundingUnaffordable,
     ApiError.Internal("the store did not answer"),
 )
 
@@ -111,6 +114,7 @@ class ApiErrorTest {
                 "AllianceRoleTooLow",
                 "StaleAlliance",
                 "AllianceTreasuryShort",
+                "AllianceFoundingUnaffordable",
                 "Internal",
             ),
             encoded,

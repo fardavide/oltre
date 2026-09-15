@@ -110,7 +110,7 @@ class FakeOltreApiAllianceTest {
 internal fun fakeAlliance(): Alliance = Alliance(
     AllianceId("ferro-alto"),
     AllianceName("Ferro Alto"),
-    AllianceTag("FERRO"),
+    AllianceTag("FRA"),
     AllianceLevel(0),
     AllianceSeats(1, 12),
 )
@@ -140,6 +140,7 @@ internal fun fakeRequests(): List<AllianceRequest> = listOf(
     AllianceRequest.Disband(SessionToken("adas.access")),
     AllianceRequest.Treasury(SessionToken("adas.access")),
     AllianceRequest.BuyProject(SessionToken("adas.access"), AllianceProject.CHARTER_EXPANSION),
+    AllianceRequest.FoundingPrice(SessionToken("adas.access")),
 )
 
 internal suspend fun invokeAlliance(api: OltreApi, request: AllianceRequest): ApiResult<Unit> =
@@ -157,6 +158,7 @@ internal suspend fun invokeAlliance(api: OltreApi, request: AllianceRequest): Ap
         is AllianceRequest.Disband -> api.disbandAlliance(request.access).withoutValue()
         is AllianceRequest.Treasury -> api.treasury(request.access).withoutValue()
         is AllianceRequest.BuyProject -> api.buyProject(request.access, request.project).withoutValue()
+        is AllianceRequest.FoundingPrice -> api.foundingPrice(request.access).withoutValue()
     }
 
 private fun <T> ApiResult<T>.withoutValue(): ApiResult<Unit> = when (this) {
@@ -180,5 +182,6 @@ private fun refuseAlliance(api: FakeOltreApi, route: AllianceRoute, error: ApiEr
         AllianceRoute.DISBAND -> api.disbandAllianceError = error
         AllianceRoute.TREASURY -> api.treasuryError = error
         AllianceRoute.BUY_PROJECT -> api.buyProjectError = error
+        AllianceRoute.FOUNDING_PRICE -> api.foundingPriceError = error
     }
 }

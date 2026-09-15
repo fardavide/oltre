@@ -10,7 +10,10 @@ import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.FoundAllianceResult
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.foundAlliance
 import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.JoinRequest
 import java.sql.Connection
@@ -92,7 +95,22 @@ internal class PostgresAllianceRepository(
         }, read = { rows -> buildList { while (rows.next()) add(rows.storedAlliance()) } })
     }
 
-    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
+    // **The colony is read and charged inside this transaction**, which is what makes founding atomic
+    // without a retry loop: `lockedColony` holds the row until the commit, so nothing can move it
+    // between the read that prices the founding and the write that pays for it.
+    //
+    // **The charge is the last statement**, after every verdict and both inserts. That ordering is
+    // load-bearing in the direction that matters: `transaction` commits whatever the block returns, so
+    // every `return@transaction Founded.Refused(…)` below happens before any money moves. The reverse
+    // exposure — an alliance inserted and then not paid for — cannot arise, because by the time the
+    // charge runs the only thing that could refuse it has already been checked under the same lock.
+    override suspend fun found(
+        player: PlayerId,
+        name: AllianceName,
+        tag: AllianceTag,
+        now: Instant,
+        price: Resources,
+    ): Founded =
         dataSource.transaction { connection ->
             when (val verdict = AllianceRules.founding(connection.selectAffiliation(player), name, tag, emptyList())) {
                 is FoundingVerdict.Refused -> return@transaction Founded.Refused(verdict.error)
@@ -116,6 +134,37 @@ internal class PostgresAllianceRepository(
                 is FoundingVerdict.Refused -> return@transaction Founded.Refused(verdict.error)
                 is FoundingVerdict.Retry -> return@transaction Founded.AlreadyFounded(verdict.alliance, verdict.role)
                 FoundingVerdict.Proceed -> Unit
+            }
+            // **The money, decided before anything is inserted**, so a colony that cannot cover the
+            // price leaves this transaction having written nothing but the reap. The row stays locked
+            // from here to the commit, which is why the write below cannot fail for a reason this
+            // has not already seen.
+            //
+            // **A founding with no price reads no colony**, which is what keeps `Resources.of()`
+            // meaning genuinely free: nothing to charge, so nothing to look up and no `NoColony` to
+            // refuse with. Production never takes that branch — `AllianceBalance.FOUNDING_PRICE` is
+            // what the route passes — and the tests that do are about rosters rather than money.
+            //
+            // **Decided here and written after the inserts**, which is the split the two failure
+            // modes force. Affordability has to be judged before anything is inserted, or a refusal
+            // would `return@transaction` and *commit* an alliance nobody paid for; the write has to
+            // land after, or the `inserted == 0` refusal below would commit a charge with no alliance
+            // behind it. Between the two the row is held by `FOR UPDATE`, so nothing can move it and
+            // the write cannot fail for a reason this check has not already seen.
+            val charged: StoredColony? = if (price == Resources.of()) {
+                null
+            } else {
+                val stored = connection.lockedColony(player)
+                    ?: return@transaction Founded.Refused(ApiError.NoColony)
+                val advanced = advance(stored.snapshot.state, from = stored.snapshot.lastUpdatedAt, to = now)
+                val paid = when (val result = foundAlliance(advanced, price, now)) {
+                    FoundAllianceResult.InsufficientResources ->
+                        return@transaction Founded.Refused(ApiError.AllianceFoundingUnaffordable)
+                    is FoundAllianceResult.Paid -> result.state
+                }
+                // `lastUpdatedAt` moves with the state, or the next read would advance the charged
+                // colony a second time from the old instant and hand back what the price took.
+                StoredColony(stored.snapshot.copy(lastUpdatedAt = now, state = paid), stored.version)
             }
             val inserted = connection.update(INSERT_ALLIANCE) {
                 setString(1, id.value)
@@ -143,6 +192,12 @@ internal class PostgresAllianceRepository(
                 setString(4, AllianceRole.FOUNDER.name)
                 setObject(5, now.atUtc())
                 setLong(6, 0)
+            }
+            // **The money, last, on the row that has been locked since it was priced.**
+            charged?.let {
+                check(connection.writeColony(player, it.snapshot, it.version, now)) {
+                    "a colony locked for founding lost its own compare-and-set"
+                }
             }
             val enlisted = connection.selectAffiliation(player)
             check(enlisted is Affiliation.Enlisted) { "a founder seat was inserted but could not be read" }

@@ -24,8 +24,9 @@ sealed interface AllianceUiState {
     // animates.
     data object Asking : AllianceUiState
 
-    // Not in one. A search, and the founding block beneath it so the price is known before anything
-    // is typed.
+    // Not in one. A search, and the founding block beneath it — which the sheet wants to state the
+    // price before anything is typed, and which says founding is free instead, because it is: no
+    // route charges for it yet. The block will say what it costs when something takes it.
     data class Seeking(
         val search: SearchUiState,
         val founding: FoundingUiState,
@@ -107,8 +108,21 @@ data class FoundingUiState(
     val body: TextRes,
     val nameLabel: TextRes,
     val tagLabel: TextRes,
+    // **The shape the tag has to be, drawn whether or not anything has been typed.** The commit
+    // control is absent until both fields hold something the contract accepts, and an absence with
+    // nothing beside it is exactly the unanswerable question a greyed button would have been.
+    val tagRule: TextRes,
     val name: String,
     val tag: String,
+    // **What founding costs, read off the server rather than known here.** The balance lives in
+    // `:server` so a deploy can retune it, which is the same division the project rows use for their
+    // own prices — so this is null until the price has been read, and the block says so rather than
+    // drawing a figure it is guessing at.
+    val cost: TextRes,
+    // False when the colony cannot cover the price. The control is **absent** rather than greyed and
+    // the line below says why, which is the project row's own answer to the same question.
+    val affordable: Boolean,
+    val shortLine: TextRes,
     val action: TextRes,
     // **The refusal lands on the field rather than in a block**, and both fields can carry one at
     // once because one commit sends both. It clears on the first keystroke — the answer was about

@@ -43,6 +43,24 @@ internal object AllianceBalance {
     // nobody could reproduce.
     const val LEVEL_GROWTH_PERCENT: Long = 145
 
+    // ── The founding price ───────────────────────────────────────────────────────────────────
+
+    // **Davide's, 2026-09-13**, and the one number in this file that is not invented here —
+    // `alliance-sheet.md` §5.1 records it and this is where it is finally charged. Priced on the
+    // game's own 1 : 2 : 3 at 550,000, which is *"a real commitment, not a formality"*: a fortnight
+    // of production at mid-game rates rather than an afternoon's, so founding is a week-two decision.
+    //
+    // **It lives here rather than in `:protocol` for `LEVEL_BASE`'s reason**, and the reason bites
+    // harder for this one than for the ladder: the client draws whatever `GET /v1/alliance/founding`
+    // tells it, so a balance round can retune the price with a deploy. A constant in the contract
+    // would need a release on both platforms to move a number that has never been measured against a
+    // real roster.
+    //
+    // **What is not here is the gate.** §5.1 floats a player-level gate on founding alongside the
+    // price and calls it open; it is Davide's, and a level threshold invented here would be the
+    // first thing the player level gated, chosen by nobody.
+    val FOUNDING_PRICE: Resources = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000)
+
     // ── The seats ────────────────────────────────────────────────────────────────────────────
 
     // What an alliance opens with. Five is a raiding party rather than a guild — enough that the

@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":19,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":20,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -170,6 +170,8 @@ class GameSaveTest {
                 // identifier like the four above, *and* it is the discriminator whose absence from
                 // an older build's decoder is what schema 19 turns into a designed refusal.
                 Event.ResourcesContributed(amount = Resources.of(metal = 600), at = EPOCH),
+                // And schema 20's, on the same sentence one version later.
+                Event.AllianceFounded(price = Resources.of(metal = 200_000), at = EPOCH),
             ),
         )
 
@@ -184,6 +186,7 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""type":"ShipsBuilt""""), encoded)
         assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
         assertTrue(encoded.contains(""""type":"ResourcesContributed""""), encoded)
+        assertTrue(encoded.contains(""""type":"AllianceFounded""""), encoded)
     }
 
     // **Every event kind, decoded rather than merely written.** The test above encodes five of the
@@ -234,6 +237,13 @@ class GameSaveTest {
             Event.ResourcesContributed(
                 amount = Resources.of(metal = 4_210, crystal = 960, deuterium = 120),
                 at = EPOCH + 12.hours,
+            ),
+            // The fourteenth, and schema 20's floor for the same reason the thirteenth is 19's: an
+            // older build has never heard this discriminator, so the version bump only means
+            // anything if the current build can read one back.
+            Event.AllianceFounded(
+                price = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000),
+                at = EPOCH + 13.hours,
             ),
         )
         val state = GameState.initial().copy(eventLog = log)
@@ -1232,8 +1242,22 @@ class GameSaveTest {
     // frozen `VERSION_*` constants below are under, said for a fixture that is derived rather than
     // frozen.
     private fun schema18(state: GameState): String =
+        schema19(state).replace(""""schemaVersion":19""", """"schemaVersion":18""")
+
+    // ── 19 -> 20: the founding price ────────────────────────────────────────────────────────
+    //
+    // A save written by 0.24, and byte-for-byte a current save with a different number on it for
+    // schema 18's reason said again: schema 20 adds no key and removes none, and moves the version
+    // because `eventLog` can now hold an `AllianceFounded` an older build has never heard of.
+    //
+    // **The chain is derived rather than pasted, and this link is why.** Every older fixture goes
+    // through here, so a hop that moves `SCHEMA_VERSION` needs exactly one new link and no edit to
+    // the ones below it — which is what stops the whole chain silently becoming a no-op `replace`
+    // and handing every migration test a save stamped with the current version. That is precisely
+    // what happened when 19 landed without this link.
+    private fun schema19(state: GameState): String =
         GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
-            .replace(""""schemaVersion":19""", """"schemaVersion":18""")
+            .replace(""""schemaVersion":20""", """"schemaVersion":19""")
 
     // Derived from the state rather than pasted, for the reason the whole fixture chain is.
     private fun chartedKey(state: GameState): String =

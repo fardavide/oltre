@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.protocol
 
+import dev.fardavide.oltre.core.Resources
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
@@ -77,17 +78,51 @@ value class JoinRequestId(val value: String) {
 value class AllianceName(val value: String) {
 
     init {
-        require(value.isNotBlank()) { "an alliance has a name or has not been founded; blank is neither" }
-        require(value == value.trim()) { "a name is trimmed before it is sent: was '$value'" }
-        require(value.length <= MAX_LENGTH) {
-            "a name longer than $MAX_LENGTH is one the field cannot produce: was ${value.length}"
+        when (val refusal = refusalFor(value)) {
+            null -> Unit
+            else -> throw IllegalArgumentException(refusal.saidOf(value))
         }
     }
 
     companion object {
 
         const val MAX_LENGTH: Int = 32
+
+        // **The rule as a question rather than as a raise**, so both ends can ask it — see
+        // `AllianceNameRefusal` for why that matters and where it went wrong without it.
+        fun refusalFor(value: String): AllianceNameRefusal? = when {
+            value.isBlank() -> AllianceNameRefusal.BLANK
+            value != value.trim() -> AllianceNameRefusal.UNTRIMMED
+            value.length > MAX_LENGTH -> AllianceNameRefusal.TOO_LONG
+            else -> null
+        }
     }
+}
+
+// **Why a typed string is not a name, as a value rather than as a thrown message** — Davide,
+// 2026-09-14: *"we should run the check on the server and the client as well. Please make sure that
+// we put this in a shared place so the client and the server share the same logic."*
+//
+// The value classes above are that shared place already, but only for a caller willing to catch: a
+// client asking *may I send this?* had to construct one and swallow an `IllegalArgumentException`,
+// and `App.onFound` did exactly that — so *Found it* was a control that silently did nothing when
+// the tag was lower case. A question with an answer is what replaces the catch.
+//
+// **These never cross the wire**, which is what keeps them free of the rule `AllianceRole` and
+// `AllianceProject` carry: a constant added to either of those after the alliance's routes shipped
+// is a wire break, and a constant added here is not, because no build ever decodes one.
+enum class AllianceNameRefusal {
+
+    BLANK,
+    UNTRIMMED,
+    TOO_LONG,
+}
+
+private fun AllianceNameRefusal.saidOf(value: String): String = when (this) {
+    AllianceNameRefusal.BLANK -> "an alliance has a name or has not been founded; blank is neither"
+    AllianceNameRefusal.UNTRIMMED -> "a name is trimmed before it is sent: was '$value'"
+    AllianceNameRefusal.TOO_LONG ->
+        "a name longer than ${AllianceName.MAX_LENGTH} is one the field cannot produce: was ${value.length}"
 }
 
 // The short identifier beside the name, for a roster row where the full name does not fit —
@@ -97,7 +132,7 @@ value class AllianceName(val value: String) {
 //
 // **The alphabet is written out rather than delegated to `Char.isLetterOrDigit`**, which is
 // Unicode-aware and would let `'Ä'`, an Arabic digit or a fullwidth letter through — none of which is
-// typeable, comparable and five glyphs wide the way a roster row needs. This is the one place in the
+// typeable, comparable and four glyphs wide the way a roster row needs. This is the one place in the
 // module where the alphabet narrows below what `CommanderName` allows, and it is worth naming what it
 // costs: a player whose alphabet is not Latin will be typing somebody else's letters into this field.
 // Recorded as accepted rather than unnoticed.
@@ -106,19 +141,44 @@ value class AllianceName(val value: String) {
 value class AllianceTag(val value: String) {
 
     init {
-        require(value.length in MIN_LENGTH..MAX_LENGTH) {
-            "a tag is $MIN_LENGTH to $MAX_LENGTH characters: was ${value.length}"
-        }
-        require(value.all { it in 'A'..'Z' || it in '0'..'9' }) {
-            "a tag is uppercase ASCII letters and digits, refused rather than folded: was '$value'"
+        when (val refusal = refusalFor(value)) {
+            null -> Unit
+            else -> throw IllegalArgumentException(refusal.saidOf(value))
         }
     }
 
     companion object {
 
-        const val MIN_LENGTH: Int = 2
-        const val MAX_LENGTH: Int = 5
+        // **Three to four — Davide, 2026-09-14**, tightened from the frame's 2–5. Tightening a bound
+        // is the one direction that stays free forever (`alliance-sheet.md` §1.3), and it is taken
+        // now rather than after launch: no alliance exists on any server yet, so nothing stored
+        // becomes undecodable, which a widening-then-narrowing would have made unavoidable later.
+        const val MIN_LENGTH: Int = 3
+        const val MAX_LENGTH: Int = 4
+
+        // The rule as a question, for `AllianceName.refusalFor`'s reason and the same caller.
+        // **Length before alphabet**, so a player two letters in is told the tag is short rather
+        // than accused of a character they have not typed.
+        fun refusalFor(value: String): AllianceTagRefusal? = when {
+            value.length !in MIN_LENGTH..MAX_LENGTH -> AllianceTagRefusal.WRONG_LENGTH
+            !value.all { it in 'A'..'Z' || it in '0'..'9' } -> AllianceTagRefusal.NOT_UPPERCASE
+            else -> null
+        }
     }
+}
+
+// Why a typed string is not a tag. `AllianceNameRefusal`'s reasoning, for the other field.
+enum class AllianceTagRefusal {
+
+    WRONG_LENGTH,
+    NOT_UPPERCASE,
+}
+
+private fun AllianceTagRefusal.saidOf(value: String): String = when (this) {
+    AllianceTagRefusal.WRONG_LENGTH ->
+        "a tag is ${AllianceTag.MIN_LENGTH} to ${AllianceTag.MAX_LENGTH} characters: was ${value.length}"
+    AllianceTagRefusal.NOT_UPPERCASE ->
+        "a tag is uppercase ASCII letters and digits, refused rather than folded: was '$value'"
 }
 
 // The alliance's own level, on its own ladder — `alliance-sheet.md` §3: *"its own XP, paid by
@@ -219,13 +279,33 @@ data class AllianceResponse(
     val standing: AllianceStanding,
 )
 
-// `POST /v1/alliance`. The price is a balance-round number and is not here; this slice states only the
-// name and the tag a founder chooses.
+// `POST /v1/alliance`. **The price is not on the request and must never be**, which is the same
+// division `AllianceProjectOffer` draws from the other side: a client that stated what it was willing
+// to pay would be a client that could state the wrong number, and the server would have to either
+// trust it or refuse it — neither of which is better than reading its own balance object. The request
+// says which alliance to make; what it costs is `GET /v1/alliance/founding` and the server's to know.
 @Serializable
 data class CreateAllianceRequest(
     val apiVersion: ApiVersion,
     val name: AllianceName,
     val tag: AllianceTag,
+)
+
+// `GET /v1/alliance/founding` — what founding one costs today.
+//
+// **Its own route rather than a field on `AllianceResponse`**, which is `TreasuryResponse`'s own
+// argument said for the other end of the same screen: a route is free forever and a field added to a
+// response an installed build already decodes is a wire break. It is also the honest shape, because
+// the price is only interesting to a player who is in no alliance, and `AllianceResponse` is what
+// *every* alliance mutation answers with.
+//
+// **The price crosses the wire rather than living in the client**, for `AllianceProjectOffer.cost`'s
+// reason stated again: the balance lives in `:server` so it can be retuned by a deploy rather than by
+// a release, and a client that held its own copy would draw a figure the server had stopped charging.
+@Serializable
+data class FoundingPriceResponse(
+    val apiVersion: ApiVersion,
+    val price: Resources,
 )
 
 // `POST /v1/alliance/name`. **Carries the tag alongside the name**, on `SetProfileRequest`'s "the whole

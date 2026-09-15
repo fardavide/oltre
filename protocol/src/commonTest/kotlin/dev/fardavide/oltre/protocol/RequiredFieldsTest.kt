@@ -398,6 +398,20 @@ class RequiredFieldsTest {
         assertEveryFieldRequired(TreasuryResponse.serializer(), sample.copy(projects = emptyList()))
     }
 
+    // **A missing price must not read as a free alliance**, which is the whole reason this type is
+    // on this list: `Resources` has a zero and a key that fell off the wire would decode to it
+    // silently, drawing *free* over a route that charges 200,000.
+    @Test
+    fun `a founding price response missing either field is refused`() {
+        assertEveryFieldRequired(
+            FoundingPriceResponse.serializer(),
+            FoundingPriceResponse(
+                apiVersion = ApiVersion.CURRENT,
+                price = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000),
+            ),
+        )
+    }
+
     @Test
     fun `a buy project request missing either field is refused`() {
         assertEveryFieldRequired(

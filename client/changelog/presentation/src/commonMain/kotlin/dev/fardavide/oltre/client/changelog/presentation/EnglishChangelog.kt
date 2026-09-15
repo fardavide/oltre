@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.25.0", "2026-09-14", "An alliance costs something now",
+            "200,000 metal, 100,000 crystal, 50,000 deuterium, said before you type.",
+            "Found it waits until the name and the tag are ones the game can send.",
+            "The roster and the pool fill in after you found, admit or remove.",
+        ),
+        release(
             "0.24.0", "2026-09-14", "The alliance, and a pool to share",
             "Find one by name, ask to join, or found your own with a name and a tag.",
             "Pay a share of your stock into the pool. What goes in stays in.",

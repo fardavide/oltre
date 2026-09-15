@@ -113,7 +113,7 @@ class AllianceGatewayIntegrationTest {
         val held = fakeHeldSession()
         val alliance = fakeAlliance()
         val name = AllianceName("Chosen Name")
-        val tag = AllianceTag("CHOSN")
+        val tag = AllianceTag("CHS")
         val unread = AllianceState.Enlisted(alliance, AllianceRole.FOUNDER, AllianceRosterReading.Unread)
         SocketScenario(held).use { scenario ->
             scenario.reply(AllianceStanding.Enlisted(alliance, AllianceRole.FOUNDER), status = 201)
@@ -130,7 +130,7 @@ class AllianceGatewayIntegrationTest {
         val held = fakeHeldSession()
         val alliance = fakeAlliance()
         val name = AllianceName("Chosen Name")
-        val tag = AllianceTag("CHOSN")
+        val tag = AllianceTag("CHS")
         SocketScenario(held).use { scenario ->
             scenario.readMembership(held.accessToken, alliance, fakeRoster())
             val renamed = alliance.copy(name = AllianceName("Server Name"), tag = AllianceTag("SRVR"))
@@ -566,7 +566,7 @@ class AllianceGatewayIntegrationTest {
         val NOW: Instant = Instant.parse("2026-08-26T09:00:00Z")
 
         fun fakeAlliance(): Alliance = Alliance(
-            AllianceId("server-alliance"), AllianceName("Ferro Alto"), AllianceTag("FERRO"), AllianceLevel(2), AllianceSeats(2, 20),
+            AllianceId("server-alliance"), AllianceName("Ferro Alto"), AllianceTag("FRA"), AllianceLevel(2), AllianceSeats(2, 20),
         )
 
         fun fakeRoster(): AllianceRosterResponse = AllianceRosterResponse(

@@ -73,6 +73,38 @@ class AllianceScreenScreenshotTest {
         )
     }
 
+    // **The state a new player actually opens the tab in**, and until now nothing had drawn it: the
+    // colony cannot cover 200,000 metal on day one, so the cost goes red, a line says the colony is
+    // short, and there is no control to press. `alliance-sheet.md` §7 — *absent, never greyed*.
+    @Test
+    fun `founding one the colony cannot pay for`() {
+        capture(
+            "alliance_founding_short",
+            AllianceUiState.Seeking(
+                search = SEARCH.copy(state = SearchResultsUiState.Idle(Strings.allianceSearchIdle())),
+                founding = FOUNDING.copy(
+                    name = "Ferro Alto",
+                    tag = "FRA",
+                    affordable = false,
+                    committable = false,
+                ),
+            ),
+        )
+    }
+
+    // The other end of the same block, and the only frame in which *Found it* exists at all: both
+    // fields hold something the contract accepts and the colony can cover the price.
+    @Test
+    fun `founding one that is ready to commit`() {
+        capture(
+            "alliance_founding_ready",
+            AllianceUiState.Seeking(
+                search = SEARCH.copy(state = SearchResultsUiState.Idle(Strings.allianceSearchIdle())),
+                founding = FOUNDING.copy(name = "Ferro Alto", tag = "FRA", committable = true),
+            ),
+        )
+    }
+
     @Test
     fun `waiting on an answer`() {
         capture("alliance_waiting", WAITING)
@@ -395,6 +427,19 @@ class AllianceScreenScreenshotTest {
             body = Strings.allianceFoundBody(),
             nameLabel = Strings.allianceFoundName(),
             tagLabel = Strings.allianceFoundTag(),
+            tagRule = Strings.allianceFoundTagRule(),
+            // The real price, so the frame photographs the figure the game charges.
+            cost = Strings.allianceFoundPrice(
+                Strings.clauses(
+                    listOf(
+                        Strings.amountOfResource(Strings.groupedNumber(200_000), ResourceKind.METAL),
+                        Strings.amountOfResource(Strings.groupedNumber(100_000), ResourceKind.CRYSTAL),
+                        Strings.amountOfResource(Strings.groupedNumber(50_000), ResourceKind.DEUTERIUM),
+                    ),
+                ),
+            ),
+            affordable = true,
+            shortLine = Strings.allianceFoundShort(),
             name = "",
             tag = "",
             action = Strings.allianceFoundAction(),

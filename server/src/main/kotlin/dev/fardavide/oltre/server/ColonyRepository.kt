@@ -129,6 +129,16 @@ internal interface ColonyRepository {
 // in the same Postgres and one transaction covers them, so at-least-once delivery buys nothing and
 // costs a window in which the resources have left the colony and have not arrived in the pool — a
 // player watching two numbers that do not add up.
+// **The second cross-row write goes the opposite way to this one**, and it is worth knowing about
+// from here: founding an alliance charges a colony and inserts an alliance, and `AllianceRepository
+// .found` owns that pair the way `write` owns this one — see `lockedColony` and `writeColony`, which
+// are the two statements it borrows.
+//
+// The direction is chosen by which side holds the larger piece of logic rather than by symmetry. A
+// pool credit is two `x = x + ?` statements, so it rides along with the colony; founding is three
+// verdict checks, a reap, an occupancy re-read and two inserts, so the colony's read-and-write rides
+// along with *it*. Moving the bigger half would have meant a second copy of `AllianceRules` living
+// next to the colony's SQL, which is how the two ends of a rule drift apart.
 internal data class PoolCredit(
     val alliance: AllianceId,
     // Which seat gets the standing. `alliance_members.contributed` is the column the succession rule

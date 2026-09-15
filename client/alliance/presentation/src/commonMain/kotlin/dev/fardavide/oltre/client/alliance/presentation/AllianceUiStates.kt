@@ -29,9 +29,11 @@ import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceMember
+import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.JoinRequest
 import dev.fardavide.oltre.protocol.PlayerProfile
@@ -293,21 +295,51 @@ fun foundingUiState(
     tag: String,
     nameTaken: Boolean,
     tagTaken: Boolean,
+    // **What founding costs, and what the colony holds.** Null is *the price has not been read yet*,
+    // which the block says in a line rather than guessing at a figure — the balance is `:server`'s so
+    // it can be retuned by a deploy, exactly as a project's cost is.
+    price: Resources?,
+    colony: Resources,
 ): FoundingUiState = FoundingUiState(
     label = Strings.allianceFoundLabel(),
     body = Strings.allianceFoundBody(),
     nameLabel = Strings.allianceFoundName(),
     tagLabel = Strings.allianceFoundTag(),
+    tagRule = Strings.allianceFoundTagRule(),
     name = name,
     tag = tag,
+    cost = if (price == null) Strings.allianceFoundPriceUnread() else Strings.allianceFoundPrice(price.line()),
+    // **Unknown reads as unaffordable, which is the safe direction.** A control offered over a price
+    // nobody has read would be one the server refuses; a control withheld is one more tap once the
+    // price lands.
+    affordable = price != null && colony.covers(price),
+    shortLine = Strings.allianceFoundShort(),
     action = Strings.allianceFoundAction(),
     nameRefusal = if (nameTaken) Strings.allianceNameTaken(TextRes(name)) else null,
     tagRefusal = if (tagTaken) Strings.allianceTagTaken(TextRes(tag)) else null,
     // **Absent while a refusal stands**, which is the same absence `Save name` already uses: the
     // answer was about the string that was there, and committing it again would ask the same
     // question and get the same answer.
-    committable = name.isNotBlank() && tag.isNotBlank() && !nameTaken && !tagTaken,
+    //
+    // **And absent while the contract would refuse what is typed**, which is the fix rather than the
+    // restatement. This read `name.isNotBlank() && tag.isNotBlank()` while the tap built an
+    // `AllianceTag` inside a `runCatching` and dropped the refusal — so *Found it* appeared over a
+    // lower-case tag and silently did nothing when it was pressed. The contract's own check is what
+    // the control now asks, through the shared `refusalFor` both ends read, so the two can never
+    // disagree about what is committable again.
+    //
+    // **And absent while the colony cannot pay**, which is the project row's own rule arriving on
+    // the one control in this app that spends a colony on something outside it: the cost goes red,
+    // the line says the colony is short, and there is no button to press. A control that could only
+    // earn `AllianceFoundingUnaffordable` is a control that answers no.
+    committable = foundable(name, tag) && !nameTaken && !tagTaken && price != null && colony.covers(price),
 )
+
+// **What the control and the tap both ask**, in one place so the answer cannot differ between them.
+// The trim is the client's, per `AllianceName`'s own division of labour: a name typed with a
+// trailing space is a name, and it is this layer that makes it one before the contract sees it.
+fun foundable(name: String, tag: String): Boolean =
+    AllianceName.refusalFor(name.trim()) == null && AllianceTag.refusalFor(tag) == null
 
 // What the chip actually sends, as the type `core` charges against. It lives here rather than on the
 // chip because `Resources` is `core`'s and `:client:alliance:ui` draws without ever meeting a

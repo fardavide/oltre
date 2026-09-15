@@ -155,4 +155,23 @@ sealed interface Event {
         val amount: Resources,
         override val at: Instant,
     ) : Event
+
+    // **What founding an alliance cost this colony**, and the second member whose payoff is outside
+    // it. `ResourcesContributed` above argues the whole shape and this one inherits it: the debit is
+    // a thing that happened to this colony at an instant, the alliance's side is a row the server
+    // writes, and `core` goes on not knowing that alliances exist.
+    //
+    // **Its own member rather than a second `ResourcesContributed`**, because the two are different
+    // facts and one of them is read: the alliance's own ladder is paid by contributions, and a
+    // founding charge folded into that member would either pay the new alliance its own founding
+    // price back as experience or force every reader to carry a flag saying which kind it was.
+    //
+    // No partner, for the same reason: the price is gone the moment the alliance exists, nothing is
+    // scheduled, and `FutureEvents` gains no term. The name says so.
+    @Serializable
+    @SerialName("AllianceFounded")
+    data class AllianceFounded(
+        val price: Resources,
+        override val at: Instant,
+    ) : Event
 }

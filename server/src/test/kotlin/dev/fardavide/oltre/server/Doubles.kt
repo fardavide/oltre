@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
@@ -90,7 +91,7 @@ internal class UnreachableAllianceRepository : AllianceRepository {
 
     override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = error("no route to host")
 
-    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded = error("no route to host")
+    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant, price: Resources): Founded = error("no route to host")
 
     override suspend fun allianceOf(player: PlayerId, now: Instant): Affiliation = error("no route to host")
 

@@ -122,6 +122,12 @@ object ExperienceBalance {
         is Event.FleetDispatched,
         is Event.ShipsOrdered,
         is Event.ResourcesContributed,
+        // **And founding an alliance pays nothing either, which is a balance lever left unpulled
+        // rather than a decision made.** A flat award here would be defensible — founding is one
+        // event per account, so the splitting problem `ResourcesContributed` has does not arise —
+        // but what it should be worth is Davide's and the balance round's (`#145`), and zero is the
+        // only number this file can choose on its own without inventing one.
+        is Event.AllianceFounded,
         -> Experience.NONE
     }
 

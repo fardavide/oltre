@@ -44,7 +44,13 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // a `ResourcesContributed`, and a build that has never heard that discriminator cannot
         // decode the 200 it is handed. That is a response the other end cannot ignore, which is
         // exactly the trigger written above.
-        val CURRENT: ApiVersion = ApiVersion(2)
+        // **3 since founding costs something**, and the snapshot moved it again: save schema 20 lets
+        // the event log hold an `AllianceFounded`, and a build that has never heard that
+        // discriminator cannot decode the 200 it is handed. Identical reasoning to 2, one release
+        // later, which is worth reading as a warning rather than as a precedent — the *log* is what
+        // keeps growing, and every growth costs a forced update until the server can serve two
+        // snapshot shapes.
+        val CURRENT: ApiVersion = ApiVersion(3)
 
         // The oldest build still worth answering. It moves **only** when the last install speaking
         // it is gone, and there is no way to know that from inside the repository — so raising this
@@ -64,6 +70,11 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // deploys before the release merges**, because merging archives to TestFlight and the two
         // are never atomic. Deploy first and an installed build gets a clean 426 until it updates;
         // merge first and a fresh install gets a 400 that reads like a bug.
-        val OLDEST_SERVED: ApiVersion = ApiVersion(2)
+        // **3, and it strands the same one phone a day later.** The operational half is unchanged
+        // and is not optional: **the server deploys before the release merges**, because merging
+        // archives to TestFlight and the two are never atomic. Deploy first and an installed build
+        // gets a clean 426 until it updates; merge first and a fresh install gets a 400 that reads
+        // like a bug.
+        val OLDEST_SERVED: ApiVersion = ApiVersion(3)
     }
 }
