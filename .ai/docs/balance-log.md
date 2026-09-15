@@ -3863,12 +3863,13 @@ day they used to have it, and nothing else on the page would say so.
 - **Whether anybody notices the level at all.** It gates nothing and unlocks nothing by design (sheet
   §5). If it reads as decoration, that is the answer to whether it should stay a record.
 
-## Round 33 — the round with no simulator, opened rather than closed (0.25.1, 2026-09-15)
+## Round 33 — the round with no simulator, closed by the install (0.25.1, 2026-09-15)
 
 **This round moves no number, and that is its finding.** It is the first entry in this file whose
 subject cannot be measured before it ships, so it does what the tilt constants' loop does instead:
 it states the arithmetic, marks every constant as arithmetic rather than measurement, records the one
-call that does not need a reading, and hands the rest to an install. Issue #145 stays open behind it.
+call that does not need a reading, and hands the rest to an install. **The install came back the same
+day and confirmed all four held dials** — the last section, and it is what closes issue #145.
 
 ### There is no harness, and that is a decision
 
@@ -3902,16 +3903,17 @@ the feel is unknown.**
 
 ### Where the seven dials actually stand
 
-Two were settled before this round opened, one is settled by it, and four are waiting for a hand.
+Two were settled before this round opened, one is settled by it, and four went to a hand — which
+answered the same day. The right-hand column is where they finished.
 
 | Dial | Shipped at 0.25.1 | Standing |
 |---|---|---|
-| Founding price | 200,000 / 100,000 / 50,000 = **550,000 priced** | **Davide's, 2026-09-13.** Confirm on the install |
+| Founding price | 200,000 / 100,000 / 50,000 = **550,000 priced** | **Davide's, 2026-09-13.** Confirmed on the install, 2026-09-15 |
 | Founding gate | none | **Davide's, 2026-09-15: no gate** — see below |
 | Alliance XP per priced unit | `k = 1` (`AllianceBalance.award`) | Fixed by identity, not by taste (§3.3 of #145) |
-| Project lump | `PROJECT_AWARD_PERCENT` **130** → 57% of lifetime XP reads as *built* | Arithmetic. Awaiting the install |
-| Ladder step | `LEVEL_BASE` **100,000**, `LEVEL_GROWTH_PERCENT` **145** | Arithmetic. Awaiting the install |
-| Member cap | `SEAT_BASE` **5** + 1/level + 2/charter, roof **20** | Arithmetic. Awaiting the install |
+| Project lump | `PROJECT_AWARD_PERCENT` **130** → 57% of lifetime XP reads as *built* | Arithmetic. **Confirmed on the install**, unmoved |
+| Ladder step | `LEVEL_BASE` **100,000**, `LEVEL_GROWTH_PERCENT` **145** | Arithmetic. **Confirmed on the install**, unmoved |
+| Member cap | `SEAT_BASE` **5** + 1/level + 2/charter, roof **20** | Arithmetic. **Confirmed on the install**, unmoved |
 | Succession window | **30 days** (`AllianceRules.INACTIVITY`) | Davide's, 2026-09-12, issue #138 |
 
 ### The founding gate — settled, and it is *no gate*
@@ -3996,3 +3998,34 @@ on a different one:
   14. If that reads as a stalled bar rather than as a long climb, `LEVEL_BASE` is what moves.
 - **Do five seats feel tight or right?** The first Charter Expansion is the only project that exists;
   if the roster is nowhere near full, the project has nothing to be wanted for.
+
+### The install answered, and it answered all four at once
+
+Davide founded an alliance on the 0.25.1 build and was asked the four questions above. His answer,
+2026-09-15, verbatim and in full:
+
+> **"They good"**
+
+**So nothing moves, and this round closes where it stood.** Every dial keeps the value it shipped
+with: `PROJECT_AWARD_PERCENT` 130, `LEVEL_BASE` 100,000, `LEVEL_GROWTH_PERCENT` 145, `SEAT_BASE` 5.
+The founding price was already his on 2026-09-13; the install confirms it rather than re-opening it.
+
+**What this reading is, stated plainly so a later round does not over-spend it.** It is one answer to
+four separately-scoped questions, not four independent readings. It clears all four dials of *needing
+a move* — which is the decision this round existed to get, and it is a real one. It does not say
+which of the four had the most room, or where a number would start to hurt if something else moved
+around it. The corollary above holds with its sign flipped: **a device confirms what it was actually
+asked about**, and *"they good"* was asked about the founding price, the project lump, the ladder
+base and the seat base **as they stood at 0.25.1, on a roster of one**. Not about any of them at
+another value, and not about the ones nobody has met yet.
+
+So the four stay marked **arithmetic** in `AllianceBalance`'s header rather than being promoted to
+*measured*. Confirmed-by-play and fitted-to-a-reading are different things, and the file should go on
+saying which one it has. The first real measurement still waits on exactly what this round said it
+waited on: **a roster that exists**, with members who are not the founder. `SEATS_PER_LEVEL`,
+`SEATS_PER_CHARTER` and the 130% project lump have all now been *played* without ever having been
+*exercised* — one founder cannot fill five seats, so the seat dials in particular were confirmed by a
+player who could not yet feel them.
+
+**Issue #145 closes here, and with it epic #136.** The alliance is designed, priced, built and
+played. The next round that touches these numbers will be the one opened by a second member.
