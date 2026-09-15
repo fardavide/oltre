@@ -3862,3 +3862,137 @@ day they used to have it, and nothing else on the page would say so.
   but describing it and feeling it are different things.
 - **Whether anybody notices the level at all.** It gates nothing and unlocks nothing by design (sheet
   §5). If it reads as decoration, that is the answer to whether it should stay a record.
+
+## Round 33 — the round with no simulator, opened rather than closed (0.25.1, 2026-09-15)
+
+**This round moves no number, and that is its finding.** It is the first entry in this file whose
+subject cannot be measured before it ships, so it does what the tilt constants' loop does instead:
+it states the arithmetic, marks every constant as arithmetic rather than measurement, records the one
+call that does not need a reading, and hands the rest to an install. Issue #145 stays open behind it.
+
+### There is no harness, and that is a decision
+
+`sim/…/Main.kt` drives **one colony against no opponents**. There is no bot that joins an alliance
+and no roster to produce, so the three inputs an alliance actually has — how many members, what
+fraction of their income they part with, whether they come back — are quantities the simulator can
+only be *handed*. **A harness that is handed its own answer is worse than no harness**, and round 32
+is why that is stated rather than assumed: three of four bots had silently stopped flying probes at
+0.15, and four reports printed a probe column that was structurally zero for two releases. A fake
+roster of `N` members contributing `φ` would be the same failure with the sign flipped — a table
+whose only input is its own assumption, printed in the same font as a measurement.
+
+**So this round adds no `:sim` report.** Deliberately.
+
+### What the harness can still say, and it is most of the arithmetic
+
+The member is measurable even when the alliance is not. `./gradlew :sim:run`, re-run for this round,
+and `BalanceBenchmarkGolden` — **both unchanged from round 32**, which is what makes the anchors
+below safe to build on:
+
+| day | priced income / h | cumulative priced production |
+|---|---|---|
+| 1 | **848** | 20,400 |
+| 7 | **4,301** | 405,000 |
+| 14 | **11,581** | 1,729,000 |
+| 30 | ~111,400 (extrapolated) | ~19,890,000 (extrapolated) |
+
+The day-30 row is extrapolated at week two's growth rate — `LONG_HORIZON_DAYS` is 14 — and is marked
+as such everywhere it is used below. **The member is measured, the alliance is arithmetic, and only
+the feel is unknown.**
+
+### Where the seven dials actually stand
+
+Two were settled before this round opened, one is settled by it, and four are waiting for a hand.
+
+| Dial | Shipped at 0.25.1 | Standing |
+|---|---|---|
+| Founding price | 200,000 / 100,000 / 50,000 = **550,000 priced** | **Davide's, 2026-09-13.** Confirm on the install |
+| Founding gate | none | **Davide's, 2026-09-15: no gate** — see below |
+| Alliance XP per priced unit | `k = 1` (`AllianceBalance.award`) | Fixed by identity, not by taste (§3.3 of #145) |
+| Project lump | `PROJECT_AWARD_PERCENT` **130** → 57% of lifetime XP reads as *built* | Arithmetic. Awaiting the install |
+| Ladder step | `LEVEL_BASE` **100,000**, `LEVEL_GROWTH_PERCENT` **145** | Arithmetic. Awaiting the install |
+| Member cap | `SEAT_BASE` **5** + 1/level + 2/charter, roof **20** | Arithmetic. Awaiting the install |
+| Succession window | **30 days** (`AllianceRules.INACTIVITY`) | Davide's, 2026-09-12, issue #138 |
+
+### The founding gate — settled, and it is *no gate*
+
+Davide, 2026-09-15, asked directly: **no gate.** The price does the work.
+
+The arithmetic behind the recommendation he took, kept because it is what would justify moving it.
+550,000 priced is about **75% of everything a colony produces in its first week**, so on surplus
+alone it lands around day eight and, for a player who is also building, days ten to fourteen. That is
+the *"week-two decision"* §5.1 asked for, reached by price rather than by permission.
+
+And the gate's own cost is not neutral. The two measured ladders are far apart:
+
+| | day 1 | day 7 | day 14 | day 30 |
+|---|---|---|---|---|
+| `:sim:run`'s player — probes and hulls | Lv 3 | **Lv 11** | **Lv 16** | Lv 25 |
+| `BalanceBenchmark`'s build-only floor | Lv 3 | **Lv 8** | **Lv 11** | — |
+
+Round 32 measured surveys at **36.3%** of a month's points, so a level gate is a gate on *flying
+probes* as much as on time: a player who works the colony and never leaves home is about a week
+behind one who does, and a gate charges them for it. A price charges everyone the same thing.
+
+**This also closes `alliance-sheet.md` §5.1's last open line and `AllianceBalance`'s "what is not
+here is the gate" paragraph.** Nothing in the code changes — there was never a gate to remove — but
+the absence is now a decision rather than a gap, which is the difference that matters the next time
+somebody reads that comment.
+
+### The ladder, priced against what a real founder would reach
+
+`threshold(L)` for `LEVEL_BASE = 100,000` at 145% a level, against cumulative production with the
+founding price taken out (the charter is paid, not contributed, so it earns nothing):
+
+| | contributed | lands on |
+|---|---|---|
+| day 14, one founder giving everything | 1,179,000 | **Lv 4** |
+| day 30, one founder giving everything | ~19,340,000 | **Lv 12** |
+| day 30, ten members giving everything | ~193,400,000 | **Lv 18** |
+
+Note what the middle row means and the bottom row says twice: **ten members giving a tenth each is
+one member giving everything.** `N × φ` scales the cumulative uniformly, so it moves the base and
+never the step — which is the one sentence to keep when sizing this against a roster that exists.
+
+**The shipped ladder is much slower than #145 §3.5's own fit**, which put `r = 4/3` and `S₀ = 4,800`
+against Davide's *player* marks and landed Lv 3 / 11 / 16 / 25. It is recorded as a gap rather than
+corrected: that fit was fitted to the wrong ladder on purpose, as a placeholder, and the alliance's
+real marks are §5's question 4 and have never been answered.
+
+### Why nothing moved
+
+Davide, 2026-09-15, asked whether to retune now or wait: **wait — play first.**
+
+That is #145 §2's own second condition working. 0.25.1 is on TestFlight with every dial at its
+arithmetic value, and a dial moved before the reading destroys the reading. The corollary is the one
+round 0.4.3 got wrong and this entry repeats so it is not got wrong again: **a device confirms what
+it was actually asked about.** *"Levelling feels slow"* is not clearance for the founding price, and
+*"founding took forever"* is not clearance for the ladder.
+
+### One window has closed, and it is worth naming
+
+#145 §4 says a **per-member contribution ceiling** needs a timestamped contributions column and that
+*"the decision has to be taken before the treasury slice ships"*. The treasury slice shipped at
+0.24.0. So the residual is accepted **by timing rather than by choice**, and buying the ceiling back
+now is a migration rather than a column in a new table.
+
+The arithmetic that made accepting it the recommendation anyway: at a roof of 20 seats, 19 week-old
+alts produce `19 × 4,301 = 81,700` priced/h against one month-old member's extrapolated ~111,400 —
+**nineteen farmed accounts are worth less than one real member who has played a month**, and each has
+to be signed in and *checked in* daily, because a contribution is `LOOK_DONT_ACT` and cannot be
+queued offline. The product's own shape is the rate limit.
+
+### What to watch on the install
+
+The reading this round exists to get, and each line is about one dial so the answer cannot be spent
+on a different one:
+
+- **Does founding arrive when you still want an alliance?** If 550,000 lands so late that the
+  question has gone cold, the price is wrong — not the ladder.
+- **Does contributing feel like a decision or like a donation?** `alliance-sheet.md` §4.1 names this
+  as the thing the whole perk hold rides on. If it reads as a donation, the answer is the project
+  lump (130% today) before it is anything else.
+- **Does the gauge move enough to be worth looking at?** A founder giving everything sees Lv 4 by day
+  14. If that reads as a stalled bar rather than as a long climb, `LEVEL_BASE` is what moves.
+- **Do five seats feel tight or right?** The first Charter Expansion is the only project that exists;
+  if the roster is nowhere near full, the project has nothing to be wanted for.

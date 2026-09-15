@@ -33,6 +33,8 @@ argument, a proposal or a flag, in the shape [`galaxy-sheet.md`](galaxy-sheet.md
 | An admin may **remove members only**, never another admin or the founder | yes | Davide, 2026-09-12, issue #138 |
 | The lifecycle uses a **temporary cap of 20 members**, including founder and admins | yes | Davide, 2026-09-12, issue #138; curve deferred to balance |
 | A pending join request must be **withdrawn before founding or petitioning a different alliance**; retrying the same petition preserves it | yes | Davide, 2026-09-12, issue #138 |
+| **There is no level gate on founding** — the price does the work | yes | Davide, 2026-09-15, issue #145 |
+| The ladder, the project lump and the member cap are **held at their arithmetic values until the install has been played** | yes | Davide, 2026-09-15, issue #145 |
 
 ---
 
@@ -302,8 +304,16 @@ and `ApiVersion` bump that §1.3 makes unavoidable for any of the four.
 > rather than a release. `core.foundAlliance` is what takes it out of the colony;
 > `AllianceRepository.found` writes the charge and the alliance in one transaction.
 >
-> **Still open below:** the *gate* (§5.1's level-gate proposal), and the day unit in the duration
-> format — until that exists the block says the colony is short rather than how long until it is not.
+> **The gate is settled and it is *none*** (Davide, 2026-09-15, issue #145). The price does the work:
+> 550,000 priced is about 75% of a colony's first week of production, so founding lands days ten to
+> fourteen for a player who is also building — the week-two decision this section asked for, reached
+> by price rather than by permission. And a level gate would not have charged everyone the same
+> thing: round 32 measured surveys at 36.3% of a month's points, so a player who works the colony and
+> never flies a probe is about a week behind one who does (`BalanceBenchmark`'s build-only floor is
+> Lv 8 at day 7 against `:sim:run`'s Lv 11). See `balance-log.md` round 33.
+>
+> **Still open below:** the day unit in the duration format — until that exists the block says the
+> colony is short rather than how long until it is not.
 
 The proposals this was chosen from, kept because the reasoning is still what would justify moving it:
 
@@ -316,7 +326,8 @@ Davide's ask says *for a price*, which the game has an idiom for: a `Resources` 
   progression system in front of the content, which is what `experience-sheet.md` §5 warns against.
 - **The gate on founding, if there is one, is the player level.** That would be the first thing the
   player level gates, in its narrowest form — a social opt-in rather than a mechanic — and the
-  cheapest place to learn whether gating on level reads as earned or as arbitrary.
+  cheapest place to learn whether gating on level reads as earned or as arbitrary. **Refused,
+  2026-09-15** — see the block above; the player level still gates nothing.
 - **Disbanding does not refund**, and the screen says so before the tap rather than after.
 
 ### 5.2 Joining is a request the founder answers — Davide's call
@@ -723,7 +734,9 @@ Notes belonging to the whole epic rather than one slice:
 
 ## 9. Open, and every one is Davide's
 
-1. **The price and the gate on founding** (§5.1).
+1. **The price and the gate on founding** (§5.1) — both settled: the price is Davide's of 2026-09-13
+   and is charged since 0.25.0; **there is no gate**, Davide's of 2026-09-15 (`balance-log.md` round
+   33). What is left is a reading from an install, not a call.
 2. **What "active" means** for succession — settled 2026-09-12: a colony sync within 30 days (§0).
 3. **Which powers an admin gets** (§5.3) — settled 2026-09-12: answer requests and remove members only;
    rename, disband and setting roles stay with the founder. A replaced founder becomes an admin (§0).

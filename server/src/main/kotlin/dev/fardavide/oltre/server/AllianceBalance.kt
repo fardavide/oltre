@@ -19,6 +19,19 @@ import dev.fardavide.oltre.protocol.AllianceProject
 // ladder — which means a ladder nobody can simulate is retuned by a deploy instead of by a release.
 // That is worth more here than anywhere else in the game, precisely because the first real reading
 // will come from a roster that does not exist yet.
+//
+// **Where each dial stands, as of round 33 (2026-09-15).** Davide's call that day was *play first*:
+// 0.25.1 is on TestFlight with every number below at its arithmetic value, and a dial moved before
+// the reading destroys the reading.
+//
+// | Dial | Standing |
+// |---|---|
+// | `FOUNDING_PRICE` | **Davide's**, 2026-09-13. Confirm on the install |
+// | the gate | **Davide's**, 2026-09-15: there is none |
+// | `award` (`k = 1`) | fixed by identity — doubling it and the ladder together changes nothing |
+// | `PROJECT_AWARD_PERCENT` | **arithmetic**, held for the install |
+// | `LEVEL_BASE` / `LEVEL_GROWTH_PERCENT` | **arithmetic**, held for the install |
+// | `SEAT_BASE` / `SEATS_PER_LEVEL` / `SEAT_CAP` | **arithmetic**, held for the install |
 internal object AllianceBalance {
 
     // ── The ladder ───────────────────────────────────────────────────────────────────────────
@@ -56,9 +69,14 @@ internal object AllianceBalance {
     // would need a release on both platforms to move a number that has never been measured against a
     // real roster.
     //
-    // **What is not here is the gate.** §5.1 floats a player-level gate on founding alongside the
-    // price and calls it open; it is Davide's, and a level threshold invented here would be the
-    // first thing the player level gated, chosen by nobody.
+    // **What is not here is the gate, and that is now a decision rather than a gap.** §5.1 floated a
+    // player-level gate on founding alongside the price; **Davide refused it on 2026-09-15** and the
+    // price does the work — 550,000 priced is about 75% of a colony's first week of production, so
+    // founding lands days ten to fourteen on its own. The reason a gate was not merely unnecessary:
+    // round 32 measured surveys at 36.3% of a month's experience, so a level threshold charges a
+    // player who works the colony about a week more than one who flies probes, while a price charges
+    // everyone the same thing. The player level still gates nothing anywhere in this game
+    // (`experience-sheet.md` §5). See `balance-log.md` round 33.
     val FOUNDING_PRICE: Resources = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000)
 
     // ── The seats ────────────────────────────────────────────────────────────────────────────
