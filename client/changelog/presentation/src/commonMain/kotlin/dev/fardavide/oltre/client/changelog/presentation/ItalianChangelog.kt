@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.25.1", "2026-09-15", "Versare, detto chiaro",
+            "Quello che versi compare subito nel fondo, non dopo un riavvio.",
+            "Scegli una quota, leggi cosa esce, premi un tasto che nomina la tua alleanza.",
+            "Una quota troppo piccola lo dice, e Tutto chiede ancora prima.",
+        ),
+        release(
             "0.25.0", "2026-09-14", "Un'alleanza adesso costa",
             "200.000 metallo, 100.000 cristallo, 50.000 deuterio, detto prima di scrivere.",
             "Fondala aspetta che nome e sigla siano quelli che il gioco può mandare.",

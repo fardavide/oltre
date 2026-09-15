@@ -14,6 +14,7 @@ import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.contribute
 import dev.fardavide.oltre.core.cycleHullAlert
+import dev.fardavide.oltre.core.priced
 import dev.fardavide.oltre.core.setAlertDelivery
 import dev.fardavide.oltre.core.setAlertMode
 import dev.fardavide.oltre.core.startAdaptation
@@ -588,6 +589,30 @@ class FakeOltreApi(
         }
     }
 
+    // **The other half of a contribution, in the same write that debited the colony** — `Replay.kt`
+    // does exactly this, inside the branch where the verb was actually applied, so a retried envelope
+    // credits the pool once. Without it this fake was a server where resources left a colony and
+    // arrived nowhere, and the one screen that reads the pool back could never be shown working.
+    //
+    // Only under `replays`, because that is the flag that decides whether this server runs the game
+    // at all: crediting a pool while the colony it came out of stayed untouched would be a server
+    // that makes resources rather than moves them.
+    private fun creditThePool(verb: ClientVerb) {
+        val paid = (verb as? ClientVerb.Contribute) ?: return
+        treasury = treasury.copy(
+            // Column by column, which is the shape the server credits in: the pool is three numbers
+            // on an alliance row rather than a `Resources`, and `core` has no `plus` to borrow.
+            pool = Resources.of(
+                metal = treasury.pool.metal + paid.amount.metal,
+                crystal = treasury.pool.crystal + paid.amount.crystal,
+                deuterium = treasury.pool.deuterium + paid.amount.deuterium,
+            ),
+            // The member's own standing, on the game's 1 : 2 : 3 — `AllianceBalance.award`'s figure,
+            // reached through `core`'s own weights rather than through a copy of the constant.
+            contributed = treasury.contributed + paid.amount.priced(),
+        )
+    }
+
     private suspend fun takeAlliance(request: AllianceRequest) {
         allianceRequests += request
         heldAlliance[request.route]?.await()
@@ -644,6 +669,7 @@ class FakeOltreApi(
                             val at = maxOf(envelope.clientInstant, held.lastUpdatedAt)
                             val caught = advance(held.state, from = held.lastUpdatedAt, to = at)
                             colony = held.copy(state = applyVerb(envelope.verb, caught, at), lastUpdatedAt = at)
+                            creditThePool(envelope.verb)
                         }
                     }
                 }
@@ -806,9 +832,9 @@ private fun applyVerb(verb: ClientVerb, state: GameState, at: Instant): GameStat
     is ClientVerb.ToggleAlertCategory -> toggleAlertCategory(state, verb.category)
     is ClientVerb.SetAlertDelivery -> setAlertDelivery(state, verb.delivery)
 
-    // **The debit, and only the debit.** Where the resources land is a second row in a second table
-    // and this fake stands in for a server, not for a database — a test that wants to watch the pool
-    // grow scripts `treasury` and asserts on it. What has to be right here is that the colony comes
-    // back poorer, because that is what the screen redraws.
+    // **The debit.** The credit is `creditThePool`'s, on the instance, because where the resources
+    // land is the alliance's row rather than this colony's — the same split `Replay.kt` keeps, and
+    // the same write: a contribution that only ever debited would be a server that destroys
+    // resources, and the panel that reads the pool back could never be shown working.
     is ClientVerb.Contribute -> (contribute(state, verb.amount, at) as? ContributeResult.Started)?.state
 } ?: state

@@ -50,11 +50,59 @@ class AllianceAppBehaviourTest {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.contribute(chip = 0)
+            alliance.pickShare(0).contribute()
 
-            // 10% of 42,100 / 9,600 / 1,200, **floored** — which is the whole promise the chip
-            // makes: the figure it printed is the basket that left.
+            // 10% of 42,100 / 9,600 / 1,200, **floored** — which is the whole promise the control
+            // makes: the basket the line above it spelled is the one that left.
             alliance.assertContributed(metal = 4_210, crystal = 960, deuterium = 120)
+        }
+    }
+
+    // **Picking a stop sends nothing**, which is the contract the two-step control is for: the row
+    // above decides how much and the one control below it is the only thing that pays anything in.
+    // Under the four chips a finger that landed on `50%` had already spent half a colony.
+    @Test
+    fun `picking a share moves nothing until the control under it is pressed`() {
+        app(saved = colony(), api = enlisted()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.pickShare(2)
+
+            alliance.assertNothingContributed()
+            // And the control now states the stop that was picked: half of 42,100 / 9,600 / 1,200.
+            alliance.assertWillSend(metal = 21_050, crystal = 4_800, deuterium = 600)
+        }
+    }
+
+    // **The alliance is named on the control that sends** (Davide, 2026-09-15: *"it is not even clear
+    // that you're actually donating your resources to the Lions"*). The button is the last thing read
+    // before resources leave a colony for good.
+    @Test
+    fun `the control that sends names the alliance it sends to`() {
+        app(saved = colony(), api = enlisted()) {
+            open(OltreTab.ALLIANCE)
+
+            AllianceRobot(this).assertReads(Strings.allianceContributeAction(TextRes("Ferro Alto")))
+        }
+    }
+
+    // **The pool moves on the tap rather than on the next launch**, which is what it did not do: the
+    // sync answers with a colony and nothing else — the pool is a second route — so the panel went on
+    // drawing the figures the tab opened with for the life of the process, and the only way to watch
+    // a contribution land was to restart the app.
+    @Test
+    fun `a contribution lands on the pool without leaving the screen`() {
+        app(saved = colony(), api = enlisted()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.pickShare(0).contribute()
+
+            // 486,300 / 232,900 / 71,400, the richer for the 4,210 / 960 / 120 that just left.
+            alliance.assertPoolReads(metal = 490_510, crystal = 233_860, deuterium = 71_520)
+            // And this member's own standing with it, priced on the game's 1 : 2 : 3: 42,000 + 6,490.
+            alliance.assertReads(Strings.alliancePaidIn(Strings.groupedNumber(48_490)))
         }
     }
 
@@ -66,7 +114,7 @@ class AllianceAppBehaviourTest {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.contribute(chip = 3)
+            alliance.pickShare(3).contribute()
 
             alliance.assertReads(Strings.allianceConfirmAllTitle())
             alliance.assertNothingContributed()
@@ -79,7 +127,7 @@ class AllianceAppBehaviourTest {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.contribute(chip = 3).confirmContributingEverything()
+            alliance.pickShare(3).contribute().confirmContributingEverything()
 
             alliance.assertContributed(metal = 42_100, crystal = 9_600, deuterium = 1_200)
         }
@@ -91,7 +139,7 @@ class AllianceAppBehaviourTest {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.contribute(chip = 3).keepIt()
+            alliance.pickShare(3).contribute().keepIt()
 
             alliance.assertNothingContributed()
             alliance.assertNothingToConfirm()
@@ -109,7 +157,7 @@ class AllianceAppBehaviourTest {
             val alliance = AllianceRobot(this)
             server.offline = true
 
-            alliance.contribute(chip = 0)
+            alliance.pickShare(0).contribute()
 
             alliance.assertReads(Strings.refusedContributionLead())
             alliance.assertReads(Strings.refusedContributionBody())

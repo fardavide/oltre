@@ -537,12 +537,33 @@ The pool reuses the resource rail's own vocabulary turned vertical — a 7dp orb
 the rail's 9.5sp tracked caption, its 15sp value — in 44dp hairline-ruled rows, with no rate, because
 a treasury does not produce. **The anti-alt rule sits on the face at full strength, above the first
 tap, every time it is drawn**, never a dismissible card: *"What goes in stays in."* Contribution is a
-**ladder**, not a numeric input the app has never had: four chips — **10 / 25 / 50 / All** — each
-stating the absolute figure it sends *above* the share, floored rather than rounded (a chip that
-sends more than it states is the worst kind of wrong here), and `All` is a word rather than `100%`
-because reaching for everything is not arithmetic. Held drops the chips to 42% and stops them
-pressing; the pool and the rule line never dim, because reading is not acting and the rule is true
-whether or not there is a network.
+**ladder**, not a numeric input the app has never had: four stops — **10 / 25 / 50 / All** — floored
+rather than rounded (a control that sends more than it states is the worst kind of wrong here), and
+`All` is a word rather than `100%` because reaching for everything is not arithmetic. Held drops the
+stops to 42% and stops them pressing; the pool and the rule line never dim, because reading is not
+acting and the rule is true whether or not there is a network.
+
+**Revised 2026-09-15 (Davide): the ladder picks, and one control under it sends.** The first build
+put the whole act on four chips, each printing the absolute figure it sent above its share — and at
+~88dp a chip there was room for digits and nothing else, so the three figures wrapped into ragged
+lines with the separator stranded at the start of one, and no chip could afford to say *where the
+resources were going*: *"the buttons to donate resources are very badly formatted, and it is not even
+clear that you're actually donating your resources to the Lions."* Both halves of that are the same
+cause, and splitting the act in two buys the width back. **Nothing on the share row commits
+anything** — it answers *how much*, which is the one question an 88dp target can answer — and the
+full-width control under it spells the basket the way every other cost in the app is written (a name
+beside each figure, the empty ones dropped) and **names the alliance it is sending to**, because the
+button is the last thing read before resources leave a colony for good. The ladder opens on a tenth
+and is never moved off what the player picked; a stop that floors to nothing does not press, and when
+the picked one does, the control is **absent** with the sentence that says which fact that is —
+*"This share rounds to nothing."* against *"There is nothing to pay in."* `All` keeps its two-step
+confirm.
+
+**And it is the one thing on this destination that moves** (same call). Everywhere else here a face
+appears rather than transitions, which is what "nothing animates" was about; but picking a stop
+reflows the basket line and so moves the control under it, and a button that jumps under a finger on
+its way to being pressed is the case the motion rule exists for. The stops' fills cross-fade on the
+same 210ms `Settle` the segmented switch uses, so the selection and the reflow read as one gesture.
 
 A **project row** reuses the facility row's sentence — a name, an effect, a cost read against the
 *pool* rather than personal stock — in three states: available, owned (accent border, one tracked
@@ -587,7 +608,8 @@ remove every other member first. This is the first item under *Open* below.
 | Commit, unaffordable | 44dp ghost + computed time | Held card | amber 6% fill in 22% border, r14 (fleet strip's) |
 | Commit, not ready / refused | absent, never greyed | Held blocks / held values | `HELD_DIM` (42%) / full strength |
 | Treasury pool row / orb | 44dp hairline-ruled / 7dp resource hue | Stale stamp | `"Last read HH:MM"`, new |
-| Contribute chip / gap | 44dp r9 white 16% / 7dp | Face-crossing motion | 210ms (destination-switch duration), else none |
+| Contribute stop / gap | 44dp r9, white 16% (6% inert, accent selected) / 7dp | Face-crossing motion | 210ms (destination-switch duration) |
+| Contribute basket / control | 11sp full width / 44dp filled accent, full width | Contribute ladder motion | fills cross-fade 210ms `Settle`; the basket reflow animates the control's position |
 
 ### Invented here, not in the brief — flagged rather than folded in
 

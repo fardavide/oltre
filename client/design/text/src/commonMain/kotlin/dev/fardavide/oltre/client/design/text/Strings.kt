@@ -1214,7 +1214,12 @@ object Strings {
 
     fun allianceShare(percent: Int): TextRes = message(StringId.AllianceShare, Arg.Number(percent.toLong()))
 
+    fun allianceContributeAction(alliance: TextRes): TextRes =
+        message(StringId.AllianceContributeAction, Arg.Text(alliance))
+
     fun allianceContributeNothing(): TextRes = message(StringId.AllianceContributeNothing)
+
+    fun allianceShareRoundsToNothing(): TextRes = message(StringId.AllianceShareRoundsToNothing)
 
     fun allianceConfirmAllTitle(): TextRes = message(StringId.AllianceConfirmAllTitle)
 

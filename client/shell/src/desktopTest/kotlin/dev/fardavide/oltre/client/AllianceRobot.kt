@@ -15,6 +15,7 @@ import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.net.data.AllianceRequest
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.JoinDecision
@@ -56,11 +57,38 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.waitForIdle()
     }
 
-    // The four chips, by position: 10%, 25%, 50% and `All`. Index rather than words because the
+    // The four stops, by position: 10%, 25%, 50% and `All`. Index rather than words because the
     // share is a number in one language and the same number in the other, and the fourth is a word.
-    fun contribute(chip: Int) = apply {
-        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.CHIP, chip)).performScrollTo().performClick()
+    //
+    // **This sends nothing**, which is the whole of the split: picking changes what the control below
+    // says it will do, and `contribute()` is the only thing on this destination that pays anything in.
+    fun pickShare(stop: Int) = apply {
+        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.SHARE, stop)).performScrollTo().performClick()
         test.waitForIdle()
+    }
+
+    fun contribute() = apply {
+        test.onNodeWithTag(AllianceTestTags.CONTRIBUTE_ACTION).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    fun assertCannotContribute() = apply {
+        test.onNodeWithTag(AllianceTestTags.CONTRIBUTE_ACTION).assertDoesNotExist()
+    }
+
+    // **What the screen says the next tap will send**, resource names and all — the promise the
+    // control makes, as opposed to `assertContributed` below, which is what it then kept.
+    fun assertWillSend(metal: Long, crystal: Long, deuterium: Long) = apply {
+        val basket = Strings.clauses(
+            listOf(
+                Strings.amountOfResource(Strings.groupedNumber(metal), ResourceKind.METAL),
+                Strings.amountOfResource(Strings.groupedNumber(crystal), ResourceKind.CRYSTAL),
+                Strings.amountOfResource(Strings.groupedNumber(deuterium), ResourceKind.DEUTERIUM),
+            ),
+        )
+        test.onNodeWithTag(AllianceTestTags.CONTRIBUTE_BASKET)
+            .performScrollTo()
+            .assert(hasText(English.resolve(basket)))
     }
 
     fun confirmContributingEverything() = apply {
@@ -150,6 +178,17 @@ internal class AllianceRobot(private val app: AppRobot) {
 
     fun assertNothingToConfirm() = apply {
         test.onNodeWithTag(AllianceTestTags.CONFIRM_CONTRIBUTE).assertDoesNotExist()
+    }
+
+    // **What the panel says the pool holds**, by row and in the rail's own order. The mirror of
+    // `assertContributed` below and the half it cannot see: a contribution that left the phone and
+    // never came back to the screen looks identical from the envelope end.
+    fun assertPoolReads(metal: Long, crystal: Long, deuterium: Long) = apply {
+        listOf(metal, crystal, deuterium).forEachIndexed { index, amount ->
+            test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.POOL_ROW, index))
+                .performScrollTo()
+                .assert(hasAnyDescendant(hasText(English.resolve(Strings.groupedNumber(amount)))))
+        }
     }
 
     // ── What actually left the phone ─────────────────────────────────────────────────────────

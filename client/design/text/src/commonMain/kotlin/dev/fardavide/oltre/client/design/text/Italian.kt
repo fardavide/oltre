@@ -632,7 +632,11 @@ object Italian : Translations {
         StringId.AlliancePaidIn -> "Hai versato ${args.text(0)}."
         StringId.AllianceShareAll -> "Tutto"
         StringId.AllianceShare -> "${args.number(0)}%"
+        // *Versa* rather than *contribuisci*: it is the verb `AllianceConfirmAllAction` already uses
+        // for the same act, and the two controls sit on one card.
+        StringId.AllianceContributeAction -> "Versa a ${args.text(0)}"
         StringId.AllianceContributeNothing -> "Non c'è nulla da versare."
+        StringId.AllianceShareRoundsToNothing -> "Questa quota si arrotonda a zero."
         StringId.AllianceConfirmAllTitle -> "Tutto quello che hai?"
         StringId.AllianceConfirmAllBody ->
             "Questo svuota la colonia nel fondo, e in questo gioco nulla lo tira mai fuori."
