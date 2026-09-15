@@ -227,6 +227,17 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.25.1 — 2026-09-15
+
+- **What you pay in shows up in the pool straight away.** The treasury used to keep drawing the
+  figures it had when you opened the tab, so a contribution only appeared after you restarted the
+  app. The pool and *You have paid in* now move on the tap.
+- **Contributing says what it sends and where it goes.** The four cramped buttons of wrapped digits
+  are gone. Pick a share, read one line naming the metal, crystal and deuterium that will leave, and
+  press a button that names your alliance.
+- **A share too small to send says so** rather than offering a button that would do nothing, and
+  *All* still asks before it empties your colony.
+
 ### 0.25.0 — 2026-09-14
 
 - **Founding an alliance costs something.** 200,000 metal, 100,000 crystal and 50,000 deuterium, out

@@ -8,8 +8,11 @@ import dev.fardavide.oltre.client.alliance.domain.canLeave
 import dev.fardavide.oltre.client.alliance.domain.canRemove
 import dev.fardavide.oltre.client.alliance.ui.AllianceHeadUiState
 import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
-import dev.fardavide.oltre.client.alliance.ui.ContributeChipUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
 import dev.fardavide.oltre.client.alliance.ui.ContributeConfirmUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeShare
+import dev.fardavide.oltre.client.alliance.ui.ContributeShareUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeUiState
 import dev.fardavide.oltre.client.alliance.ui.DepartureUiState
 import dev.fardavide.oltre.client.alliance.ui.FoundingUiState
 import dev.fardavide.oltre.client.alliance.ui.PendingRowUiState
@@ -55,6 +58,10 @@ fun allianceUiState(
     // Null is *not read yet*, which the treasury panel says in a line of its own rather than the
     // whole face waiting on it — see `AllianceGateway.treasury` for why the two reads are separate.
     treasury: TreasuryResponse?,
+    // Which stop of the contribution ladder the player is on. Screen state like `search` and
+    // `founding` above, and for the same reason: it survives no round trip and is nobody's business
+    // but this tab's. Null is *they have not picked*, which `contributeLadder` resolves.
+    picked: ContributeShare?,
 ): AllianceUiState {
     // **Held outranks everything and is checked first.** With no network the server never answered,
     // so nothing on the face is red and nothing is stale — there is simply no alliance state to draw.
@@ -71,11 +78,15 @@ fun allianceUiState(
             body = Strings.allianceWaitingBody(),
             withdraw = Strings.allianceWithdraw(),
         )
-        is AllianceState.Enlisted -> standing.face(colony, treasury)
+        is AllianceState.Enlisted -> standing.face(colony, treasury, picked)
     }
 }
 
-private fun AllianceState.Enlisted.face(colony: Resources, treasury: TreasuryResponse?): AllianceUiState.Enlisted {
+private fun AllianceState.Enlisted.face(
+    colony: Resources,
+    treasury: TreasuryResponse?,
+    picked: ContributeShare?,
+): AllianceUiState.Enlisted {
     val members = (roster as? AllianceRosterReading.Read)?.value
     return AllianceUiState.Enlisted(
         header = alliance.head(treasury),
@@ -89,7 +100,7 @@ private fun AllianceState.Enlisted.face(colony: Resources, treasury: TreasuryRes
             )
         },
         roster = members?.members.orEmpty().map { it.row(viewer = role) },
-        treasury = treasuryFace(treasury, colony),
+        treasury = treasuryFace(treasury, colony, TextRes(alliance.name.value), picked),
         departure = departure(role, seats = alliance.seats.taken),
     )
 }
@@ -143,7 +154,12 @@ private fun PlayerProfile.drawnName(): TextRes {
     return TextRes(chosen.value)
 }
 
-private fun treasuryFace(treasury: TreasuryResponse?, colony: Resources): TreasuryUiState = TreasuryUiState(
+private fun treasuryFace(
+    treasury: TreasuryResponse?,
+    colony: Resources,
+    alliance: TextRes,
+    picked: ContributeShare?,
+): TreasuryUiState = TreasuryUiState(
     label = Strings.allianceTreasuryLabel(),
     rule = Strings.allianceTreasuryRule(),
     // **One safe call each, on the one thing that is actually nullable.** `pool`, `contributed` and
@@ -153,7 +169,7 @@ private fun treasuryFace(treasury: TreasuryResponse?, colony: Resources): Treasu
     contributed = Strings.alliancePaidIn(
         if (treasury == null) TextRes("0") else treasury.contributed.groupedByThousands(),
     ),
-    chips = contributeChips(colony, live = treasury != null),
+    contribute = contributeLadder(colony, alliance, picked, live = treasury != null),
     projectsLabel = Strings.allianceProjectsLabel(),
     projects = treasury?.projects.orEmpty().map { offer ->
         ProjectRowUiState(
@@ -190,60 +206,90 @@ private fun Resources.amountOf(kind: ResourceKind): Long = when (kind) {
     ResourceKind.DEUTERIUM -> deuterium
 }
 
-// **The ladder, and the whole of what a chip promises.** Each share is taken of the colony's own
-// stock and **floored**, so the figure printed above the share is exactly what leaves — a chip that
-// sends more than it states is the worst kind of wrong on a control nothing can undo.
+// **The ladder, and the whole of what the control under it promises.** Each stop takes its share of
+// the colony's own stock and **floors** it, so the basket the line spells is exactly what leaves — a
+// control that sends more than it states is the worst kind of wrong on a tap nothing can undo.
 //
-// `All` is a word rather than 100%, because reaching for everything is not arithmetic, and it is the
-// one chip that confirms.
-internal fun contributeChips(colony: Resources, live: Boolean): List<ContributeChipUiState> {
-    val shares = SHARES.map { percent ->
-        chip(
-            share = Strings.allianceShare(percent),
-            metal = colony.metal * percent / 100,
-            crystal = colony.crystal * percent / 100,
-            deuterium = colony.deuterium * percent / 100,
-            confirms = false,
-            live = live,
-        )
-    }
-    return shares + chip(
-        share = Strings.allianceShareAll(),
-        metal = colony.metal,
-        crystal = colony.crystal,
-        deuterium = colony.deuterium,
-        confirms = true,
-        live = live,
+// **`picked` is null when the player has not chosen, and the ladder opens on a tenth** — the
+// gentlest stop on the one control in this app that cannot be taken back. It is never moved off what
+// the player picked, not even when their stop floors to nothing and a later one would send
+// something: on a control this size, a selection that quietly slid one along is worse than an absent
+// button with a sentence under it.
+internal fun contributeLadder(
+    colony: Resources,
+    alliance: TextRes,
+    picked: ContributeShare?,
+    live: Boolean,
+): ContributeUiState {
+    val selected = picked ?: ContributeShare.A_TENTH
+    val basket = colony.share(selected)
+    return ContributeUiState(
+        shares = ContributeShare.entries.map { share ->
+            ContributeShareUiState(
+                share = share,
+                label = share.label(),
+                selected = share == selected,
+                // **A stop that would send nothing does not press**, which is `core`'s
+                // `NothingOffered` refusal arriving one layer earlier: a control that appears to work
+                // and changes nothing is the dead control in its purest form, and a colony at ten
+                // metal floors three of these four to zero.
+                enabled = live && colony.share(share) != Resources.of(),
+            )
+        },
+        action = when {
+            !live -> ContributeActionUiState.Unread
+            basket != Resources.of() ->
+                basket.offer(alliance, confirms = selected == ContributeShare.EVERYTHING)
+
+            // **Two sentences, because they are two different facts** and each is exactly true where
+            // it stands: a colony with nothing in it has nothing to give at any stop, and a colony
+            // with a little in it has stops that floor to zero while `All` still works. One sentence
+            // covering both would have to be vague about which.
+            colony == Resources.of() -> ContributeActionUiState.Short(Strings.allianceContributeNothing())
+            else -> ContributeActionUiState.Short(Strings.allianceShareRoundsToNothing())
+        },
     )
 }
 
-private fun chip(
-    share: TextRes,
-    metal: Long,
-    crystal: Long,
-    deuterium: Long,
-    confirms: Boolean,
-    live: Boolean,
-): ContributeChipUiState = ContributeChipUiState(
-    share = share,
-    // **Digits in the rail's own order and no resource names**, which is a departure from the way
-    // every other cost in the app is written and is forced by the width: four chips across 393dp
-    // leave about 88dp each, and *"4,210 Metal · 960 Crystal · 120 Deuterium"* is three wrapped
-    // lines on every one of them. The names are recoverable — the pool rows directly above list the
-    // three in this order, with their names — and what a chip must not lose is the *figures*, since
-    // those are the promise it makes.
-    figure = Strings.clauses(
-        listOf(metal.groupedByThousands(), crystal.groupedByThousands(), deuterium.groupedByThousands()),
-    ),
-    metal = metal,
-    crystal = crystal,
-    deuterium = deuterium,
-    confirms = confirms,
-    // **A chip that would send nothing does not press**, which is `core`'s `NothingOffered` refusal
-    // arriving one layer earlier: a control that appears to work and changes nothing is the dead
-    // control in its purest form, and a colony at ten metal has three chips that round to zero.
-    enabled = live && (metal > 0 || crystal > 0 || deuterium > 0),
+// **The basket spelled out, resource names and all**, which is how every other cost in this app is
+// written and what the four-chip row could not afford: at ~88dp a stop, *"4,210 Metal · 960 Crystal ·
+// 120 Deuterium"* wrapped to three ragged lines on every one of them. Full width, it is one.
+//
+// Zeroes are dropped, which `line()` already does for a project's cost — a basket that says
+// *"0 Deuterium"* is a figure nobody needs to read.
+private fun Resources.offer(alliance: TextRes, confirms: Boolean): ContributeActionUiState.Offered =
+    ContributeActionUiState.Offered(
+        basket = line(),
+        action = Strings.allianceContributeAction(alliance),
+        metal = metal,
+        crystal = crystal,
+        deuterium = deuterium,
+        confirms = confirms,
+    )
+
+// **Floored, by integer division**, which is the promise: what the line above the control states is
+// what leaves. `EVERYTHING` is the colony itself rather than `100 / 100` of it, so no rounding can
+// come between *all* and all.
+private fun Resources.share(share: ContributeShare): Resources = when (share) {
+    ContributeShare.A_TENTH -> scaled(10)
+    ContributeShare.A_QUARTER -> scaled(25)
+    ContributeShare.A_HALF -> scaled(50)
+    ContributeShare.EVERYTHING -> this
+}
+
+private fun Resources.scaled(percent: Int): Resources = Resources.of(
+    metal = metal * percent / 100,
+    crystal = crystal * percent / 100,
+    deuterium = deuterium * percent / 100,
 )
+
+// `All` is a word rather than 100%, because reaching for everything is not arithmetic.
+private fun ContributeShare.label(): TextRes = when (this) {
+    ContributeShare.A_TENTH -> Strings.allianceShare(10)
+    ContributeShare.A_QUARTER -> Strings.allianceShare(25)
+    ContributeShare.A_HALF -> Strings.allianceShare(50)
+    ContributeShare.EVERYTHING -> Strings.allianceShareAll()
+}
 
 private fun AllianceProject.title(): TextRes = when (this) {
     AllianceProject.CHARTER_EXPANSION -> Strings.allianceProjectCharter()
@@ -341,10 +387,10 @@ fun foundingUiState(
 fun foundable(name: String, tag: String): Boolean =
     AllianceName.refusalFor(name.trim()) == null && AllianceTag.refusalFor(tag) == null
 
-// What the chip actually sends, as the type `core` charges against. It lives here rather than on the
-// chip because `Resources` is `core`'s and `:client:alliance:ui` draws without ever meeting a
-// `GameState` — the chip carries three numbers and this is the one place they become a basket.
-fun ContributeChipUiState.basket(): Resources =
+// What the control actually sends, as the type `core` charges against. It lives here rather than on
+// the ui-state because `Resources` is `core`'s and `:client:alliance:ui` draws without ever meeting
+// one — the offer carries three numbers and this is the one place they become a basket.
+fun ContributeActionUiState.Offered.basket(): Resources =
     Resources.of(metal = metal, crystal = crystal, deuterium = deuterium)
 
 fun contributeConfirmUiState(): ContributeConfirmUiState = ContributeConfirmUiState(
@@ -353,7 +399,3 @@ fun contributeConfirmUiState(): ContributeConfirmUiState = ContributeConfirmUiSt
     confirm = Strings.allianceConfirmAllAction(),
     keep = Strings.allianceConfirmAllKeep(),
 )
-
-// The three fixed shares. Small, repeatable, and each printing the figure it sends — the friction is
-// on `All`, which is the tap that empties a colony.
-private val SHARES = listOf(10, 25, 50)

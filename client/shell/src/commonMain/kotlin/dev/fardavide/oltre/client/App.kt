@@ -23,7 +23,8 @@ import dev.fardavide.oltre.client.alliance.presentation.foundingUiState
 import dev.fardavide.oltre.client.alliance.presentation.searchUiState
 import dev.fardavide.oltre.client.alliance.ui.AllianceActions
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
-import dev.fardavide.oltre.client.alliance.ui.ContributeChipUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeShare
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
 import dev.fardavide.oltre.client.auth.data.defaultProviderSignIn
@@ -377,9 +378,13 @@ fun App(
             var foundTag by remember { mutableStateOf("") }
             var nameTaken by remember { mutableStateOf(false) }
             var tagTaken by remember { mutableStateOf(false) }
+            // Which stop of the contribution ladder the player is on. Screen state like the query
+            // above and for the same reason — null is *they have not picked*, and the ladder resolves
+            // it to a tenth rather than the shell guessing here.
+            var picked by remember { mutableStateOf<ContributeShare?>(null) }
             // The basket `All` is asking about. Null is *no confirm is up*; the two-step face is the
             // one thing on this tab that is a mode.
-            var confirming by remember { mutableStateOf<ContributeChipUiState?>(null) }
+            var confirming by remember { mutableStateOf<ContributeActionUiState.Offered?>(null) }
             // **One profile write at a time, because the row goes up whole.** The mark commits as it
             // is touched and the name has a button — the frame's own split — which makes them the one
             // pair of controls in this app that can be pressed inside each other's round trip. Two
@@ -624,6 +629,22 @@ fun App(
                 }
             }
 
+            // **The pool on its own, because it is the one thing on this tab that a tap can change
+            // without answering with it.** Every alliance act hands a standing back and buying a
+            // project hands the treasury back; a contribution hands back a *colony*, since it travels
+            // as a verb through the sync pair. So this is what the contribution goes back for — and
+            // what `readAlliance` below calls rather than keeping a second copy of.
+            //
+            // A refusal leaves the pool where it was rather than clearing it: a panel that had one a
+            // moment ago is better drawing the one it has than emptying itself because one request
+            // did not land.
+            suspend fun readThePool(access: SessionToken) {
+                when (val pool = alliances.treasury(access)) {
+                    is ApiResult.Answered -> treasury = pool.value
+                    is ApiResult.Refused, ApiResult.Unreachable -> Unit
+                }
+            }
+
             // **The alliance, read the way the profile is: on the way in, and again whenever it is
             // still unread.** It is three requests behind one call — the standing, the roster and the
             // treasury — and `AllianceGateway` is what makes them one answer, so nothing here has to
@@ -639,15 +660,7 @@ fun App(
                 }
                 // The pool, and only when there is one to read. A player in no alliance has no
                 // treasury, and asking for one would be a request that can only be refused.
-                if (standing is AllianceState.Enlisted) {
-                    when (val pool = alliances.treasury(access)) {
-                        is ApiResult.Answered -> treasury = pool.value
-                        // Left unread rather than cleared: a panel that had a pool a moment ago is
-                        // better drawing the one it has than emptying itself because one request
-                        // did not land.
-                        is ApiResult.Refused, ApiResult.Unreachable -> Unit
-                    }
-                }
+                if (standing is AllianceState.Enlisted) readThePool(access)
                 // **And the price, on the other arm of the same question.** A member is not shown a
                 // founding block and has nothing to spend it on, so the two reads are exclusive —
                 // which is what keeps a check-in to the same two requests it already paid for.
@@ -1115,7 +1128,12 @@ fun App(
                     is ClientVerb.StartRun, is ClientVerb.StartSurvey, is ClientVerb.Contribute -> null
                 }
 
-                fun dispatch(verb: ClientVerb) {
+                // **What to go and read once the server has agreed**, for the one verb whose effect
+                // is not in the colony that comes back. A sync answers with a `GameState` and nothing
+                // else, so a contribution's *other* half — the pool it landed in — is a second route
+                // somebody has to ask for; this is where the asking is hung, at the call site that
+                // knows there is something to ask about rather than inside a `when` over verbs here.
+                fun dispatch(verb: ClientVerb, andThen: suspend () -> Unit = {}) {
                     // **The previous refusal goes with the tap that follows it**, whichever control
                     // it was on: a sentence about a tap the player has moved past is furniture.
                     refusedRun = null
@@ -1125,8 +1143,10 @@ fun App(
                     scope.launch {
                         val wall = wallClock.now()
                         when (val outcome = colony.act(verb)) {
-                            is ActOutcome.Synced ->
+                            is ActOutcome.Synced -> {
                                 arrive(SyncOutcome.Synced(outcome.colony, outcome.rejected), debugClock, wall)
+                                andThen()
+                            }
 
                             // On disk before this returned. The card the tap came from is amber from
                             // the next frame, because `held` is what every mapper reads.
@@ -1252,6 +1272,24 @@ fun App(
                                 ApiResult.Unreachable -> reachable = false
                             }
                             Credential.Gone, Credential.Unreachable -> reachable = false
+                        }
+                    }
+                }
+
+                // **A contribution, and then the pool it joined.** The sync answers with a colony —
+                // the debit — and the credit is three columns on the alliance's own row, which is a
+                // second route. Without this read the panel went on drawing the pool the tab opened
+                // with for the life of the process: the rail got poorer, the figures above it did
+                // not move, and the only way to watch a contribution arrive was to restart the app.
+                //
+                // Only once the server has agreed, which is what `dispatch`'s `andThen` means: a
+                // contribution is `LOOK_DONT_ACT`, so there is no queued state to read a pool for and
+                // a refused one changed nothing worth going back for.
+                fun contribute(basket: Resources) {
+                    dispatch(ClientVerb.Contribute(basket)) {
+                        when (val credential = sessions.current()) {
+                            is Credential.Held -> readThePool(credential.access)
+                            Credential.Gone, Credential.Unreachable -> Unit
                         }
                     }
                 }
@@ -2110,6 +2148,7 @@ fun App(
                                     // expired.
                                     colony = current.state.resources,
                                     treasury = treasury,
+                                    picked = picked,
                                 ),
                                 actions = AllianceActions(
                                     onQueryChange = ::searchAlliances,
@@ -2150,20 +2189,23 @@ fun App(
                                         }
                                     },
                                     onRemove = { row -> actOnAlliance { alliances.removeMember(it, row.id) } },
+                                    // Picking a stop changes what the line and the button say and
+                                    // sends nothing — the split `ContributeUiState` argues.
+                                    onPickShare = { picked = it },
                                     // **`All` raises the two-step face and the three shares send on
                                     // the tap** — Davide, 2026-09-14. The friction is on the one tap
                                     // that empties a colony and that nothing can undo.
-                                    onContribute = { chip ->
-                                        if (chip.confirms) {
-                                            confirming = chip
+                                    onContribute = { offer ->
+                                        if (offer.confirms) {
+                                            confirming = offer
                                         } else {
-                                            dispatch(ClientVerb.Contribute(chip.basket()))
+                                            contribute(offer.basket())
                                         }
                                     },
                                     onBuy = { row -> buyProject(row.project) },
                                     onDepart = { actOnAlliance { alliances.leaveAlliance(it) } },
                                     onConfirmContribute = {
-                                        confirming?.let { dispatch(ClientVerb.Contribute(it.basket())) }
+                                        confirming?.let { contribute(it.basket()) }
                                         confirming = null
                                     },
                                     onKeepContribute = { confirming = null },

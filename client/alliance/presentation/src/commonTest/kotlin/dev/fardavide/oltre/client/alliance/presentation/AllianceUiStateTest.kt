@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.alliance.presentation
 import dev.fardavide.oltre.client.alliance.domain.AllianceRosterReading
 import dev.fardavide.oltre.client.alliance.domain.AllianceState
 import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
+import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
 import dev.fardavide.oltre.client.alliance.ui.FoundingUiState
 import dev.fardavide.oltre.client.alliance.ui.SearchResultsUiState
 import dev.fardavide.oltre.client.design.text.Strings
@@ -170,13 +171,15 @@ class AllianceUiStateTest {
     }
 
     // **A pool the route has not answered for leaves a line rather than the whole face waiting**, and
-    // the ladder does not press: there is nothing to pay into yet.
+    // the ladder does not press: there is nothing to pay into yet. The control under it says nothing
+    // at all, because the line above is already saying it and one card saying it twice is furniture.
     @Test
-    fun `an unread treasury says so and offers no chip that presses`() {
+    fun `an unread treasury says so once and offers no stop that presses`() {
         val state = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(), treasury = null))
 
         assertEquals(Strings.allianceTreasuryUnread(), state.treasury.unread)
-        assertTrue(state.treasury.chips.none { it.enabled })
+        assertTrue(state.treasury.contribute.shares.none { it.enabled })
+        assertEquals(ContributeActionUiState.Unread, state.treasury.contribute.action)
         assertTrue(state.treasury.projects.isEmpty())
     }
 
@@ -427,21 +430,18 @@ class AllianceUiStateTest {
         assertEquals(Strings.allianceSeatsLine(3, 12), state.header.seats)
     }
 
-    // **A chip prints all three figures even when two of them are nothing**, and that is the one
-    // place in the app where a zero is drawn on purpose: the three numbers are positional, reading
-    // down the same order as the pool rows directly above them, and dropping the empty ones would
-    // slide the remaining figure under the wrong name.
-    //
-    // A project cost, which has names beside its numbers, does the opposite — see below.
+    // **The basket reads like every other cost in the app: a name beside each figure, and the empty
+    // ones dropped.** The four-chip row could not do this — at ~88dp a stop there was room for digits
+    // and nothing else, so the three numbers were positional and a zero had to be drawn to keep the
+    // remaining figure under the right name. Full width, the names travel with the numbers and a
+    // *"0 Metal"* nobody needs to read goes away.
     @Test
-    fun `a chip keeps its three figures in the rail's order even when two are nothing`() {
-        val deuteriumOnly = contributeChips(Resources.of(deuterium = 500), live = true)
+    fun `the basket names its resources and drops the ones that are nothing`() {
+        val deuteriumOnly = ladder(Resources.of(deuterium = 500)).offered()
 
         assertEquals(
-            Strings.clauses(
-                listOf(Strings.groupedNumber(0), Strings.groupedNumber(0), Strings.groupedNumber(50)),
-            ),
-            deuteriumOnly.first().figure,
+            Strings.clauses(listOf(Strings.amountOfResource(Strings.groupedNumber(50), ResourceKind.DEUTERIUM))),
+            deuteriumOnly.basket,
         )
     }
 
@@ -503,6 +503,7 @@ class AllianceUiStateTest {
         founding = founding(name = "", tag = ""),
         colony = Resources.of(metal = 42_100, crystal = 9_600, deuterium = 1_200),
         treasury = treasury,
+        picked = null,
     )
 
     private fun enlisted(

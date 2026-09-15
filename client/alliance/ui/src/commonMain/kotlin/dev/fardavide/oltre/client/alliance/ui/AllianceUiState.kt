@@ -170,7 +170,7 @@ data class TreasuryUiState(
     val rule: TextRes,
     val pool: List<PoolRowUiState>,
     val contributed: TextRes,
-    val chips: List<ContributeChipUiState>,
+    val contribute: ContributeUiState,
     val projectsLabel: TextRes,
     val projects: List<ProjectRowUiState>,
     val projectsEmpty: TextRes,
@@ -181,21 +181,75 @@ data class TreasuryUiState(
 
 data class PoolRowUiState(val name: TextRes, val amount: TextRes)
 
-// A share of the colony's own stock, with **the absolute figure it sends stated above the share**,
-// floored rather than rounded: a chip that sends more than it states is the worst kind of wrong here.
-data class ContributeChipUiState(
-    val share: TextRes,
-    val figure: TextRes,
-    // What the tap actually sends, in whole units. Resolved here rather than on the wire, because a
-    // share resolved by the server would be a different basket from the one the player read.
-    val metal: Long,
-    val crystal: Long,
-    val deuterium: Long,
-    // `All` gets the delete face's two-step confirm and the three fixed shares do not — Davide,
-    // 2026-09-14. It is the one tap that empties a colony and nothing can undo it.
-    val confirms: Boolean,
+// **The four stops of the contribution ladder, as a type rather than an index into a list.** A
+// selection that could be `4` is a selection that can be wrong, and this one decides what leaves a
+// colony for good. `EVERYTHING` is a member rather than a fourth percentage because reaching for
+// everything is not arithmetic — `alliance-sheet.md` §7, and why it is drawn as a word.
+enum class ContributeShare {
+    A_TENTH,
+    A_QUARTER,
+    A_HALF,
+    EVERYTHING,
+}
+
+// **The contribution, as a ladder that picks and one control that sends** — which replaced four
+// chips that each tried to print three figures in 88dp (Davide, 2026-09-15: *"the buttons to donate
+// resources are very badly formatted, and it is not even clear that you're actually donating your
+// resources to the Lions"*). Both halves of that are the same cause: at a quarter of the width there
+// was room for digits and nothing else, so the figures wrapped into three ragged lines with the
+// separator stranded at the start of one, and nothing on the control could afford to say where the
+// resources were going.
+//
+// Splitting the act in two buys the width back. **Nothing on the share row commits anything** — it
+// decides *how much*, which is the one question a 88dp target can answer — and the full-width control
+// under it spells the basket with its resource names and names the alliance it is sending to.
+data class ContributeUiState(
+    val shares: List<ContributeShareUiState>,
+    val action: ContributeActionUiState,
+)
+
+// One stop on the ladder. `enabled` is false for a stop that would send nothing — a colony at ten
+// metal floors three of the four to zero — which is `core`'s `NothingOffered` refusal arriving one
+// layer earlier rather than a control that appears to work and changes nothing.
+data class ContributeShareUiState(
+    val share: ContributeShare,
+    val label: TextRes,
+    val selected: Boolean,
     val enabled: Boolean,
 )
+
+// **What sits under the ladder, which is three things and not a boolean.** Absent rather than greyed
+// is this app's rule for a control that could only answer no, and an absence is answerable only when
+// something says why — so each arm that offers nothing either carries its own sentence or defers to
+// one the panel is already drawing.
+sealed interface ContributeActionUiState {
+
+    // Offered, and this is exactly what it sends — **floored** rather than rounded, since a control
+    // that sends more than it states is the worst kind of wrong here.
+    data class Offered(
+        // The basket, spelled with its resource names on one full-width line. What four chips could
+        // never afford, and the whole of the formatting complaint above.
+        val basket: TextRes,
+        // The one control that sends, naming the alliance it sends to.
+        val action: TextRes,
+        // What the tap sends, in whole units. Three numbers rather than a `Resources`, because this
+        // module draws without ever meeting one of `core`'s types — `basket()` in `:presentation` is
+        // where they become the thing `core` is charged.
+        val metal: Long,
+        val crystal: Long,
+        val deuterium: Long,
+        // `All` gets the delete face's two-step confirm and the three fixed shares do not — Davide,
+        // 2026-09-14. It is the one tap that empties a colony and nothing can undo it.
+        val confirms: Boolean,
+    ) : ContributeActionUiState
+
+    // Nothing to send: an empty colony, or every stop on the ladder floored to zero.
+    data class Short(val line: TextRes) : ContributeActionUiState
+
+    // The pool has not been read. No control and **no second sentence** — `TreasuryUiState.unread` is
+    // already saying so a few lines up, and one card saying it twice is furniture.
+    data object Unread : ContributeActionUiState
+}
 
 data class ProjectRowUiState(
     val project: AllianceProject,

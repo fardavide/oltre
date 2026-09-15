@@ -559,7 +559,15 @@ object English : Translations {
         // A word rather than 100%, because reaching for everything is not arithmetic.
         StringId.AllianceShareAll -> "All"
         StringId.AllianceShare -> "${args.number(0)}%"
+        // **The alliance is named on the control that sends, not only in the header three cards up**
+        // (Davide, 2026-09-15): the button is the last thing read before resources leave a colony for
+        // good, so it is where *whose pool this is* has to be legible.
+        StringId.AllianceContributeAction -> "Contribute to ${args.text(0)}"
         StringId.AllianceContributeNothing -> "There is nothing to pay in."
+        // The picked stop floors to zero while a larger one would still send something — which is a
+        // different fact from the line above and gets a different sentence, since the answer to this
+        // one is *pick a bigger share* and the answer to that one is *come back later*.
+        StringId.AllianceShareRoundsToNothing -> "This share rounds to nothing."
         StringId.AllianceConfirmAllTitle -> "Everything you have?"
         StringId.AllianceConfirmAllBody ->
             "This empties the colony into the pool, and nothing in this game ever takes it back out."

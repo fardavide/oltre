@@ -1,14 +1,13 @@
 package dev.fardavide.oltre.client.alliance.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,6 +44,7 @@ import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.protocol.AllianceName
@@ -54,8 +54,13 @@ import dev.fardavide.oltre.protocol.AllianceTag
 // that replaces the honest "Coming soon" the tab carried while the feature was being built.
 //
 // One shape, the one every destination already has: 16dp screen padding, 8dp between cards, 13dp
-// between sections, on the 560dp centred column. Nothing here animates and nothing here decides —
-// `:client:alliance:presentation` chose the face, the words and which controls may be pressed.
+// between sections, on the 560dp centred column. Nothing here decides — `:client:alliance:
+// presentation` chose the face, the words and which controls may be pressed.
+//
+// **One thing here moves, and exactly one** (Davide, 2026-09-15): picking a contribution stop
+// cross-fades the ladder's fills and reflows the line under it, which moves the control that sends.
+// See `Contribute`. Everything else on this destination snaps, which is what the sheet's "no motion
+// here" was about — a face that appears is a face, not a transition.
 
 @Composable
 fun AllianceScreen(
@@ -111,7 +116,10 @@ data class AllianceActions(
     val onWithdraw: () -> Unit = {},
     val onAnswer: (PendingRowUiState, Boolean) -> Unit = { _, _ -> },
     val onRemove: (RosterRowUiState) -> Unit = {},
-    val onContribute: (ContributeChipUiState) -> Unit = {},
+    // **Two callbacks where there was one**, which is the split the control itself now has: picking
+    // a stop changes what the screen says it will send, and only `onContribute` sends anything.
+    val onPickShare: (ContributeShare) -> Unit = {},
+    val onContribute: (ContributeActionUiState.Offered) -> Unit = {},
     val onBuy: (ProjectRowUiState) -> Unit = {},
     val onDepart: () -> Unit = {},
     // The two answers to the `All` chip's question, here rather than beside it on the screen's own
@@ -428,18 +436,7 @@ private fun Treasury(state: TreasuryUiState, actions: AllianceActions) {
             }
         }
         Caption(state.contributed, tag = AllianceTestTags.CONTRIBUTED)
-        // **`IntrinsicSize.Min`, so all four chips are as tall as the tallest.** The figures wrap to
-        // different numbers of lines — `All` is the longest and `10%` the shortest — and without
-        // this the shares sit at four different heights across one row, which reads as four
-        // different kinds of control rather than one ladder.
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-        ) {
-            state.chips.forEachIndexed { index, chip ->
-                Chip(chip, index, actions, Modifier.weight(1f).fillMaxHeight())
-            }
-        }
+        Contribute(state.contribute, actions)
         SectionLabel(state.projectsLabel)
         if (state.projects.isEmpty()) {
             Note(state.projectsEmpty, full = true)
@@ -449,36 +446,91 @@ private fun Treasury(state: TreasuryUiState, actions: AllianceActions) {
     }
 }
 
-// Each chip states the absolute figure it sends **above** the share, floored — see
-// `ContributeChipUiState`.
+// **The ladder picks and the control under it sends** — see `ContributeUiState` for why the act is
+// two steps rather than one. Nothing on the share row commits anything, which is also what lets
+// `All` sit beside the other three without being the one stop that fires on touch.
 @Composable
-private fun Chip(chip: ContributeChipUiState, index: Int, actions: AllianceActions, modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        // The figure at the top and the share at the foot, so the four shares read as one row.
-        verticalArrangement = Arrangement.SpaceBetween,
+private fun Contribute(state: ContributeUiState, actions: AllianceActions) {
+    // **The one thing on this destination that moves, and the sheet's "no motion here" is revised
+    // for it** (Davide, 2026-09-15). Picking a stop reflows the basket line — one line of figures or
+    // two, depending on the share — which moves the control under it, and a button that jumps under
+    // a finger on its way to pressing it is exactly what the global motion rule is about. The stops'
+    // own fills cross-fade on the same `SWITCH_MILLIS` the segmented switch already uses, so the
+    // selection and the reflow are one gesture rather than a snap followed by a slide.
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.animateContentSize()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+            state.shares.forEachIndexed { index, share ->
+                Share(share, index, actions, Modifier.weight(1f))
+            }
+        }
+        // **A `when` with no `else`**, so a fourth state of this control cannot be added without
+        // somebody deciding what is on screen in it — which is the discipline every other face on
+        // this destination already keeps.
+        when (val action = state.action) {
+            is ContributeActionUiState.Offered -> {
+                Text(
+                    text = action.basket.resolve(),
+                    color = OltreColors.text,
+                    fontFamily = oltreMono(),
+                    fontSize = 11.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.testTag(AllianceTestTags.CONTRIBUTE_BASKET),
+                )
+                Filled(
+                    action.action,
+                    onClick = { actions.onContribute(action) },
+                    tag = AllianceTestTags.CONTRIBUTE_ACTION,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            // Absent rather than greyed, with the sentence that makes the absence answerable — the
+            // founding block's own rule, on the other control in this app that spends a colony.
+            is ContributeActionUiState.Short -> Note(action.line, tag = AllianceTestTags.CONTRIBUTE_SHORT)
+            // Nothing: the panel's `unread` line above is already saying it.
+            ContributeActionUiState.Unread -> Unit
+        }
+    }
+}
+
+// One stop. **Not `SegmentedSwitch`**, which the galaxy and Ships share, and the two differences are
+// the whole reason: that control's segments are ~24dp tall because they answer *which of these am I
+// looking at*, and this one decides what leaves a colony, so it keeps the 44dp target every other
+// control on this screen has — and it has a stop that must not press, which a switch between two
+// views of the same thing has never needed.
+@Composable
+private fun Share(state: ContributeShareUiState, index: Int, actions: AllianceActions, modifier: Modifier = Modifier) {
+    // Both the ink and the fill settle rather than snap, and they have to be the same two-frame
+    // decision: a stop whose fill crossed to the accent while its ink jumped to the background hue
+    // would be unreadable for the 210ms in between.
+    Text(
+        text = state.label.resolve(),
+        color = settlingColor(
+            when {
+                state.selected -> OltreColors.background
+                state.enabled -> OltreColors.text
+                else -> OltreColors.textSecondary
+            },
+        ),
+        fontFamily = oltreMono(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
         modifier = modifier
             .heightIn(min = 44.dp)
-            .testTag(AllianceTestTags.row(AllianceTestTags.CHIP, index))
-            .let { if (chip.enabled) it.pressable(oltreActionShape) { actions.onContribute(chip) } else it }
-            .background(Color.White.copy(alpha = if (chip.enabled) 0.16f else 0.06f), oltreActionShape)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = chip.figure.resolve(),
-            color = if (chip.enabled) OltreColors.text else OltreColors.textSecondary,
-            fontFamily = oltreMono(),
-            fontSize = 10.sp,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = chip.share.resolve(),
-            color = if (chip.enabled) OltreColors.text else OltreColors.textSecondary,
-            fontFamily = oltreMono(),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
+            .testTag(AllianceTestTags.row(AllianceTestTags.SHARE, index))
+            .let { if (state.enabled) it.pressable(oltreActionShape) { actions.onPickShare(state.share) } else it }
+            .background(
+                settlingColor(
+                    when {
+                        state.selected -> OltreColors.accent
+                        state.enabled -> Color.White.copy(alpha = 0.16f)
+                        else -> Color.White.copy(alpha = 0.06f)
+                    },
+                ),
+                oltreActionShape,
+            )
+            .padding(horizontal = 8.dp, vertical = 13.dp),
+    )
 }
 
 @Composable

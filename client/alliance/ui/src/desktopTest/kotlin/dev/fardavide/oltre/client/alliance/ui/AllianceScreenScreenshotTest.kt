@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
@@ -241,16 +242,23 @@ class AllianceScreenScreenshotTest {
         capture("alliance_projects_done", enlisted(projects = emptyList()), height = 1_300)
     }
 
-    // A colony with almost nothing in it: three chips floor to zero and do not press, which is
-    // `core`'s own `NothingOffered` refusal arriving one layer earlier.
+    // A colony with almost nothing in it: three stops floor to zero and do not press, which is
+    // `core`'s own `NothingOffered` refusal arriving one layer earlier — and the picked one is among
+    // them, so the control is absent and the line under the ladder says which fact that is.
     @Test
     fun `a colony with nothing much to give`() {
         capture(
-            "alliance_chips_inert",
+            "alliance_ladder_short",
             enlisted().let { face ->
                 face.copy(
                     treasury = face.treasury.copy(
-                        chips = CHIPS.mapIndexed { index, chip -> chip.copy(enabled = index == 3) },
+                        contribute = ContributeUiState(
+                            shares = ladder(
+                                selected = ContributeShare.A_TENTH,
+                                enabled = { it == ContributeShare.EVERYTHING },
+                            ),
+                            action = ContributeActionUiState.Short(Strings.allianceShareRoundsToNothing()),
+                        ),
                     ),
                 )
             },
@@ -323,6 +331,50 @@ class AllianceScreenScreenshotTest {
         enlisted(projects = emptyList()),
         enlisted(),
     )
+
+    // **The ladder mid-gesture, which is the only motion this destination has** — and the only way to
+    // photograph that it is a motion at all. A cross-fade and a snap are identical once they have
+    // settled, so a capture taken after `SETTLED_MILLIS` would pass whether or not the fills animate;
+    // this one stops the clock halfway through the 210ms, where a snapped stop would already be fully
+    // accent and a settling one is part way there.
+    @Test
+    fun `picking a stop crosses rather than snaps`() {
+        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 1_300) {
+            mainClock.autoAdvance = false
+            var state by mutableStateOf<AllianceUiState>(enlisted())
+            setContent {
+                OltreTheme(translations = English) {
+                    Surface { AllianceScreen(state = state, actions = AllianceActions()) }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+
+            // The half that a finger does: a different stop, and a basket that reflows under it.
+            state = enlisted().let { face ->
+                face.copy(
+                    treasury = face.treasury.copy(
+                        contribute = ContributeUiState(
+                            shares = ladder(selected = ContributeShare.A_HALF),
+                            action = ContributeActionUiState.Offered(
+                                basket = TextRes("21,050 Metal · 4,800 Crystal · 600 Deuterium"),
+                                action = Strings.allianceContributeAction(TextRes("Ferro Alto")),
+                                metal = 21_050,
+                                crystal = 4_800,
+                                deuterium = 600,
+                                confirms = false,
+                            ),
+                        ),
+                    ),
+                )
+            }
+            mainClock.advanceTimeBy(HALF_A_SWITCH_MILLIS)
+
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/alliance_ladder_crossing.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
 
     // **The screen as the shell actually calls it** — with a hoisted scroll state and a modifier,
     // which is what a destination inside `MainScaffold` gets. Every other capture here leans on the
@@ -403,7 +455,7 @@ class AllianceScreenScreenshotTest {
             rule = Strings.allianceTreasuryRule(),
             pool = pool,
             contributed = Strings.alliancePaidIn(TextRes("42,000")),
-            chips = CHIPS,
+            contribute = CONTRIBUTE,
             projectsLabel = Strings.allianceProjectsLabel(),
             projects = projects,
             projectsEmpty = Strings.allianceProjectsEmpty(),
@@ -415,6 +467,11 @@ class AllianceScreenScreenshotTest {
     private companion object {
         const val PHONE_WIDTH = 393
         const val SLIDE_OVER_WIDTH = 320
+
+        // Halfway through `OltreMotion.SWITCH_MILLIS`, which is where a cross-fade and a snap look
+        // different. Named rather than inline so the frame is understood as *mid-gesture* rather than
+        // as a number somebody picked.
+        const val HALF_A_SWITCH_MILLIS = OltreMotion.SWITCH_MILLIS / 2L
 
         val SEARCH = SearchUiState(
             label = Strings.allianceSearchLabel(),
@@ -524,12 +581,17 @@ class AllianceScreenScreenshotTest {
             PoolRowUiState(Strings.resourceName(ResourceKind.DEUTERIUM), TextRes("71,400")),
         )
 
-        // Each chip states the absolute figure it sends above the share, floored.
-        val CHIPS = listOf(
-            chip(Strings.allianceShare(10), "4,210 · 960 · 120", confirms = false),
-            chip(Strings.allianceShare(25), "10,525 · 2,400 · 300", confirms = false),
-            chip(Strings.allianceShare(50), "21,050 · 4,800 · 600", confirms = false),
-            chip(Strings.allianceShareAll(), "42,100 · 9,600 · 1,200", confirms = true),
+        // The ladder picks; the control under it states the basket in full and names where it goes.
+        val CONTRIBUTE = ContributeUiState(
+            shares = ladder(selected = ContributeShare.A_TENTH),
+            action = ContributeActionUiState.Offered(
+                basket = TextRes("4,210 Metal · 960 Crystal · 120 Deuterium"),
+                action = Strings.allianceContributeAction(TextRes("Ferro Alto")),
+                metal = 4_210,
+                crystal = 960,
+                deuterium = 120,
+                confirms = false,
+            ),
         )
 
         val CONFIRM = ContributeConfirmUiState(
@@ -556,14 +618,23 @@ class AllianceScreenScreenshotTest {
             buyable = true,
         )
 
-        private fun chip(share: TextRes, figure: String, confirms: Boolean) = ContributeChipUiState(
-            share = share,
-            figure = TextRes(figure),
-            metal = 0,
-            crystal = 0,
-            deuterium = 0,
-            confirms = confirms,
-            enabled = true,
-        )
+        // The four stops, with one of them lit. `enabled` is a parameter because the one frame that
+        // is about an almost-empty colony needs three of them dark.
+        private fun ladder(
+            selected: ContributeShare,
+            enabled: (ContributeShare) -> Boolean = { true },
+        ): List<ContributeShareUiState> = ContributeShare.entries.map { share ->
+            ContributeShareUiState(
+                share = share,
+                label = when (share) {
+                    ContributeShare.A_TENTH -> Strings.allianceShare(10)
+                    ContributeShare.A_QUARTER -> Strings.allianceShare(25)
+                    ContributeShare.A_HALF -> Strings.allianceShare(50)
+                    ContributeShare.EVERYTHING -> Strings.allianceShareAll()
+                },
+                selected = share == selected,
+                enabled = enabled(share),
+            )
+        }
     }
 }
