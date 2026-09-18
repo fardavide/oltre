@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.DecodeResult
 import dev.fardavide.oltre.core.GameSave
 import java.time.OffsetDateTime
@@ -22,9 +23,34 @@ import kotlin.time.Instant
 // Raising instead reaches `served`'s one `catch` and becomes `ApiError.Internal`, which is a 500 the
 // player's client retries and an operator can go and look at. Neither answer gets the colony back;
 // only one of them leaves it there to be got back.
-internal fun colonyFrom(snapshotJson: String, version: Long): StoredColony =
+// **`allianceExperience` is the boon's whole delivery mechanism**, and it arrives here rather than
+// being read separately because of where it must not be read. The sync route deliberately looks a
+// membership up only when a request actually carries a `Contribute` — *"an unconditional membership
+// lookup would put a second query on the hot path of the one route every check-in calls"* — and the
+// boon needs the level on **every** sync. So it comes off the colony read itself, as a join, and
+// costs no round trip at all.
+//
+// Null is *this player is in no alliance*, which is `AllianceSpeedup.NONE` and nineteen colonies in
+// twenty.
+//
+// **The stored value is overwritten rather than trusted**, and that is the check-in rule rather than
+// distrust of the column: what the snapshot holds is whatever the alliance was worth the *last* time
+// this colony was advanced, and what is true now is what the alliance is worth now. Stamping it on
+// read is what makes the boon begin at a member's next check-in — `alliance-sheet.md` §4.2 — and it
+// is also what makes a member who has been away a week arrive to the level their alliance reached
+// while they were gone.
+internal fun colonyFrom(snapshotJson: String, version: Long, allianceExperience: Long?): StoredColony =
     when (val decoded = GameSave.decode(snapshotJson)) {
-        is DecodeResult.Success -> StoredColony(decoded.snapshot, ColonyVersion(version))
+        is DecodeResult.Success -> StoredColony(
+            decoded.snapshot.copy(
+                state = decoded.snapshot.state.copy(
+                    allianceSpeedup = allianceExperience
+                        ?.let { AllianceBalance.speedupOf(it) }
+                        ?: AllianceSpeedup.NONE,
+                ),
+            ),
+            ColonyVersion(version),
+        )
         is DecodeResult.Failure -> error("a stored colony could not be read: ${decoded.reason}")
         // Obsolete is not corruption — it is a save this build deliberately refuses to carry
         // forward — and it is worth its own message for the reason `core` gives it its own member:

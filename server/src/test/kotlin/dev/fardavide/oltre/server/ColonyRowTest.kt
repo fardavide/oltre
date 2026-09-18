@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.GameSave
+import dev.fardavide.oltre.protocol.AllianceLevel
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.test.Test
@@ -18,9 +20,42 @@ class ColonyRowTest {
     fun `a row is the colony it was stored as, at the version the row holds`() {
         val colony = establishedColony()
 
-        val stored = colonyFrom(GameSave.encode(colony), version = 7)
+        val stored = colonyFrom(GameSave.encode(colony), version = 7, allianceExperience = null)
 
         assertEquals(StoredColony(colony, ColonyVersion(7)), stored)
+    }
+
+    // ── What the alliance takes off, stamped on the way out ──────────────────────────────────
+
+    @Test
+    fun `a colony in no alliance has nothing taken off`() {
+        val stored = colonyFrom(GameSave.encode(establishedColony()), version = 1, allianceExperience = null)
+
+        assertEquals(AllianceSpeedup.NONE, stored.snapshot.state.allianceSpeedup)
+    }
+
+    @Test
+    fun `a colony in an alliance is stamped with what its level takes off`() {
+        val earned = AllianceBalance.spanOf(AllianceLevel(0)) + AllianceBalance.spanOf(AllianceLevel(1))
+
+        val stored = colonyFrom(GameSave.encode(establishedColony()), version = 1, allianceExperience = earned)
+
+        assertEquals(AllianceBalance.speedupOf(earned), stored.snapshot.state.allianceSpeedup)
+        assertEquals(4, stored.snapshot.state.allianceSpeedup.percent)
+    }
+
+    // **The stored value is overwritten rather than trusted**, which is the check-in rule: what the
+    // column holds is whatever the alliance was worth the last time this colony was advanced, and
+    // what is true now is what the alliance is worth now. A member who has been away a week arrives
+    // to the level their alliance reached while they were gone — and a member whose alliance
+    // disbanded arrives to nothing, from the same line.
+    @Test
+    fun `a stale boon in the column is replaced by what the alliance is worth now`() {
+        val stale = establishedColony().let { it.copy(state = it.state.copy(allianceSpeedup = AllianceSpeedup(30))) }
+
+        val rejoined = colonyFrom(GameSave.encode(stale), version = 1, allianceExperience = null)
+
+        assertEquals(AllianceSpeedup.NONE, rejoined.snapshot.state.allianceSpeedup)
     }
 
     @Test
@@ -29,7 +64,9 @@ class ColonyRowTest {
         // what the client does next is found one — so a corrupt row reported as absent would mint a
         // second galaxy on top of a colony that is sitting right there, unreadable but not gone.
         // Raising instead reaches `served`'s one `catch`, which is a 500 and a line in a log.
-        val failure = assertFailsWith<IllegalStateException> { colonyFrom("""{"not":"a save"}""", version = 3) }
+        val failure = assertFailsWith<IllegalStateException> {
+            colonyFrom("""{"not":"a save"}""", version = 3, allianceExperience = null)
+        }
 
         assertTrue("could not be read" in failure.message.orEmpty(), failure.message.orEmpty())
     }
@@ -41,7 +78,9 @@ class ColonyRowTest {
         // restore a backup, or deploy a build that still reads schema 1.
         val ancient = """{"schemaVersion":1,"lastUpdatedAt":"$TEST_NOW"}"""
 
-        val failure = assertFailsWith<IllegalStateException> { colonyFrom(ancient, version = 3) }
+        val failure = assertFailsWith<IllegalStateException> {
+            colonyFrom(ancient, version = 3, allianceExperience = null)
+        }
 
         assertTrue("schema 1" in failure.message.orEmpty(), failure.message.orEmpty())
     }

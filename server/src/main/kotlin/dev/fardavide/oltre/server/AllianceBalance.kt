@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.priced
 import dev.fardavide.oltre.protocol.AllianceLevel
@@ -183,6 +184,26 @@ internal object AllianceBalance {
             span = span,
         )
     }
+
+    // ── What the level takes off every member's next build ───────────────────────────────────
+
+    // Two percent a level, which puts an alliance at the floor at level 15. Davide's call,
+    // 2026-09-18, and the floor is the load-bearing half of it: `alliance-sheet.md` §4.3's stated
+    // risk is membership becoming mandatory rather than attractive, and a divisor with no ceiling is
+    // how that happens.
+    const val SPEEDUP_PER_LEVEL: Int = 2
+
+    // **The one place an alliance's level becomes a number `core` understands.** `core` is handed a
+    // percentage and never learns an alliance exists — no level, no roster, no `:protocol` type —
+    // so this function is the whole of the translation, and it is on the server precisely because
+    // the ladder is: a deploy can retune both together without a release.
+    //
+    // Clamped by `AllianceSpeedup`'s own ceiling rather than by a second constant here. The type
+    // refuses anything past it, so the `coerceAtMost` is what makes this total rather than what
+    // makes it safe — an alliance walking past level 15 buys seats and standing and no more speed.
+    fun speedupOf(earned: Long): AllianceSpeedup = AllianceSpeedup(
+        (SPEEDUP_PER_LEVEL * progressOf(earned).level.value).coerceAtMost(AllianceSpeedup.MAX_PERCENT),
+    )
 
     // How many seats the roster has: the free ones the level granted, plus the ones the pool bought,
     // under the screen's own roof.
