@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.design.text.MarkPresetName
 import dev.fardavide.oltre.client.design.text.MarkTerminusName
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.player.ui.DEFAULT_PLAYER_MARK
 import dev.fardavide.oltre.client.player.ui.IdentityFaceUiState
 import dev.fardavide.oltre.client.player.ui.MarkBodyChoice
 import dev.fardavide.oltre.client.player.ui.MarkCellUiState
@@ -142,7 +143,7 @@ fun PlayerProfile?.spokenName(): TextRes = this?.name?.let { TextRes(it.value) }
 // substitution belongs where the mark is drawn rather than on the wire — a default is a mark and not
 // an absence, and two commanders may already share a name — and this is the single place it happens,
 // so the grid, the strip and the line under the grid cannot disagree about it.
-internal fun PlayerProfile?.worn(): PlayerMark = this?.mark ?: PlayerMark.Preset(MarkPreset.THRESHOLD)
+internal fun PlayerProfile?.worn(): PlayerMark = this?.mark ?: DEFAULT_PLAYER_MARK
 
 // **Where the composer opens, and it is a different question from what the account wears.** Four of
 // the six presets are shapes the grammar has no parts for — a centred disc, a full-width ellipse, a

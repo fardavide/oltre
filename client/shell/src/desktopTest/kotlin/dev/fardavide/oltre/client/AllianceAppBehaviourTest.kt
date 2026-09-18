@@ -253,7 +253,7 @@ class AllianceAppBehaviourTest {
     //    is the one place `canRemove` reads its target's role rather than its own;
     //  - they **leave** rather than disband, because the alliance is not theirs to end.
     @Test
-    fun `an admin answers petitions, removes only plain members, and leaves rather than disbands`() {
+    fun `an admin answers petitions, commands only plain members, and leaves rather than disbands`() {
         val server = enlisted().apply {
             allianceStanding = AllianceStanding.Enlisted(
                 ALLIANCE.copy(seats = AllianceSeats(taken = 3, cap = 12)),
@@ -276,10 +276,10 @@ class AllianceAppBehaviourTest {
 
             // The queue is drawn, because an admin is somebody who can answer it.
             alliance.assertReads(Strings.allianceAccept())
-            // The founder's row and the other admin's offer nothing; the plain member's does.
-            alliance.assertRowOffersRemoval(row = 0, offered = false)
-            alliance.assertRowOffersRemoval(row = 1, offered = false)
-            alliance.assertRowOffersRemoval(row = 2, offered = true)
+            // The founder's row and the other admin's answer nothing; the plain member's does.
+            alliance.assertRowPresses(row = 0, presses = false)
+            alliance.assertRowPresses(row = 1, presses = false)
+            alliance.assertRowPresses(row = 2, presses = true)
             // And the way out is Leave, never Disband.
             alliance.assertReads(Strings.allianceLeaveAction())
             alliance.assertDoesNotRead(Strings.allianceDisbandAction())
@@ -584,15 +584,113 @@ class AllianceAppBehaviourTest {
     }
 
     @Test
-    fun `a founder removes a member from the roster`() {
+    fun `a founder kicks a member from the roster`() {
         val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
         app(saved = colony(), api = server) {
             open(OltreTab.ALLIANCE)
             val alliance = AllianceRobot(this)
 
-            alliance.removeTheSecondMember()
+            alliance.kickTheSecondMember()
 
             alliance.assertRemovedAMember()
+        }
+    }
+
+    // **The first tap sends nothing.** A kick is the one command whose subject cannot undo it, so it
+    // asks again — and the whole point of that step is that stopping there leaves the roster alone.
+    @Test
+    fun `asking to kick and then keeping them sends nothing`() {
+        val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.openMember(row = 1)
+            alliance.assertAsking()
+            alliance.askToKick()
+            alliance.assertOnTheLastStep()
+            alliance.keepThem()
+
+            alliance.assertAsking()
+            alliance.assertKeptEverybody()
+        }
+    }
+
+    // **The control that had no caller.** `canSetRole` and `setMemberRole` shipped with #138 and
+    // #141 and nothing on any screen ever reached them, which is the defect Davide found on
+    // 2026-09-18: *"the alliance screen lacks the button to promote a user to admin"*.
+    @Test
+    fun `a founder promotes a member to admin`() {
+        val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.openMember(row = 1)
+            alliance.assertRoleCommand(Strings.allianceMemberPromote())
+            alliance.setRole()
+
+            alliance.assertPromoted()
+        }
+    }
+
+    // **The other direction, and the card that says which one this is.** An admin's row draws
+    // `ADMIN` under the name and the blue command reads Demote — the same face inverted, which is
+    // the only thing that says which way the rank moves.
+    @Test
+    fun `a founder demotes an admin`() {
+        val server = enlisted().apply {
+            allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER.copy(role = AllianceRole.ADMIN))
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.openMember(row = 1)
+            alliance.assertMemberFaceReads(Strings.allianceRoleAdmin())
+            alliance.assertRoleCommand(Strings.allianceMemberDemote())
+            alliance.setRole()
+
+            alliance.assertPromoted(AllianceRole.MEMBER)
+        }
+    }
+
+    // **A command with no signal says why, instead of being a control that does nothing.** Both
+    // commands ask the server and neither can be queued — a seat and a rank are the alliance's, not
+    // the phone's — so the face states the requirement and dims what acts while the card and the
+    // reading stay at full strength. This is the arm the no-dead-control rule is actually about.
+    @Test
+    fun `a command that cannot reach the server says so rather than doing nothing`() {
+        val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.openMember(row = 1)
+            server.offline = true
+
+            alliance.setRole()
+
+            alliance.assertMemberFaceReads(Strings.allianceMemberHeldLead())
+            alliance.assertMemberFaceReads(Strings.allianceMemberHeldBody())
+            // The reading is not a control, so it is not dimmed and it is still there to read.
+            alliance.assertMemberFaceReads(Strings.allianceMemberLastSeen(TextRes("1m")))
+        }
+    }
+
+    // A member taps a row and nothing happens, which is the design's answer rather than a face made
+    // of the sentence explaining its own emptiness: they never saw an arrow, so nothing is absent.
+    @Test
+    fun `a plain member opens no face on anybody`() {
+        val server = enlisted(role = AllianceRole.MEMBER)
+            .apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER, pending = null) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.assertRowPresses(row = 0, presses = false)
+            alliance.openMember(row = 0)
+
+            alliance.assertNoMemberFace()
         }
     }
 
@@ -757,11 +855,11 @@ class AllianceAppBehaviourTest {
             .copy(resources = Resources.of(metal = 42_100, crystal = 9_600, deuterium = 1_200)),
     )
 
-    private fun enlisted(): FakeOltreApi = FakeOltreApi().apply {
+    private fun enlisted(role: AllianceRole = AllianceRole.FOUNDER): FakeOltreApi = FakeOltreApi().apply {
         colony = this@AllianceAppBehaviourTest.colony()
         founds = colony
         replays = true
-        allianceStanding = AllianceStanding.Enlisted(ALLIANCE, AllianceRole.FOUNDER)
+        allianceStanding = AllianceStanding.Enlisted(ALLIANCE, role)
         allianceRoster = ROSTER
         treasury = TREASURY
     }

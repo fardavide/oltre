@@ -47,6 +47,20 @@ object AllianceTestTags {
     const val PROJECT_BUY = "alliance-project-buy"
     const val DEPARTURE = "alliance-departure"
 
+    // ── The member commands ──────────────────────────────────────────────────────────────────
+    const val MEMBER_FACE = "alliance-member-face"
+    const val MEMBER_NAME = "alliance-member-name"
+    const val MEMBER_ROLE = "alliance-member-role"
+    const val MEMBER_READING = "alliance-member-reading"
+    const val MEMBER_ROLE_ACTION = "alliance-member-role-action"
+    const val MEMBER_ROLE_NOTE = "alliance-member-role-note"
+    const val MEMBER_KICK = "alliance-member-kick"
+    const val MEMBER_CONSEQUENCE = "alliance-member-consequence"
+    const val MEMBER_AFTERMATH = "alliance-member-aftermath"
+    const val MEMBER_KICK_CONFIRM = "alliance-member-kick-confirm"
+    const val MEMBER_KEEP = "alliance-member-keep"
+    const val MEMBER_HELD = "alliance-member-held"
+
     // ── The whole face with no signal ────────────────────────────────────────────────────────
     const val HELD = "alliance-held"
 

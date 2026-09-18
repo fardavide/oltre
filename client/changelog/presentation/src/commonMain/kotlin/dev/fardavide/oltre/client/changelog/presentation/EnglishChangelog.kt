@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.26.0", "2026-09-18", "A roster you can act on",
+            "Tap a member to promote them to admin, demote them again, or kick them out.",
+            "Kick asks twice, and says what stays in the treasury when they go.",
+            "A row carries an arrow when you can act on that person, and nothing when you cannot.",
+        ),
+        release(
             "0.25.2", "2026-09-18", "Locked out, and now told why",
             "A build the server has outgrown says to update, not that Google refused you.",
             "A build newer than the server says to wait, which is the opposite answer.",

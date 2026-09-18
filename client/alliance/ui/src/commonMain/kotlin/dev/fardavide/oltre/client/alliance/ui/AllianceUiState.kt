@@ -5,6 +5,7 @@ import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.JoinRequestId
+import dev.fardavide.oltre.protocol.PlayerMark
 
 // **What the alliance destination is, as four faces chosen by account state rather than by a
 // toggle** — `alliance-sheet.md` §7. A player is in an alliance or is not; there is no control that
@@ -160,7 +161,19 @@ data class RosterRowUiState(
     // rather than a second badge: two badges on one row meaning different kinds of thing would be
     // the first time this app did that.
     val role: TextRes?,
-    val removable: Boolean,
+    // Null for a commander who never chose one. Drawn at 20dp, which the roster has wanted since the
+    // frame that designed it and never had — see `RosterRow`.
+    val mark: PlayerMark?,
+    // **`removable` was here and is gone.** The row carried an inline `Remove` ghost, which was the
+    // only control the roster ever had and the only one of the three the role model permits: nothing
+    // reached `canSetRole` at all. Davide, 2026-09-18 — the commands *"should not be like they are
+    // plain on the main list"*.
+    //
+    // So the row presses, and this is the same expression as the face behind it: true exactly when
+    // `commandsAgainst` is non-empty. It is what draws the `→`, which is conditional and is the only
+    // claim this roster makes — a founder sees it on five rows of six, an admin on three, a member on
+    // none, and a member's roster is plainly a readout with no absence to explain.
+    val pressable: Boolean,
 )
 
 data class TreasuryUiState(

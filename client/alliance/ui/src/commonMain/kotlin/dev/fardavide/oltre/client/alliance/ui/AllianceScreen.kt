@@ -47,6 +47,7 @@ import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.player.ui.IdentityMark
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceTag
 
@@ -115,7 +116,11 @@ data class AllianceActions(
     val onFound: () -> Unit = {},
     val onWithdraw: () -> Unit = {},
     val onAnswer: (PendingRowUiState, Boolean) -> Unit = { _, _ -> },
-    val onRemove: (RosterRowUiState) -> Unit = {},
+    // **`onRemove` was here and is gone with the row's ghost.** A tap on a roster row opens the
+    // member face; what it does from there is `MemberCommandsActions`, which the sheet carries for
+    // the same reason the contribute confirm's two answers live on this record — the callback that
+    // lives somewhere else is the one that gets forgotten, and this face is raised by the shell.
+    val onMember: (RosterRowUiState) -> Unit = {},
     // **Two callbacks where there was one**, which is the split the control itself now has: picking
     // a stop changes what the screen says it will send, and only `onContribute` sends anything.
     val onPickShare: (ContributeShare) -> Unit = {},
@@ -381,6 +386,12 @@ private fun PendingRow(row: PendingRowUiState, index: Int, actions: AllianceActi
     }
 }
 
+// **The row carries no control at all now**, and the whole of what it gained instead is a `→`. The
+// commands moved onto a face of their own — Davide, 2026-09-18 — and the arrow is conditional,
+// because the permission model is: it is drawn exactly where a tap answers.
+//
+// The arrow costs the name about 15dp, so **the truncation point of a commander's name differs by
+// who is reading the roster**. That is a fact the baselines encode rather than a thing to avoid.
 @Composable
 private fun RosterRow(row: RosterRowUiState, index: Int, actions: AllianceActions) {
     Row(
@@ -389,15 +400,32 @@ private fun RosterRow(row: RosterRowUiState, index: Int, actions: AllianceAction
             .fillMaxWidth()
             .heightIn(min = 52.dp)
             .testTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, index))
+            // Pressable rather than a button on the row: the whole row is the target, which is what
+            // 52dp of height is for.
+            .let { if (row.pressable) it.pressable(shape = oltreCardShape) { actions.onMember(row) } else it }
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        // The 20dp mark the frame asked for when this roster was designed, arriving with the face
+        // that needed it at 44dp. `IdentityMark` substitutes the default for a commander who never
+        // chose one.
+        IdentityMark(mark = row.mark, color = OltreColors.accent, size = 20.dp)
+        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
             Title(row.name)
             // The role rides the caption ramp rather than a second badge — see `RosterRowUiState`.
             row.role?.let { Caption(it) }
         }
         Badge(row.level)
-        if (row.removable) Ghost(Strings.allianceRemove(), onClick = { actions.onRemove(row) })
+        // **Nothing marks a row that does not press.** A member's roster draws no arrows anywhere, so
+        // there is no asymmetry to explain and no absence a sentence has to answer for.
+        if (row.pressable) {
+            Text(
+                text = "→",
+                color = OltreColors.textTertiary,
+                fontFamily = oltreMono(),
+                fontSize = 12.5.sp,
+                modifier = Modifier.padding(start = 7.dp),
+            )
+        }
     }
 }
 

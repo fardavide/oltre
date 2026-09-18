@@ -82,6 +82,32 @@ class FormattingTest {
         assertEquals("2d 00h", English.resolve((2.days + 30.minutes).toWaitLabel()))
     }
 
+    // ── How long ago somebody was last here ──────────────────────────────────────────────────
+
+    @Test
+    fun `staleness takes the day unit past a day - like a wait`() {
+        assertEquals("3d 04h", English.resolve((3.days + 4.hours).toStalenessLabel()))
+        assertEquals("6d 11h", English.resolve((6.days + 11.hours).toStalenessLabel()))
+    }
+
+    // **The one place it parts company with `toWaitLabel`.** A wait under an hour is a countdown,
+    // because a wait is a thing about to end and the seconds are the point. A staleness reading is
+    // about the past and nothing is about to happen, so a running clock on it would be the app
+    // inviting somebody to watch a number that means nothing — `18m` is the whole answer.
+    @Test
+    fun `staleness under an hour is minutes rather than a running countdown`() {
+        assertEquals("18m", English.resolve(18.minutes.toStalenessLabel()))
+        assertEquals("4h 20m", English.resolve((4.hours + 20.minutes).toStalenessLabel()))
+    }
+
+    // A commander who opened the game seconds ago reads as a minute rather than as zero: a reading of
+    // 0 says *never*, and this one means *just now*.
+    @Test
+    fun `staleness never reads zero`() {
+        assertEquals("1m", English.resolve(0.seconds.toStalenessLabel()))
+        assertEquals("1m", English.resolve(9.seconds.toStalenessLabel()))
+    }
+
     @Test
     fun `a countdown is always three zero-padded fields`() {
         assertEquals("00:00:09", English.resolve(9L.toCountdown()))

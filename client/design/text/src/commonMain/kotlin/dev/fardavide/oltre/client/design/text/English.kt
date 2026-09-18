@@ -545,10 +545,56 @@ object English : Translations {
         StringId.AllianceRosterLabel -> "Roster"
         StringId.AllianceRoleFounder -> "FOUNDER"
         StringId.AllianceRoleAdmin -> "ADMIN"
-        // **Its own word rather than `Decline` reused.** The two controls look alike and mean
-        // opposite things — one answers somebody asking to come in, the other puts somebody out —
-        // and a button that said the wrong one would be the clearest kind of mislabelled control.
-        StringId.AllianceRemove -> "Remove"
+
+        // ── The member commands ──────────────────────────────────────────────────────────────
+        //
+        // Sentence case, one clause, full stops only where a string is a sentence.
+        //
+        // **`Remove` is retired and its reasoning with it.** It read *"its own word rather than
+        // `Decline` reused"*, which was the right instinct aimed at the wrong pair: the two controls
+        // that must never be confused are the one that answers a request and the one that ends a
+        // membership, and calling the second *Remove* made it sound like tidying a list. Davide,
+        // 2026-09-18: it *"should be like 'kick' more than 'remove'"*.
+
+        // **A duration rather than a clock.** "09:14" is a stamp for something that happened today,
+        // and this reading is routinely days old — see `toStalenessLabel`.
+        StringId.AllianceMemberLastSeen -> "Last opened the game ${args.text(0)} ago."
+
+        // **The rank the command moves them *to*, never the act alone.** The same button in the other
+        // cell of the permission table means the opposite direction, so a bare "Promote" would leave
+        // the label carrying none of the information that distinguishes them.
+        StringId.AllianceMemberPromote -> "Promote to admin"
+        // Promoting takes one tap and does not confirm, so its consequence has to be stated *before*
+        // the tap or it is not stated at all.
+        StringId.AllianceMemberPromoteNote ->
+            "An administrator answers requests and kicks members. " +
+                "The founder can demote them again in one tap."
+        StringId.AllianceMemberDemote -> "Demote to member"
+        StringId.AllianceMemberDemoteNote ->
+            "A member answers no requests and kicks nobody. Nothing else about them changes."
+
+        // Named on the first step and bare on the last: the first tap is a question about one
+        // commander, the second is the answer to a question already asked.
+        StringId.AllianceMemberKickNamed -> "Kick ${args.text(0)}"
+        StringId.AllianceMemberKick -> "Kick"
+        StringId.AllianceMemberKeep -> "Keep them"
+        StringId.AllianceMemberKickFirstFact ->
+            "This is the last step. The next tap takes ${args.text(0)} out of the alliance."
+        // The half a founder cannot see from their own side, and the reason the whole face confirms:
+        // nothing reaches the person this lands on until they next open the game.
+        StringId.AllianceMemberKickSecondFact ->
+            "What they paid into the treasury stays in the treasury, and nothing tells them while " +
+                "they are away — they read it at their next check-in."
+
+        // **No time on it**, unlike the frame's "No network since 11:31": nothing in this app records
+        // when a signal went, and `AllianceSearchHeld` already states the rule rather than a clock.
+        StringId.AllianceMemberHeldLead -> "No network."
+        // **"These commands" rather than the frame's "Both"**, because the count is not always two —
+        // an admin's face carries one.
+        StringId.AllianceMemberHeldBody ->
+            "A role and a seat are on the alliance, not on the phone. These commands ask the server, " +
+                "so none of them can be held and nothing is queued."
+
         StringId.AllianceTreasuryLabel -> "Treasury"
         // **Above the first tap, every time it is drawn, and never dismissible.** It is the whole of
         // why the pool is safe against alt accounts, and a player who has not read it can otherwise

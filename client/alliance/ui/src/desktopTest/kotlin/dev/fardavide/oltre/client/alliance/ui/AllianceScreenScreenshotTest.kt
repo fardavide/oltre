@@ -25,6 +25,8 @@ import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.JoinRequestId
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.PlayerMark
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
@@ -217,7 +219,9 @@ class AllianceScreenScreenshotTest {
             "alliance_enlisted_member",
             enlisted().copy(
                 pending = null,
-                roster = ROSTER.map { it.copy(removable = false) },
+                // No arrows anywhere: a member's roster is plainly a readout, with no absence to
+                // explain because they never saw one.
+                roster = ROSTER.map { it.copy(pressable = false) },
                 departure = DepartureUiState(action = Strings.allianceLeaveAction(), disbands = false),
             ),
             height = 1_200,
@@ -550,28 +554,33 @@ class AllianceScreenScreenshotTest {
             decline = Strings.allianceDecline(),
         )
 
+        // A founder's roster: every row but their own carries the `→`.
         val ROSTER = listOf(
             RosterRowUiState(
                 id = AllianceMemberId("seat-1"),
                 name = TextRes("Dead Reckoning"),
                 level = Strings.levelBadge(16),
                 role = Strings.allianceRoleFounder(),
-                removable = false,
+                mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
+                pressable = false,
             ),
             RosterRowUiState(
                 id = AllianceMemberId("seat-2"),
                 name = TextRes("Slow Burn"),
                 level = Strings.levelBadge(9),
                 role = Strings.allianceRoleAdmin(),
-                removable = true,
+                mark = PlayerMark.Preset(MarkPreset.APHELION),
+                pressable = true,
             ),
-            // A plain member draws no role at all, which is correct for nineteen rows in twenty.
+            // A plain member draws no role at all, which is correct for nineteen rows in twenty —
+            // and no mark either, so the baseline records what `DEFAULT_PLAYER_MARK` draws.
             RosterRowUiState(
                 id = AllianceMemberId("seat-3"),
                 name = TextRes("Hard Vacuum"),
                 level = Strings.levelBadge(4),
                 role = null,
-                removable = true,
+                mark = null,
+                pressable = true,
             ),
         )
 

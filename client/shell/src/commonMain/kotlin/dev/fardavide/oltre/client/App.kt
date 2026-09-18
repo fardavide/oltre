@@ -14,17 +14,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
 import dev.fardavide.oltre.client.alliance.data.AllianceGateway
+import dev.fardavide.oltre.client.alliance.domain.AllianceRosterReading
 import dev.fardavide.oltre.client.alliance.domain.AllianceState
 import dev.fardavide.oltre.client.alliance.presentation.allianceUiState
 import dev.fardavide.oltre.client.alliance.presentation.basket
 import dev.fardavide.oltre.client.alliance.presentation.contributeConfirmUiState
 import dev.fardavide.oltre.client.alliance.presentation.foundable
 import dev.fardavide.oltre.client.alliance.presentation.foundingUiState
+import dev.fardavide.oltre.client.alliance.presentation.memberCommandsUiState
 import dev.fardavide.oltre.client.alliance.presentation.searchUiState
 import dev.fardavide.oltre.client.alliance.ui.AllianceActions
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
 import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
 import dev.fardavide.oltre.client.alliance.ui.ContributeShare
+import dev.fardavide.oltre.client.alliance.ui.MemberCommandsActions
+import dev.fardavide.oltre.client.alliance.ui.MemberCommandsContent
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
 import dev.fardavide.oltre.client.auth.data.defaultProviderSignIn
@@ -58,6 +62,7 @@ import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.save.data.defaultOutboxFile
 import dev.fardavide.oltre.client.save.data.defaultSessionFile
 import dev.fardavide.oltre.client.settings.ui.AccountUiState
+import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
@@ -386,6 +391,16 @@ fun App(
             // The basket `All` is asking about. Null is *no confirm is up*; the two-step face is the
             // one thing on this tab that is a mode.
             var confirming by remember { mutableStateOf<ContributeActionUiState.Offered?>(null) }
+            // **Which roster row is open, held as an id rather than as the row or the member.** The
+            // roster is re-read on every answer the gateway gives, so a captured `AllianceMember`
+            // would be a snapshot that stops agreeing with the screen behind the sheet the moment a
+            // promotion lands — the face has to redraw with `ADMIN` on the card and the command
+            // inverted, which is the whole of how a promotion confirms itself. An id survives that;
+            // a copy of the row does not.
+            var commanding by remember { mutableStateOf<AllianceMemberId?>(null) }
+            // Which of the member face's two steps is up. False is the commands, true is the last
+            // step — and it resets with `commanding`, so a sheet never reopens mid-question.
+            var kicking by remember { mutableStateOf(false) }
             // **One profile write at a time, because the row goes up whole.** The mark commits as it
             // is touched and the name has a button — the frame's own split — which makes them the one
             // pair of controls in this app that can be pressed inside each other's round trip. Two
@@ -2201,7 +2216,10 @@ fun App(
                                             )
                                         }
                                     },
-                                    onRemove = { row -> actOnAlliance { alliances.removeMember(it, row.id) } },
+                                    // **A tap opens the face and sends nothing.** Every command on it
+                                    // is the sheet's, which is what took the one control the roster
+                                    // row used to carry off the row — Davide, 2026-09-18.
+                                    onMember = { row -> commanding = row.id; kicking = false },
                                     // Picking a stop changes what the line and the button say and
                                     // sends nothing — the split `ContributeUiState` argues.
                                     onPickShare = { picked = it },
@@ -2263,6 +2281,66 @@ fun App(
                             if (sheetFace == null) sheetFace = SheetFace.IDENTITY else closeSheet()
                         },
                     )
+
+                    // **The member commands, raised by a tap on a roster row.**
+                    //
+                    // The face is rebuilt from the *current* roster on every recomposition rather
+                    // than from anything captured when the row was tapped: `actOnAlliance` re-reads
+                    // the roster after every command, so a promotion lands as the card's role word
+                    // changing and the blue command inverting under the same finger. That restating
+                    // is the whole of how a promotion confirms itself, and it only works if this
+                    // reads the live roster.
+                    //
+                    // `?.let` on both the lookup and the face, and neither is defensive: the roster
+                    // is re-read between the tap and the next frame, so the member can genuinely
+                    // stop being there — kicked by the other admin, or the alliance disbanded — and
+                    // a face with no commands is `null` by construction. Either way the sheet
+                    // closes rather than drawing a face about somebody who is gone.
+                    commanding?.let { seat ->
+                        (standing as? AllianceState.Enlisted)
+                            ?.let { it.roster as? AllianceRosterReading.Read }
+                            ?.value?.members?.firstOrNull { it.id == seat }
+                            ?.let { member ->
+                                memberCommandsUiState(
+                                    member = member,
+                                    viewer = (standing as AllianceState.Enlisted).role,
+                                    now = wallClock.now(),
+                                    reachable = reachable,
+                                    confirming = kicking,
+                                )
+                            }
+                            ?.let { face ->
+                                OltreBottomSheet(onDismiss = { commanding = null; kicking = false }) {
+                                    MemberCommandsContent(
+                                        uiState = face,
+                                        compact = maxWidth < OltreLayout.compactWidth,
+                                        actions = MemberCommandsActions(
+                                            // One tap, no confirm, and the sheet stays open: the
+                                            // answer is the face redrawing itself with the rank
+                                            // it just set.
+                                            onSetRole = { it, role ->
+                                                actOnAlliance { token ->
+                                                    alliances.setMemberRole(token, it.id, role.role)
+                                                }
+                                            },
+                                            // The first of the two taps. It sends nothing.
+                                            onAskKick = { kicking = true },
+                                            onKick = { it ->
+                                                actOnAlliance { token ->
+                                                    alliances.removeMember(token, it.id)
+                                                }
+                                                commanding = null
+                                                kicking = false
+                                            },
+                                            // Back to the commands rather than out of the sheet: the
+                                            // question was *this kick*, and answering no to it is not
+                                            // answering no to the face.
+                                            onKeep = { kicking = false },
+                                        ),
+                                    )
+                                }
+                            }
+                    }
 
                     // **The app's second modal, beside its first — and since 0.19 it has two faces.**
                     // Every control on the settings face commits on tap and none of them writes an

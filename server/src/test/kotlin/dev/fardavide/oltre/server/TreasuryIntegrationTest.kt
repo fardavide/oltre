@@ -7,7 +7,11 @@ import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.BuyProjectRequest
 import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.Protocol
+import io.ktor.http.HttpStatusCode
 import io.zonky.test.db.postgres.junit.SingleInstancePostgresRule
 import kotlinx.coroutines.test.runTest
 import org.junit.ClassRule
@@ -29,6 +33,11 @@ class TreasuryIntegrationTest {
     private val clock = MovableClock(TEST_NOW)
     private val colonies = PostgresColonyRepository(database, clock)
     private val alliances = PostgresAllianceRepository(database)
+    // The route half of this file needs somebody to identify the caller, and it is the real one for
+    // the same reason everything else here is: `givenPlayer` writes a `header` provider row, so
+    // resolving it is a select against the same store the routes read.
+    private val players = PostgresPlayerRepository(database, clock)
+    private val authenticator = HeaderAuthenticator(players)
     private val davide = PlayerId("davide")
 
     @BeforeTest
@@ -260,6 +269,97 @@ class TreasuryIntegrationTest {
         assertEquals(TreasuryRead.Refused(ApiError.AllianceRoleTooLow), refused)
         assertEquals("400000", database.scalar("SELECT pool_metal FROM alliances"))
     }
+
+    // ── The two routes, over the real store ──────────────────────────────────────────────────
+    //
+    // **`AllianceTreasuryEndpointsTest` judges what these decide and this judges that they work**,
+    // and the pair is the split `Endpoints.kt` argues for rather than a duplicate of it: the route
+    // functions take their repositories as parameters precisely so the decisions can be unit-tested
+    // with no socket, which leaves *the route composed with the thing it will actually run against*
+    // measured by nothing. A map has no transactions, no `pool_metal` column and no version to move
+    // under a reader, so a route that read the pool correctly from `InMemoryAllianceRepository` and
+    // wrongly from Postgres would have passed every test in the suite.
+    //
+    // No Ktor host, deliberately. The boundary being crossed is the database; a test server would
+    // add a socket that changes nothing about what is being asked.
+
+    @Test
+    fun `the treasury route reads the pool the store actually holds`() = runTest {
+        val seat = anAllianceWithDavideInIt()
+        val colony = colonies.found(davide, establishedColony()).colony
+        val paid = Resources.of(metal = 4_210, crystal = 960, deuterium = 120)
+        colonies.write(
+            davide,
+            contributed(colony.snapshot, paid),
+            setOf(IdempotencyKey("first")),
+            colony.version,
+            PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
+        )
+
+        val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, asDavide()))
+
+        assertEquals(paid, answer.response.pool)
+        // **The game's own 1 : 2 : 3, not the metal figure.** What a seat has paid in is the
+        // contribution's *worth* rather than one of its three numbers, which is the whole reason
+        // `PoolCredit` carries `award` beside the resources.
+        assertEquals(AllianceBalance.award(paid), answer.response.contributed)
+        assertEquals(listOf(AllianceProject.CHARTER_EXPANSION), answer.response.projects.map { it.project })
+    }
+
+    @Test
+    fun `a caller the store has never heard of is refused by the route`() = runTest {
+        anAllianceWithDavideInIt()
+
+        val answer = readTreasury(alliances, authenticator, clock, Credentials(null, null))
+
+        assertEquals(HttpStatusCode.Unauthorized, answer.status)
+    }
+
+    // **The buy route's retry, against a store that can actually lose a compare-and-set.** The
+    // version is read inside the route rather than sent by the caller, which is only meaningful
+    // where a version exists to move.
+    @Test
+    fun `the buy route spends the pool and widens the roster`() = runTest {
+        val seat = anAllianceWithDavideInIt()
+        val colony = colonies.found(davide, establishedColony()).colony
+        val paid = Resources.of(metal = 400_000, crystal = 200_000, deuterium = 100_000)
+        colonies.write(
+            davide,
+            contributed(colony.snapshot, paid),
+            setOf(IdempotencyKey("first")),
+            colony.version,
+            PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
+        )
+        val before = assertIs<TreasuryRead.Present>(alliances.treasuryOf(davide, TEST_NOW))
+        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, before.alliance.seatsBought)
+
+        val answer = assertIs<Answer.Treasury>(
+            buyAllianceProject(alliances, authenticator, clock, asDavide(), buyBody()),
+        )
+
+        assertEquals(paid.minus(cost), answer.response.pool)
+        assertEquals(
+            (paid.minus(cost)).metal.toString(),
+            database.scalar("SELECT pool_metal FROM alliances"),
+        )
+    }
+
+    // A body this build cannot read is a refusal rather than a throw, and it is the one arm of the
+    // route that never reaches the store at all.
+    @Test
+    fun `the buy route refuses a body it cannot read`() = runTest {
+        anAllianceWithDavideInIt()
+
+        val answer = buyAllianceProject(alliances, authenticator, clock, asDavide(), "not json")
+
+        assertIs<Answer.Failed>(answer)
+    }
+
+    private fun asDavide(): Credentials = Credentials(authorization = null, playerHeader = davide.value)
+
+    private fun buyBody(): String = Protocol.json.encodeToString(
+        BuyProjectRequest(ApiVersion.CURRENT, AllianceProject.CHARTER_EXPANSION),
+    )
 
     private suspend fun anAllianceWithDavideInIt(): Seat {
         alliances.found(davide, AllianceName("Ferro Alto"), AllianceTag("FRA"), TEST_NOW)

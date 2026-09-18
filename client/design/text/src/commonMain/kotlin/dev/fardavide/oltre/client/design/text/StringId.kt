@@ -494,7 +494,26 @@ enum class StringId {
     AllianceRosterLabel,
     AllianceRoleFounder,
     AllianceRoleAdmin,
-    AllianceRemove,
+
+    // ── The member commands ──────────────────────────────────────────────────────────────────
+    //
+    // `AllianceRemove` was here and is gone: nothing in the product says *Remove* about a person any
+    // more (Davide, 2026-09-18). The word is Kick, and it appears twice — named on the first step,
+    // bare on the last — because the first tap is a question about one commander and the second is
+    // an answer that needs no repeat of the name.
+    AllianceMemberLastSeen,
+    AllianceMemberPromote,
+    AllianceMemberPromoteNote,
+    AllianceMemberDemote,
+    AllianceMemberDemoteNote,
+    AllianceMemberKickNamed,
+    AllianceMemberKick,
+    AllianceMemberKeep,
+    AllianceMemberKickFirstFact,
+    AllianceMemberKickSecondFact,
+    AllianceMemberHeldLead,
+    AllianceMemberHeldBody,
+
     AllianceTreasuryLabel,
     AllianceTreasuryRule,
     AllianceTreasuryUnread,
