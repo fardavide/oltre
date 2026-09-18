@@ -45,11 +45,16 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
         building = building,
         toLevel = toLevel,
         startedAt = at,
+        // **Fixed the moment the build starts, alliance included.** A colony whose alliance levels up
+        // tomorrow keeps the time this job began with — which is why the boon needs no explanation
+        // about what it does to work already in flight: it does nothing, by the same rule that
+        // already stops a finished Robotics Factory shortening a running build.
         completesAt = at + PlaceholderBalance.upgradeDuration(
             building,
             toLevel,
             state.buildings.roboticsFactory,
             state.buildings.naniteFactory,
+            state.allianceSpeedup,
         ),
     )
     return StartUpgradeResult.Started(

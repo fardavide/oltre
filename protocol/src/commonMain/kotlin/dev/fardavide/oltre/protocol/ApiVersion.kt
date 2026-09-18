@@ -50,7 +50,13 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // later, which is worth reading as a warning rather than as a precedent — the *log* is what
         // keeps growing, and every growth costs a forced update until the server can serve two
         // snapshot shapes.
-        val CURRENT: ApiVersion = ApiVersion(3)
+        // **4 since the alliance takes time off a build**, and this one is the first that is not the
+        // event log growing. Save schema 21 adds `allianceSpeedup` to `GameState` itself, and the
+        // wire sets `encodeDefaults` with no `ignoreUnknownKeys` — so an installed 0.26 client is
+        // handed a snapshot with a key it has never heard of and cannot decode the 200 at all. Same
+        // forced update, a different cause, and the warning above is now two kinds of growth rather
+        // than one.
+        val CURRENT: ApiVersion = ApiVersion(4)
 
         // The oldest build still worth answering. It moves **only** when the last install speaking
         // it is gone, and there is no way to know that from inside the repository — so raising this
@@ -75,6 +81,8 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // archives to TestFlight and the two are never atomic. Deploy first and an installed build
         // gets a clean 426 until it updates; merge first and a fresh install gets a 400 that reads
         // like a bug.
-        val OLDEST_SERVED: ApiVersion = ApiVersion(3)
+        // **4, and it strands the same one phone again.** The operational half is unchanged and is
+        // still not optional: **the server deploys before the release merges.**
+        val OLDEST_SERVED: ApiVersion = ApiVersion(4)
     }
 }

@@ -374,6 +374,18 @@ object PlaceholderBalance {
         toLevel: BuildingLevel,
         roboticsFactory: BuildingLevel,
         naniteFactory: BuildingLevel,
+        // **What the player's alliance takes off, defaulted to nothing — and the default is a
+        // meaning rather than a convenience.** Omitting it asks for *the curve*: what this building
+        // costs in time at these factory levels, which is the question every balance test in the
+        // repository asks and the question `deepBuildRelief`'s locked-row sentence asks. Passing one
+        // asks a different question — what *this colony* will actually wait — and the three callers
+        // that ask it (`StartUpgrade`, `StartResearch`, `LevelPurpose.waitFor`) all read it off the
+        // `GameState` they already hold.
+        //
+        // The usual objection to a default is that it is surface nothing exercises. Not here: both
+        // arms are covered, because the curve is what the balance suite measures and the colony's own
+        // is what `StartUpgrade` serves.
+        speedup: AllianceSpeedup = AllianceSpeedup.NONE,
     ): Duration {
         val fullPrice = fullPriceCost(building, toLevel)
         val fullMinutes = MINUTES_PER_ROOT_COST * integerRoot(fullPrice.metal + fullPrice.crystal)
@@ -390,7 +402,15 @@ object PlaceholderBalance {
         // shortening there is; a floor placed ahead of it would let the divisor cut *through* the
         // minimum and put instant builds back at depth. The speed-up is inside it for the same
         // reason — at two thirds a level the first Metal Mine works out at a minute and a quarter.
-        return maxOf(MINIMUM_UPGRADE_DURATION, helped.minutes / (1 + roboticsFactory.value))
+        //
+        // **And the alliance is inside the floor too, for the third time the same sentence.** A
+        // thirty-percent boon on a build already at the two-minute minimum would otherwise serve
+        // eighty-four seconds, which is the instant build the floor exists to prevent — and it would
+        // arrive for a reason the colony screen cannot show, since the row states the floor.
+        return maxOf(
+            MINIMUM_UPGRADE_DURATION,
+            (helped.minutes / (1 + roboticsFactory.value)).shortenedBy(speedup),
+        )
     }
 
     private fun productionPerHour(baseAtLevelOne: Long, level: BuildingLevel): Long =

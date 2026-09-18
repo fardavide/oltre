@@ -30,6 +30,7 @@ import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -1519,6 +1520,9 @@ class ResearchUiStateTest {
         // The player's standing, drawn by the strip above every screen and by nothing on this one.
         // Zero and empty together, which is the pair `core` keeps in step.
         experience = Experience.NONE,
+        // No alliance behind this colony, which is what every duration on these rows was measured
+        // against before one could exist.
+        allianceSpeedup = AllianceSpeedup.NONE,
         eventLog = emptyList(),
     )
 

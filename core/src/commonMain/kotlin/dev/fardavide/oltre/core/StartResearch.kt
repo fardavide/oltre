@@ -32,7 +32,12 @@ fun startResearch(state: GameState, technology: Technology, at: Instant): StartR
         // Duration is fixed the moment the project starts, so a Robotics Factory that finishes
         // mid-project does not retroactively shorten it — the same rule construction already
         // follows, and the one that keeps a booked notification honest.
-        completesAt = at + ResearchBalance.researchDuration(technology, toLevel, state.buildings.roboticsFactory),
+        completesAt = at + ResearchBalance.researchDuration(
+            technology,
+            toLevel,
+            state.buildings.roboticsFactory,
+            state.allianceSpeedup,
+        ),
     )
     return StartResearchResult.Started(
         state.copy(

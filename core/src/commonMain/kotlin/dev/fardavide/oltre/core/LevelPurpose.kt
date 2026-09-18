@@ -109,17 +109,26 @@ fun deepBuildRelief(): DeepBuildRelief {
     return DeepBuildRelief(
         level = DEEP_BUILD_LEVEL,
         naniteLevel = NANITE_RELIEF_LEVEL,
+        // **`NONE` on both, and it is a decision rather than the absence of one.** This pair is the
+        // locked Nanite row's illustrative sentence — *a 186h build takes 16h at LV 6* — and it is a
+        // fact about the *building*, not about this colony: it is drawn on a row the player cannot
+        // start, to say what the facility would be worth. Feeding the alliance into it would make a
+        // locked row's headline move whenever the alliance levelled, for a reason nothing on that row
+        // could show. The returned design flags the same thing as an open item and this is the answer
+        // to it.
         unaided = PlaceholderBalance.upgradeDuration(
             building = BuildingType.METAL_MINE,
             toLevel = BuildingLevel(DEEP_BUILD_LEVEL),
             roboticsFactory = atTheGate,
             naniteFactory = BuildingLevel(0),
+            speedup = AllianceSpeedup.NONE,
         ),
         helped = PlaceholderBalance.upgradeDuration(
             building = BuildingType.METAL_MINE,
             toLevel = BuildingLevel(DEEP_BUILD_LEVEL),
             roboticsFactory = atTheGate,
             naniteFactory = BuildingLevel(NANITE_RELIEF_LEVEL),
+            speedup = AllianceSpeedup.NONE,
         ),
     )
 }
@@ -288,6 +297,11 @@ private fun GameState.waitFor(
     toLevel = BuildingLevel(buildings.levelOf(building).value + 1),
     roboticsFactory = roboticsFactory,
     naniteFactory = naniteFactory,
+    // **This colony's own, unlike `deepBuildRelief` above.** A verdict that prices time is a claim
+    // about what *this* player would wait, so Robotics reads −36m per build inside an alliance where
+    // it reads −42m alone — which is the design's argument for the row needing to say nothing about
+    // the alliance at all: its numbers are already the helped ones.
+    speedup = allianceSpeedup,
 )
 
 private fun BuildingType.isStartableBy(buildings: Buildings): Boolean {
