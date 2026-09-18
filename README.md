@@ -243,9 +243,8 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   and you arrive on whatever level your alliance reached while you were gone.
 - **A colony in no alliance sees none of this** — no line, no percentage, no sheet sentence. The
   screen is exactly the screen it was.
-
-**This release changes the save format and requires the app to be updated.** Older builds cannot read
-a colony this one has touched.
+- **This release changes the save format and needs the app updated.** An older build cannot read a
+  colony this one has touched, and will say so rather than failing strangely.
 
 ### 0.26.0 — 2026-09-18
 
