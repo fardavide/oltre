@@ -8,6 +8,7 @@ import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.SignInNonce
@@ -389,6 +390,46 @@ class GateAppBehaviourTest {
 
             assertReads("Google did not sign you in.")
             assertDoesNotRead("Metal Mine")
+        }
+    }
+
+    // **The refusal that is not about the sign-in at all, and the one that locked a real player
+    // out.** A build older than the oldest version the server serves is turned away at the route,
+    // before its token is read — so blaming the provider is false *and* unactionable: every retry is
+    // refused identically, and so is the other button the body used to point at.
+    @Test
+    fun `a build the server no longer serves says to update rather than blaming the provider`() {
+        val server = FakeOltreApi().apply {
+            error = ApiError.UnsupportedApiVersion(
+                oldestServed = ApiVersion(ApiVersion.CURRENT.value + 1),
+                current = ApiVersion(ApiVersion.CURRENT.value + 1),
+            )
+        }
+        app(saved = null, signedIn = false, api = server) {
+            pressProvider(AuthProvider.GOOGLE)
+
+            assertReads("This version of Oltre is too old.")
+            assertDoesNotRead("Google did not sign you in.")
+        }
+    }
+
+    // **And the same refusal the other way round**, which is a deploy that has not landed rather
+    // than an app that needs updating — the window every release opens between the merge and the
+    // server catching up. Waiting is what works, and *update the app* would point at a store holding
+    // nothing newer.
+    @Test
+    fun `a server that has not caught up says to wait rather than to update`() {
+        val server = FakeOltreApi().apply {
+            error = ApiError.UnsupportedApiVersion(
+                oldestServed = ApiVersion(1),
+                current = ApiVersion(ApiVersion.CURRENT.value - 1),
+            )
+        }
+        app(saved = null, signedIn = false, api = server) {
+            pressProvider(AuthProvider.GOOGLE)
+
+            assertReads("The server has not caught up.")
+            assertDoesNotRead("This version of Oltre is too old.")
         }
     }
 

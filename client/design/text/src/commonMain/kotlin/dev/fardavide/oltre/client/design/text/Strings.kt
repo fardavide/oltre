@@ -1625,6 +1625,18 @@ object Strings {
 
     fun signInAskAgainNow(): TextRes = message(StringId.SignInAskAgainNow)
 
+    // **The version negotiation, said in the two directions it can fail.** Neither names a provider,
+    // because neither is about one: the server refuses the build at the route and the token is never
+    // read. The instructions are opposites — update, or wait — which is exactly what
+    // `ApiError.UnsupportedApiVersion` carries the served window for.
+    fun signInOutdatedLead(): TextRes = message(StringId.SignInOutdatedLead)
+
+    fun signInOutdatedBody(): TextRes = message(StringId.SignInOutdatedBody)
+
+    fun signInServerBehindLead(): TextRes = message(StringId.SignInServerBehindLead)
+
+    fun signInServerBehindBody(): TextRes = message(StringId.SignInServerBehindBody)
+
     // Two units at most, which is the committed format one order of magnitude down. Under a minute
     // there is one unit to print and printing `0m 41s` would be the app padding a wait to look
     // longer than it is.

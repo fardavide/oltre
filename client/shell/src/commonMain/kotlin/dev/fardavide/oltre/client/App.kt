@@ -63,6 +63,7 @@ import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
@@ -935,6 +936,18 @@ fun App(
                                     is ApiError.TooManyRequests -> {
                                         throttledUntil = wallClock.now() + error.retryAfterSeconds.seconds
                                         GateState.Throttled(error.retryAfterSeconds)
+                                    }
+                                    // **The one refusal that is not about the sign-in**, and the one
+                                    // that stranded a player: the route answered 426 before reading
+                                    // the token, so the provider did nothing wrong and pressing
+                                    // again cannot help. Which way the window missed decides the
+                                    // sentence — `ApiError.UnsupportedApiVersion` carries it for
+                                    // exactly this, and until this branch existed the whole of that
+                                    // design arrived on screen as *Google did not sign you in*.
+                                    is ApiError.UnsupportedApiVersion -> if (ApiVersion.CURRENT < error.oldestServed) {
+                                        GateState.Outdated
+                                    } else {
+                                        GateState.ServerBehind
                                     }
                                     // Everything else the server can say about a sign-in is a
                                     // sign-in that did not happen, and the player's next move is the

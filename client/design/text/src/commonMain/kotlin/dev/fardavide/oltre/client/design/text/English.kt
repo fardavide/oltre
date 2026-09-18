@@ -752,6 +752,16 @@ object English : Translations {
         StringId.SignInThrottledLead -> "Asked too often."
         StringId.SignInThrottledBody -> "Ask again in ${args.text(0)}."
         StringId.SignInAskAgainNow -> "You can ask again now."
+        // **Neither of these mentions a provider**, which is the whole point: the server turns this
+        // build away before the token is read, so the sign-in never happened and nothing about it
+        // failed. *Nothing was lost* is the refusal's own promise, kept here because a player told
+        // their app is too old is entitled to know the colony is not.
+        StringId.SignInOutdatedLead -> "This version of Oltre is too old."
+        StringId.SignInOutdatedBody ->
+            "The server has moved on and can no longer answer it. Nothing was lost — update the app and sign in again."
+        StringId.SignInServerBehindLead -> "The server has not caught up."
+        StringId.SignInServerBehindBody ->
+            "This build is newer than the server. Nothing was lost — try again in a few minutes."
         // **Not in the design's string table, because the design did not draw a build with no
         // provider in it.** Written in the same voice deliberately: a plain fact about what cannot
         // happen, and the nearest thing that can. It names the two builds rather than the missing

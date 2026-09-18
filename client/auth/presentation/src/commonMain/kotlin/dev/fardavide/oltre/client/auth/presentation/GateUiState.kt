@@ -8,8 +8,8 @@ import dev.fardavide.oltre.client.design.text.AuthProviderName
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.protocol.AuthProvider
 
-// **Where the gate is**, and it is five states because there are five different things to say and no
-// more. Everything the screen shows is a function of this and of which providers the platform can
+// **Where the gate is**, and it is seven states because there are seven different things to say and
+// no more. Everything the screen shows is a function of this and of which providers the platform can
 // complete; nothing else about the sign-in reaches a composable.
 sealed interface GateState {
 
@@ -34,6 +34,19 @@ sealed interface GateState {
     // sentence — *you can ask again now* — because re-enabling a button silently is a control changing
     // meaning while nobody is looking.
     data class Throttled(val retryInSeconds: Int) : GateState
+
+    // **The server refused the build rather than the sign-in**, and this is the half that strands
+    // somebody: `ApiVersion.OLDEST_SERVED` has moved past what this app speaks, so every route
+    // answers 426 before reading a token. Its own state because it is the one refusal at this gate
+    // that *pressing again cannot fix* — and because naming the provider would blame the one link in
+    // the chain that worked. **Two members and not a boolean**, on `NonceShape`'s rule: `true` at a
+    // call site would not say which end was behind.
+    data object Outdated : GateState
+
+    // The same 426, the other way round: this build is newer than the server, which is the window
+    // every release opens between the merge and the deploy landing. Nothing is wrong with the app,
+    // so the instruction is to wait rather than to go looking for an update that does not exist.
+    data object ServerBehind : GateState
 }
 
 // The screen, in the words the design settled. Every branch is one sentence and its lead colour; the
@@ -62,11 +75,11 @@ fun GateState.toGateUiState(providers: Set<AuthProvider>): GateUiState = GateUiS
             tone = GateTone.FAILED,
         )
     } else {
-        message()
+        message(providers)
     },
 )
 
-private fun GateState.message(): GateMessageUiState? = when (this) {
+private fun GateState.message(providers: Set<AuthProvider>): GateMessageUiState? = when (this) {
     GateState.Idle -> null
 
     GateState.Waiting -> GateMessageUiState(
@@ -85,10 +98,25 @@ private fun GateState.message(): GateMessageUiState? = when (this) {
 
     is GateState.Refused -> GateMessageUiState(
         lead = Strings.signInRefusedLead(provider.spoken()),
-        // **The other one**, which is the next thing to try and is already on the screen. With one
-        // provider available there is no other one to name, so the sentence names the same button
-        // again — which is honest: it *is* the thing to try again.
-        body = Strings.signInRefusedBody(provider.other().spoken()),
+        // **The other one, but only if it is drawn.** It is the next thing to try precisely because
+        // it is already on the screen — so on a platform offering one provider the sentence names
+        // that one again, which is honest: it *is* the thing to try again. Naming an absent button
+        // was the dead-control rule broken in its quietest form, and Android shipped it: Google
+        // alone is drawn there, and the refusal told the player to use Apple.
+        body = Strings.signInRefusedBody(provider.alternativeAmong(providers).spoken()),
+        tone = GateTone.FAILED,
+    )
+
+    // Neither names a provider, because the server never got as far as one. See `GateState`.
+    GateState.Outdated -> GateMessageUiState(
+        lead = Strings.signInOutdatedLead(),
+        body = Strings.signInOutdatedBody(),
+        tone = GateTone.FAILED,
+    )
+
+    GateState.ServerBehind -> GateMessageUiState(
+        lead = Strings.signInServerBehindLead(),
+        body = Strings.signInServerBehindBody(),
         tone = GateTone.FAILED,
     )
 
@@ -112,7 +140,13 @@ private fun AuthProvider.spoken(): AuthProviderName = when (this) {
     AuthProvider.GOOGLE -> AuthProviderName.GOOGLE
 }
 
-private fun AuthProvider.other(): AuthProvider = when (this) {
-    AuthProvider.APPLE -> AuthProvider.GOOGLE
-    AuthProvider.GOOGLE -> AuthProvider.APPLE
+// **What the body is allowed to point at**: the other provider when the screen draws it, and this
+// one otherwise. The set is the same one the buttons are built from, so the sentence can never name
+// something the player cannot press.
+private fun AuthProvider.alternativeAmong(providers: Set<AuthProvider>): AuthProvider {
+    val other = when (this) {
+        AuthProvider.APPLE -> AuthProvider.GOOGLE
+        AuthProvider.GOOGLE -> AuthProvider.APPLE
+    }
+    return other.takeIf { it in providers } ?: this
 }

@@ -818,6 +818,15 @@ object Italian : Translations {
         StringId.SignInThrottledLead -> "Troppe richieste."
         StringId.SignInThrottledBody -> "Riprova fra ${args.text(0)}."
         StringId.SignInAskAgainNow -> "Puoi riprovare adesso."
+        // *Non è andato perso niente* is lifted from the refusal above on purpose: it is the same
+        // promise about the same colony, and a second phrasing would read as a second situation.
+        StringId.SignInOutdatedLead -> "Questa versione di Oltre è troppo vecchia."
+        StringId.SignInOutdatedBody ->
+            "Il server è andato avanti e non può più risponderle. Non è andato perso niente — aggiorna " +
+                "l'app e accedi di nuovo."
+        StringId.SignInServerBehindLead -> "Il server non è ancora aggiornato."
+        StringId.SignInServerBehindBody ->
+            "Questa build è più recente del server. Non è andato perso niente — riprova fra qualche minuto."
         StringId.SignInNoProviderLead -> "Qui non c'è modo di accedere."
         StringId.SignInNoProviderBody ->
             "Questa build non ha nessun servizio di accesso. Usa la build per iPhone o Android."

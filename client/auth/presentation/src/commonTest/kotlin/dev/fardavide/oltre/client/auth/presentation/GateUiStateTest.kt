@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-// **Five states and one screen**, and every assertion here is about the sentence rather than about
+// **Seven states and one screen**, and every assertion here is about the sentence rather than about
 // the picture: the gate is the one surface in the app where the words *are* the design.
 class GateUiStateTest {
 
@@ -100,6 +100,44 @@ class GateUiStateTest {
 
         assertEquals("Google did not sign you in.", English.resolve(message!!.lead))
         assertTrue("use Apple" in English.resolve(message.body))
+    }
+
+    // **The alternative has to be a button that is on the screen.** Android draws Google alone, so
+    // naming Apple there is an instruction to press something that is not drawn — the dead-control
+    // rule in its quietest form, where the sentence works and the player cannot. Naming the same
+    // provider again is honest: it *is* the thing to try.
+    @Test
+    fun `should name the same provider again when it is the only one drawn`() {
+        val message = GateState.Refused(AuthProvider.GOOGLE)
+            .toGateUiState(setOf(AuthProvider.GOOGLE))
+            .message
+
+        assertTrue("use Google" in English.resolve(message!!.body))
+    }
+
+    // **The refusal no provider had anything to do with.** A build older than the oldest the server
+    // serves is turned away before its token is read, and every retry is turned away identically —
+    // so naming the provider blames the one link in the chain that worked, and *try again* becomes
+    // an instruction that cannot succeed.
+    @Test
+    fun `should tell a build the server has outgrown to update rather than blaming a provider`() {
+        val message = GateState.Outdated.toGateUiState(BOTH).message
+
+        assertEquals(GateTone.FAILED, message?.tone)
+        assertEquals("This version of Oltre is too old.", English.resolve(message!!.lead))
+        assertTrue("update the app" in English.resolve(message.body))
+    }
+
+    // **The same refusal the other way round, and the opposite instruction.** A build newer than the
+    // server is a deploy that has not landed yet: nothing is wrong with the app, waiting is what
+    // works, and telling this player to update would send them to a store holding nothing newer.
+    @Test
+    fun `should say the server has not caught up when this build is the newer one`() {
+        val message = GateState.ServerBehind.toGateUiState(BOTH).message
+
+        assertEquals(GateTone.FAILED, message?.tone)
+        assertEquals("The server has not caught up.", English.resolve(message!!.lead))
+        assertTrue("in a few minutes" in English.resolve(message.body))
     }
 
     // Under a minute prints one unit; over it prints two. The committed format one order of
