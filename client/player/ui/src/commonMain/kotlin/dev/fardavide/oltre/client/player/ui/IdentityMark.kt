@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
+import dev.fardavide.oltre.protocol.MarkPreset
 import dev.fardavide.oltre.protocol.PlayerMark
 
 // **Whatever the player chose, drawn.** One composable and one `DrawScope` function for both kinds of
@@ -25,13 +26,34 @@ import dev.fardavide.oltre.protocol.PlayerMark
 // `@NonRestartableComposable` because it is a leaf that draws its arguments and holds nothing: a
 // restart scope of its own could do nothing its caller's cannot, and Compose generates one — with a
 // skippability branch per parameter — unless told not to. See the `test-coverage` skill.
+// **What an account with no mark of its own wears**, and the one place the substitution is made.
+// `PlayerProfile` argues why it belongs where the mark is *drawn* rather than on the wire — a default
+// is a mark and not an absence, so a server that sent one would be claiming the player chose it — and
+// this is that place. `worn()` in `:client:player:presentation` reads it rather than repeating it, so
+// the strip, the grid, the composer's card and now the alliance's member card cannot disagree.
+val DEFAULT_PLAYER_MARK: PlayerMark = PlayerMark.Preset(MarkPreset.THRESHOLD)
+
+// **Public since the alliance's member card**, which is the second feature to draw somebody's mark and
+// the first to draw somebody *else's*. Davide's call, 2026-09-18, taken with the cross-feature edge it
+// costs: `:client:alliance:ui` sees this module, which the build warns about and permits.
+//
+// **And nullable since the same day.** A roster carries `PlayerProfile.mark`, which is null for a
+// commander who never chose one — nineteen in twenty — so every caller that draws a stranger would
+// otherwise substitute the default itself, which is the duplication `DEFAULT_PLAYER_MARK` exists to
+// prevent. The four callers that hold a mark already pass one and are unchanged.
 @Composable
 @NonRestartableComposable
-internal fun IdentityMark(mark: PlayerMark, color: Color, size: Dp, modifier: Modifier = Modifier) {
+fun IdentityMark(mark: PlayerMark?, color: Color, size: Dp, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(size)) {
         // `this.size` and not `size`: the parameter above shadows the draw scope's own, which is the
         // one thing this signature costs.
-        drawIdentityMark(mark = mark, unit = this.size.width / MARK_VIEWBOX, dx = 0f, dy = 0f, color = color)
+        drawIdentityMark(
+            mark = mark ?: DEFAULT_PLAYER_MARK,
+            unit = this.size.width / MARK_VIEWBOX,
+            dx = 0f,
+            dy = 0f,
+            color = color,
+        )
     }
 }
 

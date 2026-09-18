@@ -17,6 +17,7 @@ import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.net.data.AllianceRequest
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.JoinDecision
 import kotlin.test.assertEquals
@@ -143,7 +144,7 @@ internal class AllianceRobot(private val app: AppRobot) {
             test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, index))
                 .performScrollTo()
                 .assertIsDisplayed()
-                .assert(hasAnyDescendant(hasText(name)))
+                .assert(carries(name))
         }
     }
 
@@ -153,16 +154,88 @@ internal class AllianceRobot(private val app: AppRobot) {
     fun assertRosterRowReads(row: Int, text: TextRes) = apply {
         test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row))
             .performScrollTo()
+            .assert(carries(English.resolve(text)))
+    }
+
+    // **A roster row says its words two different ways depending on who is reading it**, and this is
+    // what stops the tests noticing. A row that presses carries `Modifier.clickable`, which *merges*
+    // its descendants' semantics into the row node — so the name is the row's own text. A row that
+    // does not press has no merge, and the name is a descendant. Matching only one of the two made
+    // every assertion about a founder's roster fail the moment the arrow shipped, on rows whose text
+    // was plainly on screen.
+    private fun carries(text: String) = hasText(text, substring = true) or hasAnyDescendant(hasText(text))
+
+    // Whether one roster row answers a tap, which since 0.26 is the `→` rather than a control.
+    // Row-scoped rather than counted, because *which* rows answer is the whole of what the
+    // permission table decides — a count would pass with the right number of arrows on the wrong
+    // people.
+    fun assertRowPresses(row: Int, presses: Boolean) = apply {
+        val node = test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row)).performScrollTo()
+        val arrow = carries("→")
+        node.assert(if (presses) arrow else !arrow)
+    }
+
+    // ── The member commands ──────────────────────────────────────────────────────────────────
+
+    fun openMember(row: Int) = apply {
+        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row)).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    fun assertNoMemberFace() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_FACE).assertDoesNotExist()
+    }
+
+    fun assertMemberFaceReads(text: TextRes) = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_FACE)
             .assert(hasAnyDescendant(hasText(English.resolve(text))))
     }
 
-    // Whether one roster row carries a Remove control. Row-scoped rather than counted, because
-    // *which* row may be removed is the whole of what `canRemove` decides — a count would pass with
-    // the right number of controls on the wrong people.
-    fun assertRowOffersRemoval(row: Int, offered: Boolean) = apply {
-        val node = test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.ROSTER_ROW, row)).performScrollTo()
-        val remove = hasAnyDescendant(hasText(English.resolve(Strings.allianceRemove())))
-        node.assert(if (offered) remove else !remove)
+    fun assertRoleCommand(action: TextRes?) = apply {
+        if (action == null) {
+            test.onNodeWithTag(AllianceTestTags.MEMBER_ROLE_ACTION).assertDoesNotExist()
+        } else {
+            test.onNodeWithTag(AllianceTestTags.MEMBER_ROLE_ACTION)
+                .assertIsDisplayed()
+                .assert(hasText(English.resolve(action)))
+        }
+    }
+
+    // **No `performScrollTo` on any of these four, unlike every control on the destination behind
+    // them.** The face is in a `ModalBottomSheet`, which has no scrolling parent, and asking one to
+    // scroll fails with *"Semantic Node has no parent layout with a Scroll SemanticsAction"* rather
+    // than with anything about the control. The face is short by design — 399dp at its tallest — so
+    // there is nothing to scroll to.
+    fun setRole() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_ROLE_ACTION).performClick()
+        test.waitForIdle()
+    }
+
+    fun askToKick() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KICK).performClick()
+        test.waitForIdle()
+    }
+
+    fun confirmKick() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KICK_CONFIRM).performClick()
+        test.waitForIdle()
+    }
+
+    fun keepThem() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KEEP).performClick()
+        test.waitForIdle()
+    }
+
+    // The first tap sends nothing — it only asks again. What tells the two steps apart is the filled
+    // red, which exists on the last step and nowhere else.
+    fun assertAsking() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KICK_CONFIRM).assertDoesNotExist()
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KICK).assertIsDisplayed()
+    }
+
+    fun assertOnTheLastStep() = apply {
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KICK_CONFIRM).assertIsDisplayed()
+        test.onNodeWithTag(AllianceTestTags.MEMBER_KEEP).assertIsDisplayed()
     }
 
     // **Absent, not greyed** — a founder who cannot leave and cannot disband is offered no control
@@ -242,11 +315,12 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.waitForIdle()
     }
 
-    // The second roster row, which is the first one a founder may remove — their own is a plain
-    // readout rather than a dead control.
-    fun removeTheSecondMember() = apply {
-        test.onNodeWithText(English.resolve(Strings.allianceRemove())).performScrollTo().performClick()
-        test.waitForIdle()
+    // The second roster row, which is the first one a founder may command — their own is a plain
+    // readout rather than a dead control. Two taps now, not one: the kick confirms.
+    fun kickTheSecondMember() = apply {
+        openMember(row = 1)
+        askToKick()
+        confirmKick()
     }
 
     fun assertCanFound() = apply {
@@ -282,6 +356,20 @@ internal class AllianceRobot(private val app: AppRobot) {
     fun assertRemovedAMember() = apply {
         val removed = app.server.allianceRequests().filterIsInstance<AllianceRequest.RemoveMember>()
         assertEquals(1, removed.size, "removals: $removed")
+    }
+
+    // **What the first tap of a kick has to prove: that it sent nothing.** Asserted against the
+    // requests the server actually received rather than against the screen, because a face that
+    // looked right while a route fired is exactly the failure a two-step confirm exists to prevent.
+    fun assertKeptEverybody() = apply {
+        val removed = app.server.allianceRequests().filterIsInstance<AllianceRequest.RemoveMember>()
+        assertEquals(0, removed.size, "removals: $removed")
+    }
+
+    fun assertPromoted(role: AllianceRole = AllianceRole.ADMIN) = apply {
+        val roles = app.server.allianceRequests().filterIsInstance<AllianceRequest.SetMemberRole>()
+        assertEquals(1, roles.size, "role changes: $roles")
+        assertEquals(role, roles.single().role)
     }
 
     fun assertAnsweredARequest(admitted: Boolean) = apply {

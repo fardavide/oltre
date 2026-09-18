@@ -127,18 +127,28 @@ class AllianceUiStateTest {
         assertEquals(Strings.playerDefaultName(), state.roster.single().name)
     }
 
+    // **The arrow is the only claim this roster makes, and it is conditional.** A founder sees it on
+    // every row but their own; the fixture roster is founder, admin, member.
     @Test
-    fun `a founder may remove anybody but themselves`() {
+    fun `a founder's rows press on everybody but themselves`() {
         val state = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted()))
 
-        assertEquals(listOf(false, true, true), state.roster.map { it.removable })
+        assertEquals(listOf(false, true, true), state.roster.map { it.pressable })
     }
 
     @Test
-    fun `a plain member may remove nobody`() {
+    fun `an admin's rows press only on plain members`() {
+        val state = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(role = AllianceRole.ADMIN)))
+
+        assertEquals(listOf(false, false, true), state.roster.map { it.pressable })
+    }
+
+    // No arrows anywhere, so the roster is plainly a readout and there is no absence to explain.
+    @Test
+    fun `a plain member's roster presses nowhere`() {
         val state = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(role = AllianceRole.MEMBER)))
 
-        assertTrue(state.roster.none { it.removable })
+        assertTrue(state.roster.none { it.pressable })
     }
 
     // ── The pending list ─────────────────────────────────────────────────────────────────────

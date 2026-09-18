@@ -5,7 +5,7 @@ import dev.fardavide.oltre.client.alliance.domain.AllianceState
 import dev.fardavide.oltre.client.alliance.domain.canAnswerJoinRequests
 import dev.fardavide.oltre.client.alliance.domain.canDisband
 import dev.fardavide.oltre.client.alliance.domain.canLeave
-import dev.fardavide.oltre.client.alliance.domain.canRemove
+import dev.fardavide.oltre.client.alliance.domain.canCommand
 import dev.fardavide.oltre.client.alliance.ui.AllianceHeadUiState
 import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
 import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
@@ -136,20 +136,24 @@ private fun AllianceMember.row(viewer: AllianceRole): RosterRowUiState = RosterR
         // **A plain member draws nothing at all**, which is correct for nineteen rows in twenty.
         AllianceRole.MEMBER -> null
     },
-    removable = viewer.canRemove(role),
+    mark = profile.mark,
+    // **The same expression as the face behind it**, which is the point: `canRemove` alone used to
+    // decide whether the row carried a control, and it was the wrong question — a founder may also
+    // *promote* a member, and nothing on this screen ever asked.
+    pressable = viewer.canCommand(role),
 )
 
 // **The viewer's own level is computed from raw experience with this build's ladder**, never sent
 // as a number by the server — `AllianceRoster.kt` argues it: a roster where one row's badge came
 // from another build's curve could contradict the strip on the same screen.
-private fun ExperienceReading.badge(): TextRes = when (this) {
+internal fun ExperienceReading.badge(): TextRes = when (this) {
     is ExperienceReading.Known -> Strings.levelBadge(ExperienceBalance.levelFor(earned).value)
     // A member whose colony has not been written since the column existed. An honest unknown rather
     // than a zero, which would read as *this player has done nothing*.
     ExperienceReading.Unknown -> Strings.levelBadge(0)
 }
 
-private fun PlayerProfile.drawnName(): TextRes {
+internal fun PlayerProfile.drawnName(): TextRes {
     val chosen = name ?: return Strings.playerDefaultName()
     return TextRes(chosen.value)
 }

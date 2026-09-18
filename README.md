@@ -227,6 +227,23 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.26.0 — 2026-09-18
+
+- **You can make somebody an admin.** An alliance has had three ranks since the day it shipped, and
+  no way to move anyone between them — a founder could admit a commander and never promote one. Tap a
+  member on the roster and the choice is there, with a line saying what an admin can do before you
+  press it.
+- **Removing somebody is now kicking them, and it asks first.** The word was *Remove*, which made
+  ending a membership sound like tidying a list. It reads *Kick* now, it takes two taps, and the
+  second one states what it does and what stays behind: what they paid into the treasury stays in the
+  treasury, and nothing reaches them until they next open the game.
+- **The roster tells you whose row does anything.** Commands used to sit on the rows themselves; now a
+  row carries an arrow when you can act on the person, and nothing at all when you cannot. An admin
+  sees it on members, a founder on everybody but themselves, and a member on nobody.
+- **A member's card says when they last played**, which is the thing you actually want to know before
+  handing somebody the keys or taking their seat back.
+- **The roster draws everybody's mark**, which it was always meant to and never did.
+
 ### 0.25.2 — 2026-09-18
 
 - **An app the server has outgrown now says so, instead of blaming Apple or Google.** A build older

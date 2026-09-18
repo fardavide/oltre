@@ -625,7 +625,33 @@ object Italian : Translations {
         StringId.AllianceRosterLabel -> "Organico"
         StringId.AllianceRoleFounder -> "FONDATORE"
         StringId.AllianceRoleAdmin -> "ADMIN"
-        StringId.AllianceRemove -> "Espelli"
+
+        // ── I comandi sul membro ─────────────────────────────────────────────────────────────
+        //
+        // **`Espelli` non è nuovo qui, e questo è il punto.** `AllianceRemove` era già *Espelli* in
+        // italiano mentre l'inglese diceva *Remove*: la parola più dura era in una lingua sola. La
+        // decisione del 2026-09-18 allinea l'inglese all'italiano, non il contrario.
+        StringId.AllianceMemberLastSeen -> "Ha aperto il gioco ${args.text(0)} fa."
+        StringId.AllianceMemberPromote -> "Promuovi ad amministratore"
+        StringId.AllianceMemberPromoteNote ->
+            "Un amministratore risponde alle richieste ed espelle i membri. " +
+                "Il fondatore può retrocederlo con un solo tocco."
+        StringId.AllianceMemberDemote -> "Retrocedi a membro"
+        StringId.AllianceMemberDemoteNote ->
+            "Un membro non risponde alle richieste e non espelle nessuno. Nient’altro cambia."
+        StringId.AllianceMemberKickNamed -> "Espelli ${args.text(0)}"
+        StringId.AllianceMemberKick -> "Espelli"
+        StringId.AllianceMemberKeep -> "Mantieni"
+        StringId.AllianceMemberKickFirstFact ->
+            "Questo è l’ultimo passo. Il prossimo tocco fa uscire ${args.text(0)} dall’alleanza."
+        StringId.AllianceMemberKickSecondFact ->
+            "Ciò che ha versato nella tesoreria resta nella tesoreria, e nessuna notifica lo " +
+                "raggiunge mentre è via: lo legge al suo prossimo accesso."
+        StringId.AllianceMemberHeldLead -> "Nessuna rete."
+        StringId.AllianceMemberHeldBody ->
+            "Ruolo e posto stanno sull’alleanza, non sul telefono. Questi comandi passano dal " +
+                "server, quindi non possono essere messi in attesa e niente entra in coda."
+
         StringId.AllianceTreasuryLabel -> "Tesoreria"
         StringId.AllianceTreasuryRule -> "Quello che entra non esce."
         StringId.AllianceTreasuryUnread -> "Il fondo non è ancora stato letto."

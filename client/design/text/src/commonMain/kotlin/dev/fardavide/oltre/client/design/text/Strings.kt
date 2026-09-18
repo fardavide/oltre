@@ -1200,7 +1200,34 @@ object Strings {
 
     fun allianceRoleAdmin(): TextRes = message(StringId.AllianceRoleAdmin)
 
-    fun allianceRemove(): TextRes = message(StringId.AllianceRemove)
+    // ── The member commands ──────────────────────────────────────────────────────────────────
+
+    fun allianceMemberLastSeen(elapsed: TextRes): TextRes =
+        message(StringId.AllianceMemberLastSeen, Arg.Text(elapsed))
+
+    fun allianceMemberPromote(): TextRes = message(StringId.AllianceMemberPromote)
+
+    fun allianceMemberPromoteNote(): TextRes = message(StringId.AllianceMemberPromoteNote)
+
+    fun allianceMemberDemote(): TextRes = message(StringId.AllianceMemberDemote)
+
+    fun allianceMemberDemoteNote(): TextRes = message(StringId.AllianceMemberDemoteNote)
+
+    fun allianceMemberKickNamed(name: TextRes): TextRes =
+        message(StringId.AllianceMemberKickNamed, Arg.Text(name))
+
+    fun allianceMemberKick(): TextRes = message(StringId.AllianceMemberKick)
+
+    fun allianceMemberKeep(): TextRes = message(StringId.AllianceMemberKeep)
+
+    fun allianceMemberKickFirstFact(name: TextRes): TextRes =
+        message(StringId.AllianceMemberKickFirstFact, Arg.Text(name))
+
+    fun allianceMemberKickSecondFact(): TextRes = message(StringId.AllianceMemberKickSecondFact)
+
+    fun allianceMemberHeldLead(): TextRes = message(StringId.AllianceMemberHeldLead)
+
+    fun allianceMemberHeldBody(): TextRes = message(StringId.AllianceMemberHeldBody)
 
     fun allianceTreasuryLabel(): TextRes = message(StringId.AllianceTreasuryLabel)
 

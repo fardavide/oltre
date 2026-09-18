@@ -49,6 +49,17 @@ kotlin {
             implementation(projects.client.design.core)
             api(projects.client.design.text)
 
+            // **The one cross-feature edge in this build, and the build warns about it.** The member
+            // card draws the commander's own mark at 44dp, and `IdentityMark` is where a `PlayerMark`
+            // becomes a picture — so the alternative was a second drawing of the same forty marks,
+            // which would be drift the first time one of them was retouched.
+            //
+            // It is not in `sharedSurfaces`, deliberately. That list is for modules nothing points out
+            // of, and `:client:player:ui` is a feature with its own faces; silencing the warning would
+            // hand every future edge into this feature the same pass. Davide's call, 2026-09-18, taken
+            // on this edge alone — the warning is the instrument the rule chose for exactly that.
+            implementation(projects.client.player.ui)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.design.format
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 // How the game measures numbers and durations for the player. Not tokens and not components — no
 // Compose reaches this file, which is why it is its own module rather than a corner of one that
@@ -71,6 +72,32 @@ fun Duration.toWaitLabel(): TextRes = when {
 }
 
 private const val MILLIS_PER_SECOND: Long = 1_000
+
+// ── How long ago somebody was last here ──────────────────────────────────────────────────────
+//
+// The alliance's member face draws `lastSyncedAt` as an elapsed duration rather than as a clock time,
+// and the reason is what the reading is *for*: "09:14" is a stamp for something that happened today,
+// and this is routinely days old. It is always drawn and never conditional on a threshold — a fact
+// that vanishes when it is small is a fact nobody trusts when it is large.
+//
+// **Two tiers where `toWaitLabel` has three, and the missing one is the whole difference.** A wait
+// under an hour is a running countdown, because a wait is a thing about to end and the seconds are
+// the point. Nothing is about to happen to a staleness reading, so a clock ticking on it would invite
+// a player to watch a number that means nothing; `18m` answers it completely. Above that the two
+// agree exactly, which is deliberate — a player reading `3d 04h` here and `3d 04h` on a deposit is
+// reading one unit of time, not two.
+fun Duration.toStalenessLabel(): TextRes =
+    if (inWholeHours >= HOURS_PER_DAY) {
+        Strings.durationDaysHours(inWholeDays, inWholeHours % HOURS_PER_DAY)
+    } else {
+        // **Floored at a second before delegating, and that is not belt-and-braces.** `toChipLabel`
+        // promises in as many words that a chip never reads `0m`, and it keeps that promise for every
+        // duration except exactly zero: `(0 + 59) / 60` is 0. No chip can reach that — a duration of
+        // zero is a build that is already finished — but this reading can, the moment a commander
+        // syncs and their own roster is drawn in the same second. `0m` would read as *never*, which
+        // is the opposite of what it means.
+        coerceAtLeast(1.seconds).toChipLabel()
+    }
 
 // Three fields, so a countdown never changes width as it runs down — and hours carry past a day
 // rather than wrapping, which is why this takes seconds rather than a `Duration`'s day part.

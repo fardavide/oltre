@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.26.0", "2026-09-18", "Un elenco su cui puoi agire",
+            "Tocca un membro per promuoverlo ad amministratore, retrocederlo o espellerlo.",
+            "Espelli chiede due volte, e dice cosa resta nella tesoreria quando se ne va.",
+            "Una riga porta una freccia quando puoi agire su quella persona, altrimenti niente.",
+        ),
+        release(
             "0.25.2", "2026-09-18", "Fuori dalla porta, e ora sai perché",
             "Una build che il server ha superato dice di aggiornare, non che Google ha detto no.",
             "Una build più recente del server dice di aspettare, che è la risposta opposta.",
