@@ -8,6 +8,7 @@ import dev.fardavide.oltre.client.design.component.RowSheetContent
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -33,6 +34,29 @@ class ResearchScreenScreenshotTest {
     @Test
     fun `both branches buyable in a Slide Over window`() {
         capture(width = 320, uiState = gateOpenUiState, name = "research_gate_open_slide_over")
+    }
+
+    // **The tightest measurement in the alliance design, and the only one with no margin left.**
+    // `one project at a time · −14%` was measured at 275dp of the 288 this width gives the label, so
+    // this is the frame that fails first if a word in either clause ever grows. It is also why the
+    // *attribution* abbreviates rather than the figure: the full form does not fit at any width.
+    @Test
+    fun `the alliance figure beside the rule, at the width with the least room`() {
+        capture(
+            width = 320,
+            uiState = gateOpenUiState.copy(alliancePerk = Strings.alliancePerkShort(14)),
+            name = "research_alliance_slide_over",
+        )
+    }
+
+    // The same pair at phone width, where the rule is its long form and the join has room.
+    @Test
+    fun `the alliance figure beside the rule at phone width`() {
+        capture(
+            width = 393,
+            uiState = gateOpenUiState.copy(alliancePerk = Strings.alliancePerkShort(14)),
+            name = "research_alliance",
+        )
     }
 
     @Test

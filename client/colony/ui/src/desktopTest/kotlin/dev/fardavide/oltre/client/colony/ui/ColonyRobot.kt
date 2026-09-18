@@ -92,6 +92,13 @@ internal class ColonyRobot(
             .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
+    // Scoped the same way, and it is the assertion an absence needs: a sheet with no alliance behind
+    // it draws one number, and *one number* is only checkable by naming what is not there.
+    fun assertTheSheetDoesNotRead(text: String) = apply {
+        test.onNodeWithTag(ColonyTestTags.SHEET, useUnmergedTree = true)
+            .assert(!hasAnyDescendant(hasText(text, substring = true)))
+    }
+
     fun tapTheSheetAction() = apply {
         test.onNodeWithTag(ColonyTestTags.SHEET_ACTION).performClick()
         test.waitForIdle()

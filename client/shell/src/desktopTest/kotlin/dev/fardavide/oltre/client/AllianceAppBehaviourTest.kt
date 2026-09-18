@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.net.data.AllianceRoute
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
@@ -844,6 +845,55 @@ class AllianceAppBehaviourTest {
     // tests keep theirs.
     private fun founderColony(): GameSnapshot = colony().let { poor ->
         poor.copy(state = poor.state.copy(resources = Resources.of(metal = 500_000, crystal = 500_000, deuterium = 500_000)))
+    }
+
+    // ── What the alliance takes off, end to end ──────────────────────────────────────────────
+    //
+    // **The one thing no other test in this slice can prove.** The boon is written by the server
+    // onto the snapshot, carried on `GameState`, and the *level* that names it comes from a
+    // completely different read — the alliance standing. Every unit test either has the state or has
+    // the level; only a launch has both, and only a launch proves the shell puts them together.
+
+    @Test
+    fun `a colony in an alliance is told once what it takes off, on the screen that builds`() {
+        val server = enlistedWithHelp()
+        app(saved = server.colony, api = server) {
+            open(OltreTab.COLONY)
+
+            // Level 7 on the standing, 14% on the snapshot — the two halves meeting.
+            assertReads("−14% · your alliance")
+        }
+    }
+
+    // Nineteen colonies in twenty, and the assertion is that the screen is exactly the screen it was.
+    @Test
+    fun `a colony in no alliance is told nothing about one`() {
+        app(saved = colony(), api = unaffiliated().apply { colony = this@AllianceAppBehaviourTest.colony() }) {
+            open(OltreTab.COLONY)
+
+            assertDoesNotRead("your alliance")
+            assertDoesNotRead("−14%")
+        }
+    }
+
+    // Research carries the same figure joined to its own rule, and the attribution is what drops —
+    // the heading and the neighbouring clause already say what the percentage acts on.
+    @Test
+    fun `the research screen carries the figure beside the rule it already had`() {
+        val server = enlistedWithHelp()
+        app(saved = server.colony, api = server) {
+            open(OltreTab.RESEARCH)
+
+            assertReads("−14%")
+            assertReads("one project at a time")
+        }
+    }
+
+    // A server-written boon reaching a colony, which is what a sync actually delivers.
+    private fun enlistedWithHelp(): FakeOltreApi = enlisted().apply {
+        val helped = colony().let { it.copy(state = it.state.copy(allianceSpeedup = AllianceSpeedup(14))) }
+        colony = helped
+        founds = helped
     }
 
     private fun colony(): GameSnapshot = GameSnapshot(
