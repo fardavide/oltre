@@ -634,6 +634,49 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **The other direction, and the card that says which one this is.** An admin's row draws
+    // `ADMIN` under the name and the blue command reads Demote — the same face inverted, which is
+    // the only thing that says which way the rank moves.
+    @Test
+    fun `a founder demotes an admin`() {
+        val server = enlisted().apply {
+            allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER.copy(role = AllianceRole.ADMIN))
+        }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.openMember(row = 1)
+            alliance.assertMemberFaceReads(Strings.allianceRoleAdmin())
+            alliance.assertRoleCommand(Strings.allianceMemberDemote())
+            alliance.setRole()
+
+            alliance.assertPromoted(AllianceRole.MEMBER)
+        }
+    }
+
+    // **A command with no signal says why, instead of being a control that does nothing.** Both
+    // commands ask the server and neither can be queued — a seat and a rank are the alliance's, not
+    // the phone's — so the face states the requirement and dims what acts while the card and the
+    // reading stay at full strength. This is the arm the no-dead-control rule is actually about.
+    @Test
+    fun `a command that cannot reach the server says so rather than doing nothing`() {
+        val server = enlisted().apply { allianceRoster = ROSTER.copy(members = ROSTER.members + MEMBER) }
+        app(saved = colony(), api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.openMember(row = 1)
+            server.offline = true
+
+            alliance.setRole()
+
+            alliance.assertMemberFaceReads(Strings.allianceMemberHeldLead())
+            alliance.assertMemberFaceReads(Strings.allianceMemberHeldBody())
+            // The reading is not a control, so it is not dimmed and it is still there to read.
+            alliance.assertMemberFaceReads(Strings.allianceMemberLastSeen(TextRes("1m")))
+        }
+    }
+
     // A member taps a row and nothing happens, which is the design's answer rather than a face made
     // of the sentence explaining its own emptiness: they never saw an arrow, so nothing is absent.
     @Test
