@@ -28,6 +28,7 @@ import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.BuildJob
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -77,6 +78,13 @@ fun GameState.toColonyUiState(
     // about the colony at all. Defaulted to an empty queue — a colony with signal, which is what every
     // frame that is not about the network wants — and the shell hands in the real one.
     held: HeldActions = HeldActions.NONE,
+    // **The alliance's level, handed in rather than derived** — `watching`'s own rule, for the same
+    // reason: what an alliance is called or how far up its ladder it is is not the colony's to know.
+    // The *boon* is on `GameState` and needs no parameter; only the sentence that explains it names
+    // the level, and it cannot be recovered from the percentage at the ceiling, where 15 and 40 both
+    // take off 30%. Null is *in no alliance*, and it is what every frame that is not about the perk
+    // wants.
+    allianceLevel: Int? = null,
 ): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
@@ -87,10 +95,15 @@ fun GameState.toColonyUiState(
             timeZone = timeZone,
             finishedWhileAway = it == finishedWhileAway,
             held = held,
+            allianceLevel = allianceLevel,
         )
     },
     returningFleet = runs.toStrip(home = galaxy.home, now = now, research = research),
     watching = watching,
+    // Absent rather than a zero on a colony in no alliance — see the field's own note.
+    alliancePerk = allianceSpeedup
+        .takeIf { it != AllianceSpeedup.NONE }
+        ?.let { Strings.alliancePerkTrailing(it.percent) },
 )
 
 private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
@@ -180,6 +193,7 @@ private fun GameState.toFacilityRow(
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
     held: HeldActions,
+    allianceLevel: Int?,
 ): FacilityRowUiState {
     val level = buildings.levelOf(building)
     val toLevel = BuildingLevel(level.value + 1)
@@ -214,12 +228,31 @@ private fun GameState.toFacilityRow(
             cost.crystal.toCostChip(ResourceKind.CRYSTAL, short),
             cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
         ),
+        // **The helped wait, and the row says nothing about it being helped.** Every row on this
+        // screen is shortened by the same percentage, so a per-row mark would be one glyph repeated
+        // five times — decoration by this product's own test. What the row draws is simply true; the
+        // section label says once that an alliance is behind it, and the sheet does the arithmetic.
         duration = PlaceholderBalance.upgradeDuration(
             building,
             toLevel,
             buildings.roboticsFactory,
             buildings.naniteFactory,
+            allianceSpeedup,
         ).toChipLabel(),
+        // **The wait without the alliance, and the only counterfactual number in the app.** Null
+        // when there is no alliance, which is what keeps the sheet one line and one number shorter
+        // rather than carrying a dash or a zero. It earns being drawn at all three ways: it is
+        // attributed by the sentence above it, it sits in the slot the true number would occupy
+        // rather than beside it, and there is never more than one of them on screen — which is
+        // exactly what putting it on the row would have broken.
+        baseDuration = allianceSpeedup.takeIf { it != AllianceSpeedup.NONE }?.let {
+            PlaceholderBalance.upgradeDuration(
+                building,
+                toLevel,
+                buildings.roboticsFactory,
+                buildings.naniteFactory,
+            ).toChipLabel()
+        },
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
         // The locked row is the one that does not price its next level: the Nanite Factory's whole
@@ -238,6 +271,7 @@ private fun GameState.toFacilityRow(
                 level = level,
                 locked = locked,
                 running = job != null,
+                allianceLevel = allianceLevel,
             ),
             ladder = gatesOf(building).toLadder(level),
             // The answer to "then what", and only the two rows that have not answered it themselves
@@ -380,11 +414,33 @@ private fun GameState.sheetLines(
     level: BuildingLevel,
     locked: Boolean,
     running: Boolean,
+    allianceLevel: Int?,
 ): List<SheetLine> {
     val lines = if (locked) lockedNaniteLines() else purpose.toLines(building, energy, level)
     // A row in flight has already been decided about, so the sheet keeps the sentence that says what
     // the level *is* and drops the arithmetic that was there to argue for it.
-    return if (running) lines.take(1) else lines
+    //
+    // **And that is why the alliance's two sentences are added after the `take(1)` rather than
+    // before it.** A running row's sheet says nothing about the alliance at all — the wait it is
+    // serving was fixed when the job started, so an explanation of what an alliance takes off the
+    // *next* one would be answering a question this card is not being asked.
+    return if (running) lines.take(1) else lines + allianceLines(allianceLevel)
+}
+
+// **Where the perk is explained, and the only place it is.** Two sentences and no control: what the
+// level takes off, and what it does not touch. Empty when there is no alliance — absent rather than
+// neutral, so the sheet is simply the sheet that ships, with no dash and no zero standing in for a
+// fact that is not there.
+private fun GameState.allianceLines(allianceLevel: Int?): List<SheetLine> {
+    if (allianceSpeedup == AllianceSpeedup.NONE || allianceLevel == null) return emptyList()
+    return listOfNotNull(
+        SheetLine(listOf(words(Strings.alliancePerkBuild(allianceLevel, allianceSpeedup.percent)))),
+        // Only at the ceiling. It is the sentence that stops a player waiting for a number that is
+        // never going to move again.
+        SheetLine(listOf(words(Strings.alliancePerkAtTheFloor())))
+            .takeIf { allianceSpeedup.percent == AllianceSpeedup.MAX_PERCENT },
+        SheetLine(listOf(words(Strings.alliancePerkBuildRunning()))),
+    )
 }
 
 private fun LevelPurpose.toLines(

@@ -227,6 +227,26 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.27.0 — 2026-09-18
+
+- **Your alliance now builds things faster.** Every level takes 2% off every build and every research
+  you start, up to 30% — so an alliance at level 7 hands each of its members a seventh of their time
+  back. It is the first thing an alliance has ever done inside your own colony, and it is what the
+  pool has been paying for.
+- **The colony and research screens say so once, and never on a row.** A line above the list reads
+  *−14% · your alliance*. The waits underneath are simply shorter; none of them is marked, because
+  all of them are.
+- **Tap a row and the sheet shows its working** — *5h 40m → 4h 52m* — with a sentence saying which
+  level did it, and another saying what it does not touch: anything already building keeps the time
+  it started with.
+- **It starts at your next check-in**, and it follows your alliance up. Come back after a week away
+  and you arrive on whatever level your alliance reached while you were gone.
+- **A colony in no alliance sees none of this** — no line, no percentage, no sheet sentence. The
+  screen is exactly the screen it was.
+
+**This release changes the save format and requires the app to be updated.** Older builds cannot read
+a colony this one has touched.
+
 ### 0.26.0 — 2026-09-18
 
 - **You can make somebody an admin.** An alliance has had three ranks since the day it shipped, and

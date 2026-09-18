@@ -33,6 +33,18 @@ data class ColonyUiState(
     // which. Handed in rather than derived, because what a technology is called is not the colony's
     // to know — see the same field on `ResearchUiState`.
     val watching: TextRes?,
+    // **`−14% · your alliance`, and the only thing on this screen that mentions the alliance.** Null
+    // when the colony is in none, which is the screen that ships today — no trailing, no line, no
+    // sentence, and no absence for a player to ask about, because they have never seen a percentage
+    // there.
+    //
+    // It shares the label's trailing slot with `watching`, and the watch wins. The design assumed
+    // this slot was empty on the colony; it is not, and the precedence is the one Research already
+    // settled for the same collision: **the watch is the one that can change without the player
+    // looking** — it is shared with the Research screen, so tapping a square there silently takes it
+    // off a row here — where the percentage is the same on every row and moves only when the
+    // alliance levels.
+    val alliancePerk: TextRes? = null,
 )
 
 // Energy is not shown as a fourth resource, because it is not one: it never accumulates, so a
@@ -79,6 +91,14 @@ data class FacilityRowUiState(
     val level: BuildingLevel,
     val costs: List<CostChipUiState>,
     val duration: TextRes,
+    // **What this build would take with no alliance behind it**, and null when there is none — which
+    // is nineteen colonies in twenty. The row never draws it: a duration a player reads while
+    // deciding is a fact, and a counterfactual is an explanation, so it belongs in the surface whose
+    // only job is explaining. See `toRowSheetUiState`.
+    //
+    // Defaulted to *no alliance*, which is the ordinary colony and what every fixture that is not
+    // about the perk means.
+    val baseDuration: TextRes? = null,
     val action: FacilityActionUiState,
     // Null while the colony is healthy, and on anything that neither draws nor supplies — an
     // unbuilt facility draws nothing, so it has nothing to attribute and nothing to fight the
@@ -162,11 +182,13 @@ fun FacilityRowUiState.toRowSheetUiState(): RowSheetUiState = RowSheetUiState(
     footer = when (val current = action) {
         FacilityActionUiState.Upgrade -> SheetFooter(
             costs = costs,
+            base = baseDuration,
             duration = duration,
             action = SheetAction.Live(Strings.upgradeVerb()),
         )
         is FacilityActionUiState.AffordableIn -> SheetFooter(
             costs = costs,
+            base = baseDuration,
             duration = duration,
             action = SheetAction.Ghost(current.label),
         )

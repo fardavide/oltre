@@ -690,6 +690,26 @@ object Strings {
     // What 320dp shortens both rules to.
     fun ruleOneAtATime(): TextRes = message(StringId.RuleOneAtATime)
 
+    // ── What the alliance takes off ──────────────────────────────────────────────────────────
+
+    fun alliancePerkTrailing(percent: Int): TextRes =
+        message(StringId.AlliancePerkTrailing, Arg.Number(percent.toLong()))
+
+    fun alliancePerkShort(percent: Int): TextRes =
+        message(StringId.AlliancePerkShort, Arg.Number(percent.toLong()))
+
+    fun alliancePerkBuild(level: Int, percent: Int): TextRes =
+        message(StringId.AlliancePerkBuild, Arg.Number(level.toLong()), Arg.Number(percent.toLong()))
+
+    fun alliancePerkResearch(level: Int, percent: Int): TextRes =
+        message(StringId.AlliancePerkResearch, Arg.Number(level.toLong()), Arg.Number(percent.toLong()))
+
+    fun alliancePerkBuildRunning(): TextRes = message(StringId.AlliancePerkBuildRunning)
+
+    fun alliancePerkResearchRunning(): TextRes = message(StringId.AlliancePerkResearchRunning)
+
+    fun alliancePerkAtTheFloor(): TextRes = message(StringId.AlliancePerkAtTheFloor)
+
     fun researchVerb(): TextRes = message(StringId.ResearchVerb)
 
     fun verdictNothingThrottled(): TextRes = message(StringId.VerdictNothingThrottled)

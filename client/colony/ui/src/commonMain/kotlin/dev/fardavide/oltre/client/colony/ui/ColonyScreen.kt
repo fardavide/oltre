@@ -73,7 +73,11 @@ fun ColonyScreen(
                 // across three ladders legible: it names the watched row even when that row is on
                 // the Research tab, so moving the watch there is never a thing that happened
                 // somewhere the player was not looking.
-                SectionLabel(text = Strings.colonyFacilitiesHeading(), rule = uiState.watching)
+                // The watch wins the slot when there is one — see `ColonyUiState.alliancePerk`.
+                SectionLabel(
+                    text = Strings.colonyFacilitiesHeading(),
+                    rule = uiState.watching ?: uiState.alliancePerk,
+                )
                 FacilityList(
                     facilities = uiState.facilities,
                     compact = compact,

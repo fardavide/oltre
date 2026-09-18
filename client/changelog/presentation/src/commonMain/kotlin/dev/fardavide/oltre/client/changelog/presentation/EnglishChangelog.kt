@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.27.0", "2026-09-18", "Your alliance builds it faster",
+            "Every alliance level takes 2% off every build and research you start, up to 30%.",
+            "The screen says it once above the list; the waits below it are simply shorter.",
+            "Tap a row to see the working, and what it does not touch. Starts at your next check-in.",
+        ),
+        release(
             "0.26.0", "2026-09-18", "A roster you can act on",
             "Tap a member to promote them to admin, demote them again, or kick them out.",
             "Kick asks twice, and says what stays in the treasury when they go.",

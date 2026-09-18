@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.27.0", "2026-09-18", "L’alleanza costruisce più in fretta",
+            "Ogni livello toglie il 2% a ogni costruzione e ricerca che avvii, fino al 30%.",
+            "Lo schermo lo dice una volta sopra la lista; le attese sotto sono semplicemente più corte.",
+            "Tocca una riga per vedere il calcolo. Vale dal tuo prossimo accesso.",
+        ),
+        release(
             "0.26.0", "2026-09-18", "Un elenco su cui puoi agire",
             "Tocca un membro per promuoverlo ad amministratore, retrocederlo o espellerlo.",
             "Espelli chiede due volte, e dice cosa resta nella tesoreria quando se ne va.",

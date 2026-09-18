@@ -326,6 +326,40 @@ object English : Translations {
         StringId.RuleOneProjectAtATime -> "one project at a time"
         StringId.RuleOneLadderAtATime -> "one ladder at a time"
         StringId.RuleOneAtATime -> "one at a time"
+
+        // ── What the alliance takes off ──────────────────────────────────────────────────────
+        //
+        // **A true minus sign, not a hyphen**, which is the same choice `signed()` already makes for
+        // every other number in this game that can go down.
+        //
+        // The colony label's trailing carries the attribution at both widths, because that is where
+        // a player meets it first. Research's already holds a rule, so the alliance joins it with the
+        // middle dot the app separates facts with, and it is the *attribution* that drops rather than
+        // the figure — the heading and the neighbouring clause already say what the percentage acts
+        // on, and the sheet behind any row says it in words.
+        StringId.AlliancePerkTrailing -> "−${args.number(0)}% · your alliance"
+        // Joined to Research's existing rule by `Strings.clauses`, which is the app's own middle dot.
+        StringId.AlliancePerkShort -> "−${args.number(0)}%"
+
+        // The sheet's two sentences, and they are the only place the effect is explained. The level
+        // is named because it is the thing that moves — a player who reads this at 7 and again at 8
+        // has been told why the number changed.
+        StringId.AlliancePerkBuild ->
+            "Your alliance is level ${args.number(0)}, so every build you start takes " +
+                "${args.number(1)}% less time."
+        StringId.AlliancePerkResearch ->
+            "Your alliance is level ${args.number(0)}, so every research you start takes " +
+                "${args.number(1)}% less time."
+
+        // **What it does not touch**, said plainly rather than left to be discovered: a job carries
+        // the time it started with, so an alliance that levels up mid-build changes nothing about
+        // that build. It is the seam the design draws rather than hides.
+        StringId.AlliancePerkBuildRunning -> "A build already running keeps the time it started with."
+        StringId.AlliancePerkResearchRunning -> "A research already running keeps the time it started with."
+
+        // Only at the ceiling, and it is the one sentence that stops a player waiting for a number
+        // that is never going to move again.
+        StringId.AlliancePerkAtTheFloor -> "That is the most an alliance takes off."
         StringId.ResearchVerb -> "Research"
         StringId.VerdictNothingThrottled -> "nothing while your mines are throttled"
         StringId.VerdictNothingThrottledCompact -> "nothing while throttled"
