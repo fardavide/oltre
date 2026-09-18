@@ -16,7 +16,7 @@ import dev.fardavide.oltre.protocol.AuthProvider
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
-// **The first screen in the game that is not about a colony**, in the five states it has.
+// **The first screen in the game that is not about a colony**, in the states it has.
 //
 // The frames are the design's own — 393×759 and 320×759, the window between the status bar and the
 // home indicator — and every one of them is a whole screen rather than a fragment, because the gate
@@ -74,6 +74,40 @@ class GateScreenshotTest {
                 message = GateMessageUiState(
                     lead = Strings.signInRefusedLead(AuthProviderName.APPLE),
                     body = Strings.signInRefusedBody(AuthProviderName.GOOGLE),
+                    tone = GateTone.FAILED,
+                ),
+            ),
+        )
+    }
+
+    // **The refusal no provider had anything to do with**, and the longest body the block carries:
+    // two sentences where every other state has one. So this is the frame that says the message can
+    // grow without moving the buttons.
+    @Test
+    fun `a build the server has outgrown`() {
+        capture(
+            name = "gate_outdated",
+            state = idle().copy(
+                message = GateMessageUiState(
+                    lead = Strings.signInOutdatedLead(),
+                    body = Strings.signInOutdatedBody(),
+                    tone = GateTone.FAILED,
+                ),
+            ),
+        )
+    }
+
+    // **And the same block saying the opposite thing**, which is worth its own frame rather than
+    // being read off the one above: the two are a pair a reader will compare, and the whole point of
+    // them is that one says *update* where the other says *wait*.
+    @Test
+    fun `a server that has not caught up`() {
+        capture(
+            name = "gate_server_behind",
+            state = idle().copy(
+                message = GateMessageUiState(
+                    lead = Strings.signInServerBehindLead(),
+                    body = Strings.signInServerBehindBody(),
                     tone = GateTone.FAILED,
                 ),
             ),

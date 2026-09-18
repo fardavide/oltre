@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.25.2", "2026-09-18", "Locked out, and now told why",
+            "A build the server has outgrown says to update, not that Google refused you.",
+            "A build newer than the server says to wait, which is the opposite answer.",
+            "A refusal names a button that is on the screen, never the one that is not.",
+        ),
+        release(
             "0.25.1", "2026-09-15", "Contributing, made plain",
             "What you pay in shows up in the pool at once, not after a restart.",
             "Pick a share, read exactly what leaves, press a button that names your alliance.",

@@ -228,17 +228,17 @@ purely so a skip branch is taken.
 composable that no test composes shows `covered=0` with a non-zero `missed`, which is the search:
 
 ```
-python3 - <<'PY'
-import xml.etree.ElementTree as ET
-t = ET.parse("build/reports/kover/report.xml")
-for pkg in t.getroot().findall("package"):
-    for cl in pkg.findall("class"):
-        for m in cl.findall("method"):
-            for c in m.findall("counter"):
-                if c.get("type") == "BRANCH" and int(c.get("covered")) == 0 < int(c.get("missed")):
-                    print(c.get("missed"), pkg.get("name"), cl.get("name"), m.get("name"))
-PY
+xmllint --nonet --xpath '//class[method/counter[@type="BRANCH"][@covered="0"][@missed>0]]/@name' build/reports/kover/report.xml
+xmllint --nonet --xpath '//class[@name="<class>"]/method[counter[@type="BRANCH"][@covered="0"][@missed>0]]/@name' build/reports/kover/report.xml
+xmllint --nonet --xpath '/report/counter[@type="LINE"]' build/reports/kover/report.xml
 ```
+
+The first lists the classes, the second the methods inside one, the third is the total the gate
+reads (`covered / (covered + missed)`, to one decimal). **`xmllint`, never a `python3`/`node`/`perl`
+heredoc** — this recipe was a Python script until 2026-09-18 and a session copied it (Davide:
+*"Use fucking xmllint ffs"*). The report is XML and XML has its own reader on every Mac; a script
+that re-implements the walk is the bypass the global `structured-data` skill forbids, whatever
+language it is in.
 
 0.15.4 is the case: the bell's four new callbacks cost 21 screenshot branches, and `RowSheet` — the
 modal Colony and Research actually raise — turned out to be composed by no screenshot test at all,

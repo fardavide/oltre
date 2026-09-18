@@ -227,6 +227,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.25.2 — 2026-09-18
+
+- **An app the server has outgrown now says so, instead of blaming Apple or Google.** A build older
+  than the oldest version the server answers was turned away before its sign-in was even read — and
+  the gate reported that as *Google did not sign you in*, under a button that would be turned away
+  just as fast. It now says the version is too old and to update it. Nothing was ever lost; the
+  colony is on the server either way.
+- **And a build the server has not caught up with says the opposite** — that it is newer than the
+  server and to try again in a few minutes — which is the window every release opens between
+  shipping and the server following.
+- **The gate no longer points at a button that is not on the screen.** On Android, where Google is
+  the only way in, a refusal ended *try again, or use Apple*. It now names the button you can
+  actually press.
+
 ### 0.25.1 — 2026-09-15
 
 - **What you pay in shows up in the pool straight away.** The treasury used to keep drawing the

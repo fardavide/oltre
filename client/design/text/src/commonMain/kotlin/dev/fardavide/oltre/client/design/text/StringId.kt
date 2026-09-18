@@ -667,6 +667,14 @@ enum class StringId {
     SignInThrottledLead,
     SignInThrottledBody,
     SignInAskAgainNow,
+    // **The two the version negotiation needs, and they are opposite instructions.** `ApiVersion`
+    // carries the served window precisely so the client can tell *this build is too old* from *this
+    // server has not caught up*; without a sentence for each, both collapsed into the provider
+    // refusal above and the gate blamed Google for a 426 it had nothing to do with.
+    SignInOutdatedLead,
+    SignInOutdatedBody,
+    SignInServerBehindLead,
+    SignInServerBehindBody,
     // **The one thing the gate has to say when it has nothing to offer.** Every other message here
     // reports on something the player did; this one reports on the build itself, and it exists
     // because a screen drawing no provider at all would otherwise be two lines of *why* with no way
