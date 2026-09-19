@@ -227,6 +227,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.28.1 — 2026-09-19
+
+- **Found it no longer does nothing.** If the server refused for a reason that was not *that name is
+  taken* or *that tag is taken*, the button did nothing at all — no line, no change, nothing. It now
+  says what happened, in the same red block this screen already uses when a contribution does not
+  reach the pool.
+- **It says which of four things went wrong**, because they are four different things to do about it:
+  the price is no longer covered, your standing in the alliance changed on another device, the app is
+  too old for the server, or the server simply could not answer.
+- **The name and tag you typed stay put, and Found it stays live.** A refusal explains; it does not
+  take the control away.
+- **Every other alliance action is covered too** — joining, leaving, promoting, kicking, renaming.
+  They all went through the same silent path.
+
 ### 0.28.0 — 2026-09-19
 
 - **The alliance shelf has a second thing on it: Shared Logistics.** The pool buys a percentage point

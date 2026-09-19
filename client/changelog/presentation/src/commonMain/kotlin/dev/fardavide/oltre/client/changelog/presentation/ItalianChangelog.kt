@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.28.1", "2026-09-19", "Fondala ora dice quando fallisce",
+            "Un rifiuto che non era un nome o un tag già presi non faceva nulla. Ora parla.",
+            "Dice quale delle quattro cose è successa, perché ognuna richiede una mossa diversa.",
+            "Il nome e il tag che hai scritto restano, e il pulsante resta attivo.",
+        ),
+        release(
             "0.28.0", "2026-09-19", "Il fondo compra velocità per tutti",
             "Logistica condivisa: il fondo compra un punto su costruzioni e ricerche di ogni membro.",
             "Compra ancora per un altro punto, a prezzo crescente, fino allo stesso tetto del 30%.",

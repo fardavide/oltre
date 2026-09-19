@@ -16,6 +16,7 @@ import androidx.compose.ui.text.intl.Locale
 import dev.fardavide.oltre.client.alliance.data.AllianceGateway
 import dev.fardavide.oltre.client.alliance.domain.AllianceRosterReading
 import dev.fardavide.oltre.client.alliance.domain.AllianceState
+import dev.fardavide.oltre.client.alliance.presentation.allianceRefusalUiState
 import dev.fardavide.oltre.client.alliance.presentation.allianceUiState
 import dev.fardavide.oltre.client.alliance.presentation.basket
 import dev.fardavide.oltre.client.alliance.presentation.contributeConfirmUiState
@@ -318,6 +319,13 @@ fun App(
             var refusedRun by remember { mutableStateOf<GalaxyCoordinate?>(null) }
             var refusedProbe by remember { mutableStateOf(false) }
             var refusedContribution by remember { mutableStateOf(false) }
+            // **The error rather than a flag**, unlike the three above it, because this one has four
+            // sentences and only the error knows which — see `allianceRefusalUiState`, which is
+            // where the choosing happens so a unit test can judge it. Set by `actOnAlliance` for
+            // every alliance act, not by founding alone: they all share one `Refused` arm, and until
+            // `#164` every refusal that was not a taken name or tag left that arm having done
+            // nothing at all.
+            var refusedAlliance by remember { mutableStateOf<ApiError?>(null) }
             // Whether the account deletion has been refused, which is the third refusal and the one
             // with a face of its own.
             var deleteRefused by remember { mutableStateOf(false) }
@@ -1177,6 +1185,7 @@ fun App(
                     refusedRun = null
                     refusedProbe = false
                     refusedContribution = false
+                    refusedAlliance = null
                     deleteRefused = false
                     scope.launch {
                         val wall = wallClock.now()
@@ -1224,6 +1233,12 @@ fun App(
                     spendsTheColony: Boolean = false,
                     call: suspend (SessionToken) -> ApiResult<AllianceState>,
                 ) {
+                    // **The previous refusal goes with the tap that follows it**, which is
+                    // `dispatch`'s own rule one function up: a sentence about a tap the player has
+                    // moved past is furniture. The contribution's goes too — one block, one slot,
+                    // and the last thing that was refused is the thing it is about.
+                    refusedAlliance = null
+                    refusedContribution = false
                     scope.launch {
                         when (val credential = sessions.current()) {
                             is Credential.Held -> when (val answer = call(credential.access)) {
@@ -1253,12 +1268,22 @@ fun App(
                                         treasury = null
                                     }
                                 }
-                                // **The two refusals this feature can actually reach from a finger**,
-                                // and they land on the fields rather than in a block — the answer is
-                                // about the string that was there, and the value stays editable.
+                                // **Two refusals land on the fields and everything else lands in the
+                                // block above the destination** — `#164`. The two are answers about
+                                // the string that was there, so they sit under the box holding it
+                                // and the value stays editable; the rest are not about either
+                                // string, and before this arm carried the third line they set both
+                                // flags to `false` and the screen said nothing at all.
+                                //
+                                // **The error is held rather than a sentence**, because which of the
+                                // four sentences it is belongs in `allianceRefusalUiState` where a
+                                // unit test can reach it — and the two field refusals are filtered
+                                // out *there* rather than here, so one `when` decides what every
+                                // member means instead of two places agreeing about it.
                                 is ApiResult.Refused -> {
                                     nameTaken = answer.error == ApiError.AllianceNameTaken
                                     tagTaken = answer.error == ApiError.AllianceTagTaken
+                                    refusedAlliance = answer.error
                                 }
                                 ApiResult.Unreachable -> reachable = false
                             }
@@ -1923,6 +1948,11 @@ fun App(
                             body = Strings.refusedContributionBody(),
                         )
                     }
+                    // **The fourth, and the only one this file does not write the words for.** It
+                    // has four bodies rather than one and the error decides which, so the decision
+                    // is a `when` in `:client:alliance:presentation` and this is the call site.
+                    // Null for a taken name or tag: those land under the box that holds the string.
+                    val allianceRefusal = allianceRefusalUiState(refusedAlliance)
 
                     MainScaffold(
                         // The one new piece of chrome, and null on a colony with signal — see
@@ -2254,7 +2284,12 @@ fun App(
                                     onKeepContribute = { confirming = null },
                                 ),
                                 confirm = confirming?.let { contributeConfirmUiState() },
-                                refusal = contributionRefusal,
+                                // **One slot, and at most one of the two is ever set**: every act
+                                // that can raise either clears both first, so the order here settles
+                                // nothing a player can reach. It is written down rather than left to
+                                // a `?:` nobody re-reads — the alliance's own acts are the ones with
+                                // a server answer behind them, so they win.
+                                refusal = allianceRefusal ?: contributionRefusal,
                                 scrollState = scroll,
                             )
                         },

@@ -1280,6 +1280,16 @@ object Strings {
 
     fun allianceProjectsEmpty(): TextRes = message(StringId.AllianceProjectsEmpty)
 
+    fun refusedAllianceLead(): TextRes = message(StringId.RefusedAllianceLead)
+
+    fun refusedAllianceShortBody(): TextRes = message(StringId.RefusedAllianceShortBody)
+
+    fun refusedAllianceStandingBody(): TextRes = message(StringId.RefusedAllianceStandingBody)
+
+    fun refusedAllianceOutdatedBody(): TextRes = message(StringId.RefusedAllianceOutdatedBody)
+
+    fun refusedAllianceServerBody(): TextRes = message(StringId.RefusedAllianceServerBody)
+
     fun allianceProjectCharter(): TextRes = message(StringId.AllianceProjectCharter)
 
     fun allianceProjectCharterEffect(): TextRes = message(StringId.AllianceProjectCharterEffect)

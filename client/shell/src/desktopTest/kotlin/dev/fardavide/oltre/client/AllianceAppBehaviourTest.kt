@@ -559,6 +559,64 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **The bug `#164` names, from the finger that met it.** Every refusal that is not a taken name
+    // or tag used to set both field flags to `false` and change nothing: the player pressed *Found
+    // it*, the server answered, and the app did not move. This is the case the two tests above did
+    // not cover, and it is the one the dead-control rule is about — a control that is not dead in the
+    // diff, only in the cases the diff does not reach.
+    @Test
+    fun `a refusal about neither string is said in the block rather than swallowed`() {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { createAllianceError = ApiError.AllianceFoundingUnaffordable }
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.assertReads(Strings.refusedAllianceLead())
+            alliance.assertReads(Strings.refusedAllianceShortBody())
+        }
+    }
+
+    // **What it does to the button, which is the other half of `#164`'s design prompt** — and the
+    // answer is the one the contribution refusal already shipped: the control keeps full strength and
+    // goes on answering, because a refusal that disabled the thing it is about would replace a silent
+    // no-op with an unanswerable one. The typed name and tag are still good and are still there.
+    @Test
+    fun `the block leaves the fields and the control exactly as they were`() {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { createAllianceError = ApiError.Internal("a bad day") }
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            alliance.assertReads(Strings.refusedAllianceServerBody())
+            alliance.assertCanFound()
+        }
+    }
+
+    // The block goes with the tap that follows it, which is `dispatch`'s own rule: a sentence about
+    // a tap the player has moved past is furniture.
+    @Test
+    fun `asking again takes the block down`() {
+        val saved = founderColony()
+        val server = unaffiliated(saved).apply { createAllianceError = ApiError.Internal("a bad day") }
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+            alliance.assertReads(Strings.refusedAllianceServerBody())
+            server.createAllianceError = null
+
+            alliance.found()
+
+            alliance.assertDoesNotRead(Strings.refusedAllianceServerBody())
+        }
+    }
+
     @Test
     fun `typing again clears the refusal and offers the control back`() {
         val saved = founderColony()

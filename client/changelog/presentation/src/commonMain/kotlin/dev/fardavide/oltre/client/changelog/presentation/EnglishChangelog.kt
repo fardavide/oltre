@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.28.1", "2026-09-19", "Found it tells you when it fails",
+            "A refusal that was not a taken name or tag used to do nothing at all. Now it speaks.",
+            "It says which of four things happened, because each one is a different thing to do.",
+            "Your name and tag stay put, and the button stays live.",
+        ),
+        release(
             "0.28.0", "2026-09-19", "The pool buys speed for everyone",
             "Shared Logistics: the pool buys a point off every member's builds and research.",
             "Buy it again for another point at a rising price, up to the same 30% ceiling.",
