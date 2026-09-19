@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
 import dev.fardavide.oltre.client.alliance.ui.ContributeActionUiState
 import dev.fardavide.oltre.client.alliance.ui.FoundingUiState
 import dev.fardavide.oltre.client.alliance.ui.SearchResultsUiState
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.Experience
@@ -222,6 +223,36 @@ class AllianceUiStateTest {
 
         assertNull(first.treasury.projects.single().bought)
         assertEquals(Strings.allianceProjectBought(2), again.treasury.projects.single().bought)
+    }
+
+    // **Every entry the wire can name has a name and a sentence on this side of it.** The two `when`s
+    // that map a project are exhaustive, so a third constant cannot compile without them — but
+    // nothing makes the *strings* it maps to be different ones, and a second entry wearing the
+    // charter's line is a row that reads as a duplicate of the row above it.
+    @Test
+    fun `every project on the wire draws its own name and its own sentence`() {
+        val whole = TREASURY.copy(
+            projects = AllianceProject.entries.map { OFFER.copy(project = it) },
+        )
+
+        val rows = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(), treasury = whole)).treasury.projects
+
+        assertEquals(AllianceProject.entries, rows.map { it.project })
+        assertEquals(rows.size, rows.map { English.resolve(it.name) }.toSet().size)
+        assertEquals(rows.size, rows.map { English.resolve(it.effect) }.toSet().size)
+    }
+
+    // The one row `#168` added, named rather than left to the loop above: a sentence that said *seats*
+    // on the speed entry would pass every structural check there is.
+    @Test
+    fun `shared logistics says what it buys every member`() {
+        val logistics = TREASURY.copy(projects = listOf(OFFER.copy(project = AllianceProject.SHARED_LOGISTICS)))
+
+        val row = assertIs<AllianceUiState.Enlisted>(face(standing = enlisted(), treasury = logistics))
+            .treasury.projects.single()
+
+        assertEquals(Strings.allianceProjectLogistics(), row.name)
+        assertEquals(Strings.allianceProjectLogisticsEffect(), row.effect)
     }
 
     @Test

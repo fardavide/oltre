@@ -544,6 +544,8 @@ enum class StringId {
     AllianceProjectsEmpty,
     AllianceProjectCharter,
     AllianceProjectCharterEffect,
+    AllianceProjectLogistics,
+    AllianceProjectLogisticsEffect,
     AllianceProjectBuy,
     AllianceProjectBought,
     AllianceProjectShort,

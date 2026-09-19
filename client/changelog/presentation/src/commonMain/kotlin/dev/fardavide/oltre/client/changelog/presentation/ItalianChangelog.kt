@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.28.0", "2026-09-19", "Il fondo compra velocità per tutti",
+            "Logistica condivisa: il fondo compra un punto su costruzioni e ricerche di ogni membro.",
+            "Compra ancora per un altro punto, a prezzo crescente, fino allo stesso tetto del 30%.",
+            "Un’alleanza già al tetto non se la vede offrire, così nessuna riga è inerte.",
+        ),
+        release(
             "0.27.0", "2026-09-18", "L’alleanza costruisce più in fretta",
             "Ogni livello toglie il 2% a ogni costruzione e ricerca che avvii, fino al 30%.",
             "Lo schermo lo dice una volta sopra la lista; le attese sotto sono semplicemente più corte.",

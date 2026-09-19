@@ -3,17 +3,20 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceProject
+import dev.fardavide.oltre.protocol.AllianceProjectOffer
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.BuyProjectRequest
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 // **What the two treasury routes decide, with no socket anywhere near them** — the split
 // `Endpoints.kt` already argues for: a decision belongs where the kind of test that judges it can
@@ -47,30 +50,37 @@ class AllianceTreasuryEndpointsTest {
     }
 
     @Test
-    fun `a founder reads an empty pool and the one thing it could buy`() = runTest {
+    fun `a founder reads an empty pool and everything it could buy`() = runTest {
         val davide = givenAnAllianceFoundedBy()
 
         val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
 
         assertEquals(Resources.of(), answer.response.pool)
         assertEquals(0, answer.response.contributed)
-        assertEquals(listOf(AllianceProject.CHARTER_EXPANSION), answer.response.projects.map { it.project })
-        // Nothing in the pool, so nothing is affordable — and the offer is still listed, because a
+        // **Declaration order, and it does not shuffle.** A catalogue sorted by price or by
+        // affordability would rearrange itself under a finger already moving toward a row.
+        assertEquals(
+            listOf(AllianceProject.CHARTER_EXPANSION, AllianceProject.SHARED_LOGISTICS),
+            answer.response.projects.map { it.project },
+        )
+        // Nothing in the pool, so nothing is affordable — and the offers are still listed, because a
         // project you are saving for is a fact worth reading.
-        assertEquals(listOf(false), answer.response.projects.map { it.affordable })
+        assertEquals(listOf(false, false), answer.response.projects.map { it.affordable })
     }
 
+    // **Affordability is per row and not per screen**, which is the first thing a second entry can
+    // get wrong: a pool that covers the cheap one and not the dear one has to say so twice.
     @Test
     fun `a pool that has been paid into reads back what is in it`() = runTest {
         val davide = givenAnAllianceFoundedBy()
-        val paid = Resources.of(metal = 40_000, crystal = 20_000, deuterium = 10_000)
+        val paid = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000)
         creditThePool(davide, paid)
 
         val answer = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
 
         assertEquals(paid, answer.response.pool)
         assertEquals(AllianceBalance.award(paid), answer.response.contributed)
-        assertEquals(listOf(true), answer.response.projects.map { it.affordable })
+        assertEquals(listOf(true, false), answer.response.projects.map { it.affordable })
     }
 
     // **Not 402 and not 400.** The request was well formed and the caller was allowed; the pool is
@@ -93,10 +103,67 @@ class AllianceTreasuryEndpointsTest {
 
         val answer = assertIs<Answer.Treasury>(buy(davide))
 
-        assertEquals(1, answer.response.projects.single().timesBought)
+        // **The charter's count moved and the other entry's did not**, which is what one tally per
+        // project buys: a purchase that raised both would make the untouched entry dearer for a
+        // reason nothing on its row states.
+        assertEquals(
+            mapOf(AllianceProject.CHARTER_EXPANSION to 1, AllianceProject.SHARED_LOGISTICS to 0),
+            answer.response.projects.associate { it.project to it.timesBought },
+        )
         // Spending is monotonic on the level — see `alliance-sheet.md` §3 — so the gauge moves up.
         assertEquals(true, answer.response.progress.earned > before.response.progress.earned)
     }
+
+    // **The whole of what `#168` is for, on the one reading that proves it: a pool spends, and the
+    // number every member's colony takes off its next build is wider at their next check-in.**
+    // Nothing about the purchase reaches a colony — `core` has never heard of a project — so the boon
+    // itself is the only evidence, which is exactly the evidence the dead-control rule asks for.
+    @Test
+    fun `buying shared logistics widens what every member takes off their next build`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        creditThePool(davide, Resources.of(metal = 400_000, crystal = 200_000, deuterium = 100_000))
+        val before = assertNotNull(colonies.colonyOf(davide)).snapshot.state.allianceSpeedup
+
+        val answer = assertIs<Answer.Treasury>(buy(davide, AllianceProject.SHARED_LOGISTICS))
+
+        val after = assertNotNull(colonies.colonyOf(davide)).snapshot.state.allianceSpeedup
+        assertEquals(true, after.percent > before.percent)
+        // **The level's own points plus the one that was bought**, and it is stated against the level
+        // the purchase left behind rather than against the one it started from: a project pays
+        // `PROJECT_AWARD_PERCENT` onto the ladder, so buying speed also earns some. Asserting a flat
+        // `before + 1` would fail for the right reason and read as a bug.
+        assertEquals(
+            AllianceBalance.speedupAt(answer.response.progress.level, logisticsBought = 0).percent +
+                AllianceBalance.SPEEDUP_PER_LOGISTICS,
+            after.percent,
+        )
+    }
+
+    // The tally the wire reports is the one the purchase moved, and each row's price is read off its
+    // own — so a second Shared Logistics is dearer than the first while the charter beside it is
+    // exactly what it was.
+    @Test
+    fun `a bought entry is the dearer one next time and its neighbour is unchanged`() = runTest {
+        val davide = givenAnAllianceFoundedBy()
+        creditThePool(davide, Resources.of(metal = 400_000, crystal = 200_000, deuterium = 100_000))
+        val before = assertIs<Answer.Treasury>(readTreasury(alliances, authenticator, clock, credentials(davide)))
+
+        val answer = assertIs<Answer.Treasury>(buy(davide, AllianceProject.SHARED_LOGISTICS))
+
+        assertEquals(1, answer.response.priceOf(AllianceProject.SHARED_LOGISTICS).timesBought)
+        assertEquals(
+            true,
+            AllianceBalance.award(answer.response.priceOf(AllianceProject.SHARED_LOGISTICS).cost) >
+                AllianceBalance.award(before.response.priceOf(AllianceProject.SHARED_LOGISTICS).cost),
+        )
+        assertEquals(
+            before.response.priceOf(AllianceProject.CHARTER_EXPANSION).cost,
+            answer.response.priceOf(AllianceProject.CHARTER_EXPANSION).cost,
+        )
+    }
+
+    private fun TreasuryResponse.priceOf(project: AllianceProject): AllianceProjectOffer =
+        projects.single { it.project == project }
 
     // `alliance-sheet.md` §5.3 gives admins the treasury and keeps only rename and disband with the
     // founder. A plain member is neither.
@@ -323,14 +390,17 @@ class AllianceTreasuryEndpointsTest {
 
     // ── The harness ──────────────────────────────────────────────────────────────────────────
 
-    private suspend fun buy(player: PlayerId): Answer = buyAllianceProject(
+    private suspend fun buy(
+        player: PlayerId,
+        project: AllianceProject = AllianceProject.CHARTER_EXPANSION,
+    ): Answer = buyAllianceProject(
         alliances,
         authenticator,
         clock,
         credentials(player),
         Protocol.json.encodeToString(
             BuyProjectRequest.serializer(),
-            BuyProjectRequest(ApiVersion.CURRENT, AllianceProject.CHARTER_EXPANSION),
+            BuyProjectRequest(ApiVersion.CURRENT, project),
         ),
     )
 

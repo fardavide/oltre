@@ -34,6 +34,8 @@ import dev.fardavide.oltre.protocol.AllianceProject
 // | `PROJECT_AWARD_PERCENT` | **arithmetic**, confirmed by play, unmoved |
 // | `LEVEL_BASE` / `LEVEL_GROWTH_PERCENT` | **arithmetic**, confirmed by play, unmoved |
 // | `SEAT_BASE` / `SEATS_PER_LEVEL` / `SEAT_CAP` | **arithmetic**, confirmed by play, unmoved |
+// | `SPEEDUP_PER_LEVEL` | **Davide's**, 2026-09-18 — two a level, floored at 30% |
+// | `LOGISTICS_BASE` / `SPEEDUP_PER_LOGISTICS` | **arithmetic**, 2026-09-19, unplayed |
 //
 // **They still say arithmetic rather than measured, and that is deliberate.** Confirmed-by-play and
 // fitted-to-a-reading are different things: the confirmation was one sentence answering four
@@ -116,10 +118,24 @@ internal object AllianceBalance {
     // instead of levelling.
     val CHARTER_BASE: Resources = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000)
 
-    // And what the next one costs. ×1.5, which is the multiplier every cost curve in this game
-    // already uses — facilities, research, adaptation and hulls — so a player who has learned one
-    // curve has learned this one.
-    const val CHARTER_GROWTH_PERCENT: Long = 150
+    // What the first Shared Logistics costs. **Arithmetic, like everything else here, and this is the
+    // sentence it comes from: a bought percentage point costs about what a whole level costs, and a
+    // level grants two — so the pool pays roughly double for not waiting.** Priced at 110,000 against
+    // `LEVEL_BASE`'s 100,000, on the same 4 : 2 : 1 basket the founding price and the charter use.
+    //
+    // **The premium is the point and it is the only thing here worth defending.** Contributions climb
+    // the ladder on their own, and the ladder already hands out speed; an entry that undercut it would
+    // make levelling the slow way to do the thing the level is for. Dearer, it is what an alliance
+    // buys when it wants the point *now* — and buying it still pays `PROJECT_AWARD_PERCENT` back onto
+    // the ladder, so the premium is smaller than the sticker and the purchase is never purely a loss.
+    val LOGISTICS_BASE: Resources = Resources.of(metal = 40_000, crystal = 20_000, deuterium = 10_000)
+
+    // And what the next one of either costs. ×1.5, which is the multiplier every cost curve in this
+    // game already uses — facilities, research, adaptation and hulls — so a player who has learned one
+    // curve has learned this one. **Shared by the whole catalogue rather than per entry**: two
+    // constants at the same value is a second copy of one fact, and this one was named
+    // `CHARTER_GROWTH_PERCENT` only because the charter was the whole catalogue.
+    const val PROJECT_GROWTH_PERCENT: Long = 150
 
     // What finishing a project pays the alliance. **A lump, larger than what it cost**, which is
     // `alliance-sheet.md` §3.1's whole reason for having two sources rather than one: on
@@ -193,16 +209,38 @@ internal object AllianceBalance {
     // how that happens.
     const val SPEEDUP_PER_LEVEL: Int = 2
 
-    // **The one place an alliance's level becomes a number `core` understands.** `core` is handed a
-    // percentage and never learns an alliance exists — no level, no roster, no `:protocol` type —
+    // And per Shared Logistics bought. **One rather than two, so the entry is a step on the same
+    // scale the level walks rather than a shortcut past it** — the pool pays a level's price for half
+    // a level's speed, which is `LOGISTICS_BASE`'s premium said in the other unit.
+    const val SPEEDUP_PER_LOGISTICS: Int = 1
+
+    // **The one place an alliance's standing becomes a number `core` understands.** `core` is handed
+    // a percentage and never learns an alliance exists — no level, no roster, no `:protocol` type —
     // so this function is the whole of the translation, and it is on the server precisely because
     // the ladder is: a deploy can retune both together without a release.
     //
+    // **The level and the catalogue land in the same number rather than in two fields**, which is
+    // `#167`'s call re-applied one release later: a member's colony is told what is taken off its
+    // next build, and by what it was taken off is a fact about the alliance that no colony reads. A
+    // second boon field would be a second schema hop to carry a distinction nothing renders.
+    fun speedupOf(earned: Long, logisticsBought: Int): AllianceSpeedup =
+        speedupAt(progressOf(earned).level, logisticsBought)
+
     // Clamped by `AllianceSpeedup`'s own ceiling rather than by a second constant here. The type
     // refuses anything past it, so the `coerceAtMost` is what makes this total rather than what
-    // makes it safe — an alliance walking past level 15 buys seats and standing and no more speed.
-    fun speedupOf(earned: Long): AllianceSpeedup = AllianceSpeedup(
-        (SPEEDUP_PER_LEVEL * progressOf(earned).level.value).coerceAtMost(AllianceSpeedup.MAX_PERCENT),
+    // makes it safe — an alliance past the floor buys seats and standing and no more speed, whether
+    // it got there by levelling, by buying, or by both.
+    //
+    // **Taking a level rather than a total is what lets `isExhausted` ask the same question the
+    // catalogue answers**, without walking the ladder a second time for a row it is about to draw.
+    //
+    // **Coerced at both ends rather than at the top only**, which the level alone did not need:
+    // `AllianceLevel` counts up from zero by construction and a purchase count is a column. A row
+    // holding a negative one would otherwise raise inside `AllianceSpeedup`'s `require` on the hot
+    // path of every sync — a 500 on a colony read, for a number nothing in this game can lower.
+    fun speedupAt(level: AllianceLevel, logisticsBought: Int): AllianceSpeedup = AllianceSpeedup(
+        (SPEEDUP_PER_LEVEL * level.value + SPEEDUP_PER_LOGISTICS * logisticsBought)
+            .coerceIn(0, AllianceSpeedup.MAX_PERCENT),
     )
 
     // How many seats the roster has: the free ones the level granted, plus the ones the pool bought,
@@ -214,18 +252,25 @@ internal object AllianceBalance {
     // **It saturates too, and for the same reason `spanOf` does** — `Resources.of` refuses a figure
     // past what its fine-unit backing can hold, so a price that ran away would not be an odd number
     // on a screen but a raise inside a route.
-    fun costOf(project: AllianceProject, timesBought: Int): Resources = when (project) {
-        AllianceProject.CHARTER_EXPANSION -> Resources.of(
-            metal = CHARTER_BASE.metal.grownBy(timesBought),
-            crystal = CHARTER_BASE.crystal.grownBy(timesBought),
-            deuterium = CHARTER_BASE.deuterium.grownBy(timesBought),
+    // **`timesBought` is this project's own count and not the whole tally**, which is why the caller
+    // asks `ProjectsBought.timesBought(project)` for it: every entry rides its own curve from its own
+    // base, and a charter bought four times must not price the first logistics.
+    fun costOf(project: AllianceProject, timesBought: Int): Resources {
+        val base = when (project) {
+            AllianceProject.CHARTER_EXPANSION -> CHARTER_BASE
+            AllianceProject.SHARED_LOGISTICS -> LOGISTICS_BASE
+        }
+        return Resources.of(
+            metal = base.metal.grownBy(timesBought),
+            crystal = base.crystal.grownBy(timesBought),
+            deuterium = base.deuterium.grownBy(timesBought),
         )
     }
 
     private fun Long.grownBy(times: Int): Long {
         var value = this
-        repeat(times.coerceAtMost(MAX_REPEATS)) {
-            value = if (value > MAX_UNITS / CHARTER_GROWTH_PERCENT) MAX_UNITS else value * CHARTER_GROWTH_PERCENT / 100
+        repeat(times.coerceIn(0, MAX_REPEATS)) {
+            value = if (value > MAX_UNITS / PROJECT_GROWTH_PERCENT) MAX_UNITS else value * PROJECT_GROWTH_PERCENT / 100
         }
         return value
     }
@@ -233,8 +278,17 @@ internal object AllianceBalance {
     // Whether buying it again would change anything. **A project that cannot move its own number is
     // absent from the catalogue rather than offered and refused** — an entry that takes the pool and
     // does nothing is the dead control wearing a price tag, which is the failure `#144` §8 names.
-    fun isExhausted(project: AllianceProject, level: AllianceLevel, seatsBought: Int): Boolean = when (project) {
-        AllianceProject.CHARTER_EXPANSION -> seatCap(level, seatsBought) >= SEAT_CAP
+    //
+    // **Both arms ask the entry's own ceiling, and both ceilings are shared with the level.** The
+    // charter runs out against `SEAT_CAP`, which the free seat a level grants also climbs toward; the
+    // logistics runs out against `AllianceSpeedup.MAX_PERCENT`, which the level's two points a rung
+    // also climb toward. So an alliance that levelled to 15 is offered no logistics at all and one
+    // that bought its way to the floor is offered no more — in both directions, and without a second
+    // sentence anywhere explaining an absence, because the row is simply not there.
+    fun isExhausted(project: AllianceProject, level: AllianceLevel, bought: ProjectsBought): Boolean = when (project) {
+        AllianceProject.CHARTER_EXPANSION -> seatCap(level, bought.seats) >= SEAT_CAP
+        AllianceProject.SHARED_LOGISTICS ->
+            speedupAt(level, bought.logistics).percent >= AllianceSpeedup.MAX_PERCENT
     }
 
     // A roof on the walk and on the price curve. Both are loops over an alliance-supplied number, and

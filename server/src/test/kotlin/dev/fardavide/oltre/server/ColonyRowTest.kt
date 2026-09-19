@@ -20,7 +20,7 @@ class ColonyRowTest {
     fun `a row is the colony it was stored as, at the version the row holds`() {
         val colony = establishedColony()
 
-        val stored = colonyFrom(GameSave.encode(colony), version = 7, allianceExperience = null)
+        val stored = colonyFrom(GameSave.encode(colony), version = 7, alliance = null)
 
         assertEquals(StoredColony(colony, ColonyVersion(7)), stored)
     }
@@ -29,19 +29,41 @@ class ColonyRowTest {
 
     @Test
     fun `a colony in no alliance has nothing taken off`() {
-        val stored = colonyFrom(GameSave.encode(establishedColony()), version = 1, allianceExperience = null)
+        val stored = colonyFrom(GameSave.encode(establishedColony()), version = 1, alliance = null)
 
         assertEquals(AllianceSpeedup.NONE, stored.snapshot.state.allianceSpeedup)
     }
 
     @Test
     fun `a colony in an alliance is stamped with what its level takes off`() {
-        val earned = AllianceBalance.spanOf(AllianceLevel(0)) + AllianceBalance.spanOf(AllianceLevel(1))
+        val stored = colonyFrom(
+            GameSave.encode(establishedColony()),
+            version = 1,
+            alliance = AllianceStanding(experienceForLevel(2), logisticsBought = 0),
+        )
 
-        val stored = colonyFrom(GameSave.encode(establishedColony()), version = 1, allianceExperience = earned)
-
-        assertEquals(AllianceBalance.speedupOf(earned), stored.snapshot.state.allianceSpeedup)
         assertEquals(4, stored.snapshot.state.allianceSpeedup.percent)
+    }
+
+    // **What the pool bought arrives by the same door the level does**, which is the point of the
+    // join carrying a standing rather than an experience: a member whose alliance spent on Shared
+    // Logistics meets the wider number on their next check-in, with nothing about the purchase on
+    // their screen and nothing in `core` that has heard of a project.
+    @Test
+    fun `a colony is stamped with what the pool bought as well as what the level earned`() {
+        val stored = colonyFrom(
+            GameSave.encode(establishedColony()),
+            version = 1,
+            alliance = AllianceStanding(experienceForLevel(2), logisticsBought = 3),
+        )
+
+        assertEquals(7, stored.snapshot.state.allianceSpeedup.percent)
+    }
+
+    private fun experienceForLevel(level: Int): Long {
+        var earned = 0L
+        repeat(level) { earned += AllianceBalance.spanOf(AllianceLevel(it)) }
+        return earned
     }
 
     // **The stored value is overwritten rather than trusted**, which is the check-in rule: what the
@@ -53,7 +75,7 @@ class ColonyRowTest {
     fun `a stale boon in the column is replaced by what the alliance is worth now`() {
         val stale = establishedColony().let { it.copy(state = it.state.copy(allianceSpeedup = AllianceSpeedup(30))) }
 
-        val rejoined = colonyFrom(GameSave.encode(stale), version = 1, allianceExperience = null)
+        val rejoined = colonyFrom(GameSave.encode(stale), version = 1, alliance = null)
 
         assertEquals(AllianceSpeedup.NONE, rejoined.snapshot.state.allianceSpeedup)
     }
@@ -65,7 +87,7 @@ class ColonyRowTest {
         // second galaxy on top of a colony that is sitting right there, unreadable but not gone.
         // Raising instead reaches `served`'s one `catch`, which is a 500 and a line in a log.
         val failure = assertFailsWith<IllegalStateException> {
-            colonyFrom("""{"not":"a save"}""", version = 3, allianceExperience = null)
+            colonyFrom("""{"not":"a save"}""", version = 3, alliance = null)
         }
 
         assertTrue("could not be read" in failure.message.orEmpty(), failure.message.orEmpty())
@@ -79,7 +101,7 @@ class ColonyRowTest {
         val ancient = """{"schemaVersion":1,"lastUpdatedAt":"$TEST_NOW"}"""
 
         val failure = assertFailsWith<IllegalStateException> {
-            colonyFrom(ancient, version = 3, allianceExperience = null)
+            colonyFrom(ancient, version = 3, alliance = null)
         }
 
         assertTrue("schema 1" in failure.message.orEmpty(), failure.message.orEmpty())

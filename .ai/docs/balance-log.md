@@ -4029,3 +4029,50 @@ player who could not yet feel them.
 
 **Issue #145 closes here, and with it epic #136.** The alliance is designed, priced, built and
 played. The next round that touches these numbers will be the one opened by a second member.
+
+## Round 34 — the catalogue's second entry, priced against the ladder (0.28.0, 2026-09-19)
+
+**Two new dials, both arithmetic, neither played.** `#168` put a second row on the alliance project
+shelf — `SHARED_LOGISTICS`, a percentage point off every member's builds and research, bought
+outright — and it needed a price and a size. Round 33's finding is unchanged and governs this one:
+**there is still no simulator that can model a roster**, so what follows is arithmetic with a stated
+argument, not a fit against a reading.
+
+| Dial | Value | Standing |
+|---|---|---|
+| `SPEEDUP_PER_LOGISTICS` | 1 point per purchase | **arithmetic**, 2026-09-19 |
+| `LOGISTICS_BASE` | 40,000 / 20,000 / 10,000 (priced 110,000) | **arithmetic**, 2026-09-19 |
+| `PROJECT_GROWTH_PERCENT` | 150 | unmoved — renamed from `CHARTER_GROWTH_PERCENT` |
+
+### The sentence the price comes from
+
+**A bought percentage point costs about what a whole level costs, and a level grants two — so the
+pool pays roughly double for not waiting.** `LEVEL_BASE` is 100,000 priced; `LOGISTICS_BASE` is
+110,000 priced; `SPEEDUP_PER_LEVEL` is 2 and `SPEEDUP_PER_LOGISTICS` is 1.
+
+**The premium is the load-bearing half, and it is the one thing here a later round should not
+invert.** Contributions climb the ladder on their own and the ladder already hands out speed. An
+entry that was *cheaper* per point than levelling would make levelling the slow way to do the thing
+the level exists for, and the catalogue would stop being a choice. Dearer, it is what an alliance
+buys when it wants the point now. `AllianceBalanceTest` pins the inequality rather than either
+figure, so a round may move both and may not swap them.
+
+**And the premium is smaller than the sticker**, which is worth stating before somebody reads 110,000
+against 100,000 and calls it steep: a purchase pays `PROJECT_AWARD_PERCENT` — 130% of its priced cost
+— straight back onto the ladder. Buying speed also earns some.
+
+### The ceiling is one ceiling, over both sources
+
+`AllianceSpeedup.MAX_PERCENT` is 30 and it now covers the level's points and the pool's together:
+`speedupAt(level, logistics)` sums and clamps once. **Not one ceiling each**, which would have been
+the quiet way to double Davide's floor — §4.3's stated risk is membership becoming mandatory rather
+than attractive, and 60% would be that risk arriving through a door nobody opened. An alliance at
+level 15 is therefore offered no Shared Logistics at all; the row is absent rather than refused.
+
+### What would replace these numbers
+
+The same thing round 33 named and it has still not happened: **a roster with somebody in it who is
+not the founder.** Until then nobody has bought a project with another player's contribution, and a
+speed perk bought out of a shared pool is by construction a thing one player cannot feel the shape of.
+Specifically unmeasured: whether a point per purchase reads as worth 110,000 at the bottom of the
+curve, and whether the ×1.5 makes the third one feel like a wall or like a ceiling approaching.

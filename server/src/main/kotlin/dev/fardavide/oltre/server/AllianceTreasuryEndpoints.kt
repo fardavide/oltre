@@ -104,14 +104,23 @@ private fun TreasuryRead.answer(): Answer = when (this) {
 // entry that takes the pool and moves nothing is the dead control wearing a price tag, which is the
 // failure the global rule calls worse than a crash — so an exhausted project leaves the list rather
 // than sitting on it greyed with a price nobody should pay.
+//
+// **The list is `AllianceProject.entries` in declaration order and is not sorted**, which is the
+// catalogue's whole layout decision now that there is more than one row: the enum is the order the
+// screen draws, so what an alliance sees first does not shuffle when it buys something or when the
+// pool runs short. A list ordered by price or by affordability would rearrange itself under a finger
+// that is already moving toward a row.
 private fun TreasuryRead.Present.offers(): List<AllianceProjectOffer> = AllianceProject.entries
-    .filterNot { AllianceBalance.isExhausted(it, alliance.alliance.level, alliance.seatsBought) }
+    .filterNot { AllianceBalance.isExhausted(it, alliance.alliance.level, alliance.projects) }
     .map { project ->
-        val cost = AllianceBalance.costOf(project, alliance.seatsBought)
+        // Each entry's own count, so two curves priced from one number is not a mistake this can
+        // make — see `ProjectsBought`.
+        val timesBought = alliance.projects.timesBought(project)
+        val cost = AllianceBalance.costOf(project, timesBought)
         AllianceProjectOffer(
             project = project,
             cost = cost,
             affordable = alliance.pool.covers(cost),
-            timesBought = alliance.seatsBought,
+            timesBought = timesBought,
         )
     }

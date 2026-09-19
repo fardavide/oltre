@@ -385,10 +385,10 @@ internal class PostgresAllianceRepository(
             AllianceRole.FOUNDER, AllianceRole.ADMIN -> Unit
             AllianceRole.MEMBER -> return@transaction TreasuryRead.Refused(ApiError.AllianceRoleTooLow)
         }
-        if (AllianceBalance.isExhausted(project, stored.alliance.level, stored.seatsBought)) {
+        if (AllianceBalance.isExhausted(project, stored.alliance.level, stored.projects)) {
             return@transaction TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
         }
-        val cost = AllianceBalance.costOf(project, stored.seatsBought)
+        val cost = AllianceBalance.costOf(project, stored.projects.timesBought(project))
         if (!stored.pool.covers(cost)) return@transaction TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
 
         connection.update(BUY_PROJECT) {
@@ -398,7 +398,8 @@ internal class PostgresAllianceRepository(
             // Monotonic: a project only ever adds. See `alliance-sheet.md` §3.
             setLong(4, AllianceBalance.projectAward(cost))
             setInt(5, seatsAddedBy(project))
-            setString(6, stored.alliance.id.value)
+            setInt(6, logisticsAddedBy(project))
+            setString(7, stored.alliance.id.value)
         }
         val bought = when (val lookup = connection.selectAlliance(stored.alliance.id, lockParent = false)) {
             AllianceLookup.Absent -> return@transaction TreasuryRead.Refused(ApiError.NoSuchAlliance)
@@ -518,8 +519,9 @@ private fun ResultSet.seat(alliance: AllianceId, player: PlayerId): Seat = Seat(
     getLong("contributed"),
 )
 
-// Every statement in this file selects `a.*`, so the treasury's four columns arrive here without a
-// single query changing — which is the payoff of the `ALTER` in `schema.sql` rather than a coincidence.
+// Every statement in this file selects `a.*`, so the treasury's five columns arrive here without a
+// single query changing — which is the payoff of the `ALTER` in `schema.sql` rather than a coincidence,
+// and it is why `logistics_bought` cost this file one line rather than six.
 private fun ResultSet.storedAlliance(): StoredAlliance = allianceFrom(
     AllianceId(getString("id")),
     AllianceName(getString("name")),
@@ -533,7 +535,7 @@ private fun ResultSet.storedAlliance(): StoredAlliance = allianceFrom(
         crystal = getLong("pool_crystal"),
         deuterium = getLong("pool_deuterium"),
     ),
-    getInt("seats_bought"),
+    ProjectsBought(seats = getInt("seats_bought"), logistics = getInt("logistics_bought")),
 )
 
 private const val SELECT_AFFILIATION = """
@@ -583,15 +585,27 @@ private const val BUY_PROJECT = """
         pool_deuterium = pool_deuterium - ?,
         experience = experience + ?,
         seats_bought = seats_bought + ?,
+        logistics_bought = logistics_bought + ?,
         version = version + 1
     WHERE id = ?
 """
 
-// A `when` with no `else`, so a second project cannot be added to the catalogue without somebody
-// saying what it does to a roster. Zero is a legitimate answer for a project that buys something
-// else; there is no such project yet, and this is where the day there is one becomes visible.
+// A `when` with no `else`, so a third project cannot be added to the catalogue without somebody
+// saying what it does to a roster. **Zero is what the day this anticipated looks like**: the comment
+// here said a project that buys something else would answer zero, there was no such project, and
+// `SHARED_LOGISTICS` is it.
 private fun seatsAddedBy(project: AllianceProject): Int = when (project) {
     AllianceProject.CHARTER_EXPANSION -> 1
+    AllianceProject.SHARED_LOGISTICS -> 0
+}
+
+// The same `when` from the other end, and the pair is deliberate rather than one function answering
+// a column name: a statement that increments both columns unconditionally is a statement neither
+// counter can be forgotten in, and each entry states its own two answers where the other one is
+// visible beside it.
+private fun logisticsAddedBy(project: AllianceProject): Int = when (project) {
+    AllianceProject.CHARTER_EXPANSION -> 0
+    AllianceProject.SHARED_LOGISTICS -> 1
 }
 
 private const val INSERT_ALLIANCE = """

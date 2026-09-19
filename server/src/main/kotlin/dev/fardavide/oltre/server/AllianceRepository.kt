@@ -36,8 +36,35 @@ internal data class StoredAlliance(
     // by the treasury route on its own, because the level and the seat cap are already derived from
     // the same row and a second read could disagree with the first.
     val pool: Resources = Resources.of(),
-    val seatsBought: Int = 0,
+    val projects: ProjectsBought = ProjectsBought.NONE,
 )
+
+// **How many of each entry the pool has already bought, as one type rather than a column of loose
+// `Int`s.** It replaced a bare `seatsBought` the day the catalogue grew a second row, and the reason
+// is the reason the typing rules give: `costOf(project, seatsBought, logisticsBought)` is two
+// same-typed arguments a call site can transpose with nothing to catch it, and both of them price a
+// curve. A tally that is asked *which project* cannot be asked the wrong way round.
+//
+// **Every `when` over a project lives on this type or is exhaustive over the enum**, which is what
+// `PostgresAllianceRepository.seatsAddedBy` already established for a different reason: a third
+// entry cannot reach the catalogue without somebody saying what it counts.
+internal data class ProjectsBought(val seats: Int = 0, val logistics: Int = 0) {
+
+    fun timesBought(project: AllianceProject): Int = when (project) {
+        AllianceProject.CHARTER_EXPANSION -> seats
+        AllianceProject.SHARED_LOGISTICS -> logistics
+    }
+
+    fun after(project: AllianceProject): ProjectsBought = when (project) {
+        AllianceProject.CHARTER_EXPANSION -> copy(seats = seats + 1)
+        AllianceProject.SHARED_LOGISTICS -> copy(logistics = logistics + 1)
+    }
+
+    companion object {
+
+        val NONE: ProjectsBought = ProjectsBought()
+    }
+}
 
 internal data class Seat(
     val id: AllianceMemberId,

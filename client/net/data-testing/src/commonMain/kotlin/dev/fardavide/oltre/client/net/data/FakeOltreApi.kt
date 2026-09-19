@@ -188,14 +188,18 @@ class FakeOltreApi(
 
     var setMemberRoleError: ApiError? = null,
 
-    // **A pool with one thing to spend it on, and enough in it to spend.** The default is the happy
-    // path for the same reason every other default on this fake is: a fake whose untouched state
-    // refuses is a fake that makes every test which is *not* about refusal script its way out of one.
-    // A test that wants an empty treasury, an exhausted catalogue or a short pool says so.
+    // **A pool with the whole catalogue to spend it on, and enough in it to spend.** The default is
+    // the happy path for the same reason every other default on this fake is: a fake whose untouched
+    // state refuses is a fake that makes every test which is *not* about refusal script its way out
+    // of one. A test that wants an empty treasury, an exhausted catalogue or a short pool says so.
     //
-    // The offer is present rather than the list being empty, because an empty catalogue is the one
+    // The offers are present rather than the list being empty, because an empty catalogue is the one
     // state the screen has to draw differently, and a default that produced it would make that the
     // state every test saw by accident.
+    //
+    // **Both entries, at the prices `AllianceBalance` actually charges**, and in the enum's order,
+    // which is the order the treasury route answers in. A fake offering a catalogue of one after
+    // `#168` would let a screen pass while drawing a shelf no server has served since.
     var treasury: TreasuryResponse = TreasuryResponse(
         apiVersion = ApiVersion.CURRENT,
         pool = Resources.of(metal = 60_000, crystal = 30_000, deuterium = 15_000),
@@ -205,6 +209,12 @@ class FakeOltreApi(
             AllianceProjectOffer(
                 project = AllianceProject.CHARTER_EXPANSION,
                 cost = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000),
+                affordable = true,
+                timesBought = 0,
+            ),
+            AllianceProjectOffer(
+                project = AllianceProject.SHARED_LOGISTICS,
+                cost = Resources.of(metal = 40_000, crystal = 20_000, deuterium = 10_000),
                 affordable = true,
                 timesBought = 0,
             ),

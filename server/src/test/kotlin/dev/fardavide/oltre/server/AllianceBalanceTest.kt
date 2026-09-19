@@ -24,14 +24,14 @@ class AllianceBalanceTest {
 
     @Test
     fun `an alliance at level zero takes nothing off`() {
-        assertEquals(AllianceSpeedup.NONE, AllianceBalance.speedupOf(earned = 0))
+        assertEquals(AllianceSpeedup.NONE, AllianceBalance.speedupOf(earned = 0, logisticsBought = 0))
     }
 
     @Test
     fun `two percent a level, up to the floor at fifteen`() {
-        assertEquals(2, AllianceBalance.speedupOf(experienceForLevel(1)).percent)
-        assertEquals(14, AllianceBalance.speedupOf(experienceForLevel(7)).percent)
-        assertEquals(30, AllianceBalance.speedupOf(experienceForLevel(15)).percent)
+        assertEquals(2, speedupAtLevel(1).percent)
+        assertEquals(14, speedupAtLevel(7).percent)
+        assertEquals(30, speedupAtLevel(15).percent)
     }
 
     // **The ladder runs to 200 and the boon stops at 15**, so every level past it buys seats and
@@ -39,8 +39,8 @@ class AllianceBalanceTest {
     // between a very old alliance and a build that serves instantly.
     @Test
     fun `no alliance can take off more than the floor, however far the ladder is walked`() {
-        assertEquals(30, AllianceBalance.speedupOf(experienceForLevel(40)).percent)
-        assertEquals(30, AllianceBalance.speedupOf(Long.MAX_VALUE / 2).percent)
+        assertEquals(30, speedupAtLevel(40).percent)
+        assertEquals(30, AllianceBalance.speedupOf(Long.MAX_VALUE / 2, logisticsBought = 0).percent)
     }
 
     // The walk in `progressOf` is what decides the level, so the boon has to move on exactly the
@@ -50,9 +50,43 @@ class AllianceBalanceTest {
     fun `the boon moves on the same boundary the gauge does`() {
         val atSeven = experienceForLevel(7)
 
-        assertEquals(14, AllianceBalance.speedupOf(atSeven).percent)
-        assertEquals(12, AllianceBalance.speedupOf(atSeven - 1).percent)
+        assertEquals(14, AllianceBalance.speedupOf(atSeven, logisticsBought = 0).percent)
+        assertEquals(12, AllianceBalance.speedupOf(atSeven - 1, logisticsBought = 0).percent)
     }
+
+    // ── What the catalogue takes off on top of it ────────────────────────────────────────────
+    //
+    // **One number, two sources.** A colony is told what comes off its next build and never by what
+    // it was earned, which is `#167`'s call re-applied: a second field would be a second schema hop
+    // carrying a distinction nothing renders.
+
+    @Test
+    fun `a bought logistics is a point on top of the level`() {
+        assertEquals(14, speedupAtLevel(7, logistics = 0).percent)
+        assertEquals(15, speedupAtLevel(7, logistics = 1).percent)
+        assertEquals(18, speedupAtLevel(7, logistics = 4).percent)
+    }
+
+    // **The floor is one floor over both sources and not one each.** Membership becoming mandatory
+    // rather than attractive is `alliance-sheet.md` §4.3's stated risk, and a catalogue that could be
+    // bought past the ceiling the level respects is exactly how the ceiling stops meaning anything.
+    @Test
+    fun `buying cannot take an alliance past the floor the level stops at`() {
+        assertEquals(30, speedupAtLevel(15, logistics = 20).percent)
+        assertEquals(30, speedupAtLevel(0, logistics = 99).percent)
+        assertEquals(30, speedupAtLevel(40, logistics = 40).percent)
+    }
+
+    // A column can only be incremented by a purchase, so this is unreachable by play — and it is on
+    // the hot path of every sync, where an `IllegalArgumentException` inside `AllianceSpeedup` is a
+    // 500 on a colony read rather than an odd number on a screen.
+    @Test
+    fun `a count that could not have happened still reads as a boon`() {
+        assertEquals(0, speedupAtLevel(0, logistics = -5).percent)
+    }
+
+    private fun speedupAtLevel(level: Int, logistics: Int = 0): AllianceSpeedup =
+        AllianceBalance.speedupAt(AllianceLevel(level), logistics)
 
     private fun experienceForLevel(level: Int): Long {
         var earned = 0L
@@ -160,13 +194,35 @@ class AllianceBalanceTest {
     // entry that takes the pool and does nothing is the dead control wearing a price tag.
     @Test
     fun `the charter stops being on sale once the roster is at its ceiling`() {
-        assertTrue(
-            AllianceBalance.isExhausted(AllianceProject.CHARTER_EXPANSION, AllianceLevel(99), seatsBought = 99),
-        )
-        assertTrue(
-            !AllianceBalance.isExhausted(AllianceProject.CHARTER_EXPANSION, AllianceLevel(0), seatsBought = 0),
-        )
+        assertTrue(exhausted(AllianceProject.CHARTER_EXPANSION, level = 99, ProjectsBought(seats = 99)))
+        assertTrue(!exhausted(AllianceProject.CHARTER_EXPANSION, level = 0, ProjectsBought.NONE))
     }
+
+    // The same rule from the other entry's side: a pool that cannot make the number move is offered
+    // no row rather than a row it would be refused at.
+    @Test
+    fun `the logistics stops being on sale once the boon is at the floor`() {
+        assertTrue(!exhausted(AllianceProject.SHARED_LOGISTICS, level = 0, ProjectsBought.NONE))
+        assertTrue(exhausted(AllianceProject.SHARED_LOGISTICS, level = 15, ProjectsBought.NONE))
+        assertTrue(exhausted(AllianceProject.SHARED_LOGISTICS, level = 10, ProjectsBought(logistics = 10)))
+    }
+
+    // **The two entries run out independently**, which is what having one tally per project is for: a
+    // roster at its ceiling is still allowed to buy speed, and an alliance at the speed floor is still
+    // allowed to buy seats.
+    @Test
+    fun `one exhausted entry does not take the other off the shelf`() {
+        val atTheSeatCap = ProjectsBought(seats = 99)
+        assertTrue(exhausted(AllianceProject.CHARTER_EXPANSION, level = 0, atTheSeatCap))
+        assertTrue(!exhausted(AllianceProject.SHARED_LOGISTICS, level = 0, atTheSeatCap))
+
+        val atTheFloor = ProjectsBought(logistics = 30)
+        assertTrue(exhausted(AllianceProject.SHARED_LOGISTICS, level = 0, atTheFloor))
+        assertTrue(!exhausted(AllianceProject.CHARTER_EXPANSION, level = 0, atTheFloor))
+    }
+
+    private fun exhausted(project: AllianceProject, level: Int, bought: ProjectsBought): Boolean =
+        AllianceBalance.isExhausted(project, AllianceLevel(level), bought)
 
     // **The roof over the walk.** `progressOf` loops over an alliance-supplied number, so the bound
     // is what makes it a total function rather than one that is merely unlikely to run long — and the
@@ -193,14 +249,52 @@ class AllianceBalanceTest {
         assertTrue(AllianceBalance.award(cost) > 0)
     }
 
+    // Every entry rides the same ×1.5, so this is asserted over the catalogue rather than over the
+    // one row that happened to be in it — a third entry gets the property for free and cannot ship a
+    // flat curve by omission.
     @Test
-    fun `each charter costs more than the last`() {
-        var last = 0L
-        for (bought in 0..8) {
-            val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, bought)
-            val priced = AllianceBalance.award(cost)
-            assertTrue(priced > last, "buying $bought did not cost more than $last")
-            last = priced
+    fun `each purchase costs more than the last, whichever entry it is`() {
+        for (project in AllianceProject.entries) {
+            var last = 0L
+            for (bought in 0..8) {
+                val priced = AllianceBalance.award(AllianceBalance.costOf(project, bought))
+                assertTrue(priced > last, "$project bought $bought did not cost more than $last")
+                last = priced
+            }
         }
+    }
+
+    // **The premium is the only thing about `LOGISTICS_BASE` worth pinning**, and it is a shape
+    // rather than a figure: contributions climb the ladder on their own and the ladder already hands
+    // out speed, so an entry cheaper per point than levelling would make levelling the slow way to do
+    // what the level is for. The balance round may move both numbers; it may not invert them.
+    @Test
+    fun `buying a point of speed costs more than levelling into one`() {
+        val bought = AllianceBalance.award(AllianceBalance.costOf(AllianceProject.SHARED_LOGISTICS, timesBought = 0))
+        val levelled = AllianceBalance.spanOf(AllianceLevel(0)) / AllianceBalance.SPEEDUP_PER_LEVEL
+
+        assertTrue(bought > levelled, "a bought point at $bought undercuts a levelled one at $levelled")
+    }
+
+    // Each entry prices off its own count, which is the whole reason `ProjectsBought` is a type: a
+    // charter bought four times must not make the first logistics dearer.
+    @Test
+    fun `an entry is priced by its own purchases and not by the catalogues`() {
+        val bought = ProjectsBought(seats = 4, logistics = 0)
+
+        assertEquals(
+            AllianceBalance.costOf(AllianceProject.SHARED_LOGISTICS, timesBought = 0),
+            AllianceBalance.costOf(AllianceProject.SHARED_LOGISTICS, bought.timesBought(AllianceProject.SHARED_LOGISTICS)),
+        )
+    }
+
+    // A count that could not have happened prices as the first one rather than raising inside
+    // `Resources.of`, for `speedupAt`'s reason: this runs on a route.
+    @Test
+    fun `a negative count prices as the first purchase`() {
+        assertEquals(
+            AllianceBalance.CHARTER_BASE,
+            AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, timesBought = -3),
+        )
     }
 }

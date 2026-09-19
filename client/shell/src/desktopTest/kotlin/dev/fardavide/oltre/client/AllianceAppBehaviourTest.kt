@@ -185,6 +185,27 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **The second row is a live control and it sends its own project** — the dead-control rule, on
+    // the one thing `#168` added that a finger can reach. With a catalogue of one, *a project was
+    // bought* and *this project was bought* were the same sentence; with two, a row wired to the
+    // offer above it would pass the first and fail a player.
+    //
+    // What it buys is not asserted here on purpose: the boon is a number the server computes and
+    // stamps on the next colony read, so the effect is `AllianceTreasuryEndpointsTest`'s to prove and
+    // this is the tap's.
+    @Test
+    fun `the second project in the catalogue sends its own name`() {
+        app(saved = colony(), api = enlisted()) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            alliance.assertReads(Strings.allianceProjectLogistics())
+
+            alliance.buyTheSecondProject()
+
+            alliance.assertBoughtProject(AllianceProject.SHARED_LOGISTICS)
+        }
+    }
+
     @Test
     fun `a founder answers the one request that is waiting`() {
         app(saved = colony(), api = enlisted()) {
@@ -986,6 +1007,12 @@ class AllianceAppBehaviourTest {
                 AllianceProjectOffer(
                     project = AllianceProject.CHARTER_EXPANSION,
                     cost = Resources.of(metal = 20_000, crystal = 10_000, deuterium = 5_000),
+                    affordable = true,
+                    timesBought = 0,
+                ),
+                AllianceProjectOffer(
+                    project = AllianceProject.SHARED_LOGISTICS,
+                    cost = Resources.of(metal = 40_000, crystal = 20_000, deuterium = 10_000),
                     affordable = true,
                     timesBought = 0,
                 ),

@@ -227,6 +227,23 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.28.0 — 2026-09-19
+
+- **The alliance shelf has a second thing on it: Shared Logistics.** The pool buys a percentage point
+  off every member's builds and research — permanently, for everyone in the alliance, whether or not
+  they were the one who spent it. Buy it again and it is another point, at a rising price.
+- **It is the same number the level was already handing out**, so nothing new appears on your colony
+  screen: the line that read *−14% · your alliance* simply reads *−15%* at your next check-in. The
+  30% ceiling is unchanged, and no amount of buying goes past it.
+- **A project that can no longer do anything leaves the shelf.** An alliance already at the ceiling is
+  not offered Shared Logistics at all, exactly as one at its seat cap is not offered a Charter
+  Expansion — no greyed row, no price you should not pay.
+- **The sheet no longer says the level is the whole reason.** *"Your alliance is level 7. Every build
+  you start takes 15% less time."* Two facts, because the level is no longer the only thing buying
+  them.
+- **Update required.** This one changes what the server says about the alliance shelf, so an older
+  build cannot read the answer. The app will tell you to update rather than quietly failing.
+
 ### 0.27.0 — 2026-09-18
 
 - **Your alliance now builds things faster.** Every level takes 2% off every build and every research

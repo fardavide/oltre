@@ -56,7 +56,13 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // handed a snapshot with a key it has never heard of and cannot decode the 200 at all. Same
         // forced update, a different cause, and the warning above is now two kinds of growth rather
         // than one.
-        val CURRENT: ApiVersion = ApiVersion(4)
+        // **5 since the catalogue stopped being one row**, and this is the third kind of growth: no
+        // field and no event, but a second `AllianceProject` constant. `TreasuryResponse` lists what
+        // is on sale, the wire sets no `ignoreUnknownKeys` and kotlinx refuses an enum name it does
+        // not know, so an installed 0.27 client is handed `SHARED_LOGISTICS` in the projects array
+        // and cannot decode the treasury read at all. `AllianceProject`'s own comment called this
+        // out before the enum had a second constant in it; this is the release that paid for it.
+        val CURRENT: ApiVersion = ApiVersion(5)
 
         // The oldest build still worth answering. It moves **only** when the last install speaking
         // it is gone, and there is no way to know that from inside the repository — so raising this
@@ -83,6 +89,11 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // like a bug.
         // **4, and it strands the same one phone again.** The operational half is unchanged and is
         // still not optional: **the server deploys before the release merges.**
-        val OLDEST_SERVED: ApiVersion = ApiVersion(4)
+        // **5, and the same phone a fourth time.** Left at 4, an installed 0.27 client would state
+        // version 4, be served, and get a treasury read carrying a project name it cannot parse —
+        // `ApiError.Malformed`, which tells the player the contract is broken rather than that their
+        // app is old. Moved, it gets the 426 that exists to say *update the app*. **The server
+        // deploys before the release merges**, as every one of these has required.
+        val OLDEST_SERVED: ApiVersion = ApiVersion(5)
     }
 }

@@ -1284,6 +1284,10 @@ object Strings {
 
     fun allianceProjectCharterEffect(): TextRes = message(StringId.AllianceProjectCharterEffect)
 
+    fun allianceProjectLogistics(): TextRes = message(StringId.AllianceProjectLogistics)
+
+    fun allianceProjectLogisticsEffect(): TextRes = message(StringId.AllianceProjectLogisticsEffect)
+
     fun allianceProjectBuy(): TextRes = message(StringId.AllianceProjectBuy)
 
     fun allianceProjectBought(times: Int): TextRes =

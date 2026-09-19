@@ -55,8 +55,8 @@ internal class InMemoryColonyRepository : ColonyRepository {
     private fun StoredColony.withAllianceSpeedup(player: PlayerId): StoredColony = copy(
         snapshot = snapshot.copy(
             state = snapshot.state.copy(
-                allianceSpeedup = pools?.experienceOf(player)
-                    ?.let { AllianceBalance.speedupOf(it) }
+                allianceSpeedup = pools?.standingOf(player)
+                    ?.let { AllianceBalance.speedupOf(it.experience, it.logisticsBought) }
                     ?: AllianceSpeedup.NONE,
             ),
         ),

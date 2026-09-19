@@ -297,10 +297,12 @@ private fun ContributeShare.label(): TextRes = when (this) {
 
 private fun AllianceProject.title(): TextRes = when (this) {
     AllianceProject.CHARTER_EXPANSION -> Strings.allianceProjectCharter()
+    AllianceProject.SHARED_LOGISTICS -> Strings.allianceProjectLogistics()
 }
 
 private fun AllianceProject.effect(): TextRes = when (this) {
     AllianceProject.CHARTER_EXPANSION -> Strings.allianceProjectCharterEffect()
+    AllianceProject.SHARED_LOGISTICS -> Strings.allianceProjectLogisticsEffect()
 }
 
 // **The founder cannot leave while anybody else is on the roster, and the frame draws that hole

@@ -145,10 +145,18 @@ CREATE INDEX IF NOT EXISTS alliances_normalised_name ON alliances (normalised_na
 -- `seats_bought` is what the project catalogue sells. Separate from `experience` because the two
 -- answer different questions — the level is what the alliance has *done*, this is what it has
 -- *spent on* — and because the level is monotonic while a retired project would want this to move.
-ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_metal     bigint  NOT NULL DEFAULT 0;
-ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_crystal   bigint  NOT NULL DEFAULT 0;
-ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_deuterium bigint  NOT NULL DEFAULT 0;
-ALTER TABLE alliances ADD COLUMN IF NOT EXISTS seats_bought   integer NOT NULL DEFAULT 0;
+--
+-- **`logistics_bought` is a column of its own rather than a row in a purchases table**, and that is
+-- the second entry arriving rather than a shape the catalogue will keep for ever. A counter per
+-- entry is what the two curves actually read — each project prices off its *own* count — and it
+-- keeps a purchase one `UPDATE` inside the same transaction that spends the pool. The day this
+-- becomes five columns it should become `alliance_projects (alliance_id, project, times_bought)`;
+-- at two it would be a join added to buy nothing.
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_metal       bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_crystal     bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS pool_deuterium   bigint  NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS seats_bought     integer NOT NULL DEFAULT 0;
+ALTER TABLE alliances ADD COLUMN IF NOT EXISTS logistics_bought integer NOT NULL DEFAULT 0;
 
 -- One seat per player; its public surrogate id never reveals the account id to another member.
 -- Both cascades preserve account deletion and make disbanding one parent-row delete.

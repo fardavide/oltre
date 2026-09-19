@@ -149,19 +149,45 @@ class AllianceScreenScreenshotTest {
 
     // A pool short of the project it is saving for: the cost goes red and the control is absent
     // rather than answering no.
+    //
+    // **Both rows since `#168`, because affordability is per row and a pool short of everything is
+    // the honest picture of this pool.** 4,210 metal covers neither entry.
     @Test
     fun `a project the pool cannot cover`() {
         capture(
             "alliance_project_short",
             enlisted(
-                projects = listOf(CHARTER.copy(affordable = false, buyable = false)),
+                projects = listOf(
+                    CHARTER.copy(affordable = false, buyable = false),
+                    LOGISTICS.copy(affordable = false, buyable = false),
+                ),
                 pool = listOf(
                     PoolRowUiState(Strings.resourceName(ResourceKind.METAL), TextRes("4,210")),
                     PoolRowUiState(Strings.resourceName(ResourceKind.CRYSTAL), TextRes("960")),
                     PoolRowUiState(Strings.resourceName(ResourceKind.DEUTERIUM), TextRes("120")),
                 ),
             ),
-            height = 1_400,
+            height = 1_500,
+        )
+    }
+
+    // **The state the second entry invented: one row offering and the next refusing, adjacent.** A
+    // catalogue of one could never draw it, and it is the frame that proves `affordable` is read per
+    // row rather than once for the panel — the charter's control is there, the logistics' is not,
+    // and the red cost under the second says which.
+    @Test
+    fun `a pool that covers one entry and not the next`() {
+        capture(
+            "alliance_project_mixed",
+            enlisted(
+                projects = listOf(CHARTER, LOGISTICS.copy(affordable = false, buyable = false)),
+                pool = listOf(
+                    PoolRowUiState(Strings.resourceName(ResourceKind.METAL), TextRes("24,800")),
+                    PoolRowUiState(Strings.resourceName(ResourceKind.CRYSTAL), TextRes("11,300")),
+                    PoolRowUiState(Strings.resourceName(ResourceKind.DEUTERIUM), TextRes("6,100")),
+                ),
+            ),
+            height = 1_500,
         )
     }
 
@@ -444,7 +470,8 @@ class AllianceScreenScreenshotTest {
         AllianceUiState.Seeking(search = SEARCH.copy(state = results), founding = FOUNDING)
 
     private fun enlisted(
-        projects: List<ProjectRowUiState> = listOf(CHARTER),
+        // The catalogue as it actually ships since `#168`: two rows, in the enum's own order.
+        projects: List<ProjectRowUiState> = listOf(CHARTER, LOGISTICS),
         pool: List<PoolRowUiState> = POOL,
     ): AllianceUiState.Enlisted = AllianceUiState.Enlisted(
         header = HEAD,
@@ -621,6 +648,21 @@ class AllianceScreenScreenshotTest {
             effect = Strings.allianceProjectCharterEffect(),
             cost = TextRes("20,000 Metal · 10,000 Crystal · 5,000 Deuterium"),
             bought = Strings.allianceProjectBought(2),
+            action = Strings.allianceProjectBuy(),
+            affordable = true,
+            shortLine = Strings.allianceProjectShort(),
+            buyable = true,
+        )
+
+        // **The second entry, and it carries no tracked word**, which is the pairing worth
+        // photographing: the catalogue that ships holds a row that has been bought before beside one
+        // that has not, and `bought` being null is the only difference between them.
+        val LOGISTICS = ProjectRowUiState(
+            project = AllianceProject.SHARED_LOGISTICS,
+            name = Strings.allianceProjectLogistics(),
+            effect = Strings.allianceProjectLogisticsEffect(),
+            cost = TextRes("40,000 Metal · 20,000 Crystal · 10,000 Deuterium"),
+            bought = null,
             action = Strings.allianceProjectBuy(),
             affordable = true,
             shortLine = Strings.allianceProjectShort(),
