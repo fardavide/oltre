@@ -687,6 +687,18 @@ object Italian : Translations {
         StringId.AllianceConfirmAllKeep -> "Tienilo"
         StringId.AllianceProjectsLabel -> "Progetti"
         StringId.AllianceProjectsEmpty -> "Non c'è altro da costruire. Il fondo continua a pagare il livello."
+        // Un capoverso e quattro corpi. Vedi `English.kt`.
+        StringId.RefusedAllianceLead -> "Non è successo."
+        StringId.RefusedAllianceShortBody ->
+            "Il prezzo non è più coperto: qualcos'altro l'ha speso prima. Nulla ha lasciato la tua " +
+                "colonia, e quello che hai scritto è ancora qui."
+        StringId.RefusedAllianceStandingBody ->
+            "La tua posizione nell'alleanza è cambiata altrove: un altro dispositivo, o qualcuno " +
+                "che ha agito sull'organico. Riapri la scheda per vedere dove sei."
+        StringId.RefusedAllianceOutdatedBody ->
+            "Questa versione è troppo vecchia per il server. Nulla è cambiato: aggiorna l'app."
+        StringId.RefusedAllianceServerBody ->
+            "Il server non ha potuto rispondere. Nulla è cambiato, e richiedere è sicuro."
         StringId.AllianceProjectCharter -> "Ampliamento dello statuto"
         StringId.AllianceProjectCharterEffect -> "Due posti in più nell'organico, e un livello verso il prossimo."
         StringId.AllianceProjectLogistics -> "Logistica condivisa"

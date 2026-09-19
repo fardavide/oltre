@@ -41,6 +41,11 @@ kotlin {
             // `api`, so the composition root names this feature once: the mapper returns an
             // `AllianceUiState` and the shell hands it straight to `AllianceScreen`.
             api(projects.client.alliance.ui)
+            // For `RefusalUiState` alone — the block this destination already draws above every
+            // face, which `allianceRefusalUiState` now fills for a refused alliance act. Six other
+            // `presentation` modules name it for their own refusals; the gate's is the closest
+            // sibling, and it is the same `when`-over-what-happened this layer exists to hold.
+            implementation(projects.client.design.component)
             implementation(projects.client.design.format)
             implementation(projects.client.design.text)
         }

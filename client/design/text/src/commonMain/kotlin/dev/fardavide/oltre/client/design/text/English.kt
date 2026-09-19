@@ -661,6 +661,33 @@ object English : Translations {
         StringId.AllianceConfirmAllKeep -> "Keep it"
         StringId.AllianceProjectsLabel -> "Projects"
         StringId.AllianceProjectsEmpty -> "Nothing left to build. The pool keeps paying into the level."
+        // **The refusal that is about neither string**, in the block above the destination rather
+        // than under a field — `refusedContribution`'s own grammar, and for the same reason: the
+        // answer is not about anything that was typed, so there is no field for it to land on.
+        //
+        // **One lead and four bodies.** The lead is the non-event and it is the same sentence
+        // whichever alliance act was refused; the body is the part a player can do something about,
+        // and the four are genuinely different actions — wait and try again, go and look at where you
+        // stand, update the app, or nothing at all. A single generic body would have been the silent
+        // no-op with a sentence over it.
+        StringId.RefusedAllianceLead -> "That did not happen."
+        // **Only reachable through a race**, because the client checks affordability locally before
+        // it offers the control — so this is spending that landed between reading the price and
+        // asking for it. The last clause is what the design prompt asked for: what was typed is still
+        // good, and the boxes are still live.
+        StringId.RefusedAllianceShortBody ->
+            "The price is no longer covered — something else spent it first. Nothing left your " +
+                "colony, and what you typed is still here."
+        StringId.RefusedAllianceStandingBody ->
+            "Your standing in the alliance changed somewhere else — another device, or somebody " +
+                "acting on the roster. Open the tab again to see where you are."
+        // `#163`'s subject reached through a different door. That issue owns the app-wide chrome for
+        // a build the server has outgrown; this is the one sentence this destination can say in the
+        // meantime, and it is strictly better than the nothing it said before.
+        StringId.RefusedAllianceOutdatedBody ->
+            "This build is too old for the server. Nothing changed — update the app."
+        StringId.RefusedAllianceServerBody ->
+            "The server could not answer that. Nothing changed, and asking again is safe."
         StringId.AllianceProjectCharter -> "Charter Expansion"
         StringId.AllianceProjectCharterEffect -> "Two more seats on the roster, and a level toward the next."
         StringId.AllianceProjectLogistics -> "Shared Logistics"

@@ -24,6 +24,7 @@ import dev.fardavide.oltre.client.alliance.ui.SearchResultsUiState
 import dev.fardavide.oltre.client.alliance.ui.SearchRowUiState
 import dev.fardavide.oltre.client.alliance.ui.SearchUiState
 import dev.fardavide.oltre.client.alliance.ui.TreasuryUiState
+import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
@@ -37,6 +38,7 @@ import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.JoinRequest
 import dev.fardavide.oltre.protocol.PlayerProfile
@@ -294,6 +296,69 @@ private fun ContributeShare.label(): TextRes = when (this) {
     ContributeShare.A_HALF -> Strings.allianceShare(50)
     ContributeShare.EVERYTHING -> Strings.allianceShareAll()
 }
+
+// **What an alliance act's refusal says when it is about neither typed string** — `#164`, and the
+// silent no-op it closes. `App.kt`'s founding arm set two field flags and nothing else, so every
+// other refusal the server can send set both to `false` and the screen said nothing at all: the
+// player pressed *Found it*, the server answered, and the app did not move.
+//
+// **Null for the two that do have a field to land on.** `AllianceNameTaken` and `AllianceTagTaken`
+// are answers about the string that was typed, they sit under the box that holds it, and they clear
+// on the next keystroke — a block *and* a field line for the same refusal would say it twice.
+//
+// **One lead and four bodies, and the split is what a player can do next.** Wait and ask again, go
+// and look at where you stand, update the app, or nothing. Every arm that collapsed into one
+// sentence would be this bug with a sentence painted over it.
+//
+// **Exhaustive over `ApiError`, with no `else`.** That is the point of writing it here rather than
+// in the shell: `ApiError` is sealed, a ninth alliance member is the wire break its own file already
+// warns about, and this `when` makes adding one impossible without somebody saying what it tells a
+// player. The non-alliance arms are unreachable from these routes today and are answered anyway —
+// an arm that cannot happen costs a line, and a `when` that assumed so would rot the first time a
+// route learned a new refusal.
+fun allianceRefusalUiState(error: ApiError?): RefusalUiState? = when (error) {
+    null,
+    ApiError.AllianceNameTaken,
+    ApiError.AllianceTagTaken,
+    -> null
+
+    // Only reachable through a race — `committable` checks the price locally before the control is
+    // offered — but the race is real: spend elsewhere between the read and the tap.
+    ApiError.AllianceFoundingUnaffordable,
+    ApiError.AllianceTreasuryShort,
+    -> refusal(Strings.refusedAllianceShortBody())
+
+    // Somebody or something else moved the roster: another device admitted you, a founder changed
+    // your role, the alliance filled up or was disbanded between the search and the tap.
+    ApiError.AlreadyInAnAlliance,
+    ApiError.NotInAnAlliance,
+    ApiError.AllianceRoleTooLow,
+    ApiError.AllianceFull,
+    ApiError.NoSuchAlliance,
+    ApiError.StaleAlliance,
+    -> refusal(Strings.refusedAllianceStandingBody())
+
+    // `#163`'s subject through a different door, and the reason this arm is not folded into the one
+    // below: *update the app* is an action and *ask again* is not, and today every build below the
+    // oldest served meets this on every alliance route.
+    is ApiError.UnsupportedApiVersion -> refusal(Strings.refusedAllianceOutdatedBody())
+
+    // The server had a bad day, or the session did. **Nothing here mentions signing in**, even for
+    // the two that are about a session: the gate owns that sentence and raises its own face, and a
+    // block on this destination telling a signed-in player to sign in would be advice about a
+    // control that is not on the screen.
+    ApiError.Unauthenticated,
+    ApiError.SessionExpired,
+    ApiError.NoColony,
+    ApiError.StaleColony,
+    is ApiError.TooManyRequests,
+    is ApiError.Malformed,
+    is ApiError.Internal,
+    -> refusal(Strings.refusedAllianceServerBody())
+}
+
+private fun refusal(body: TextRes): RefusalUiState =
+    RefusalUiState(lead = Strings.refusedAllianceLead(), body = body)
 
 private fun AllianceProject.title(): TextRes = when (this) {
     AllianceProject.CHARTER_EXPANSION -> Strings.allianceProjectCharter()

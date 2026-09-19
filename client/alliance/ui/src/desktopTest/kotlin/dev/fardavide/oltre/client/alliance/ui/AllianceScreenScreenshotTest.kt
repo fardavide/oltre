@@ -108,6 +108,50 @@ class AllianceScreenScreenshotTest {
         )
     }
 
+    // **The third refusal the founding block can meet, and the first with no field to land on** —
+    // `#164`. The block is the one this destination already draws for a refused contribution, above
+    // every face, and what it is doing here is proving the state exists at all: until this slice the
+    // server answered and the screen did not move.
+    //
+    // **Both fields keep their strings and *Found it* keeps its full strength**, which is the other
+    // half of the frame and is the contribution refusal's own call: a refusal that disabled the thing
+    // it is about would replace a silent no-op with an unanswerable one.
+    @Test
+    fun `a refusal about neither the name nor the tag`() {
+        capture(
+            "alliance_founding_refused_block",
+            AllianceUiState.Seeking(
+                search = SEARCH.copy(state = SearchResultsUiState.Idle(Strings.allianceSearchIdle())),
+                founding = FOUNDING.copy(name = "Ferro Alto", tag = "FRA", committable = true),
+            ),
+            refusal = RefusalUiState(
+                lead = Strings.refusedAllianceLead(),
+                body = Strings.refusedAllianceShortBody(),
+            ),
+            height = 800,
+        )
+    }
+
+    // The same block at the width where its two sentences have the least room, which is where a
+    // refusal that wrapped badly would show it — the founding block is one of the two faces with
+    // fields on it, so it is already the narrow window's own case.
+    @Test
+    fun `a refusal about neither string, in a Slide Over window`() {
+        capture(
+            "alliance_founding_refused_block_slide_over",
+            AllianceUiState.Seeking(
+                search = SEARCH.copy(state = SearchResultsUiState.Idle(Strings.allianceSearchIdle())),
+                founding = FOUNDING.copy(name = "Ferro Alto", tag = "FRA", committable = true),
+            ),
+            width = SLIDE_OVER_WIDTH,
+            height = 900,
+            refusal = RefusalUiState(
+                lead = Strings.refusedAllianceLead(),
+                body = Strings.refusedAllianceStandingBody(),
+            ),
+        )
+    }
+
     @Test
     fun `waiting on an answer`() {
         capture("alliance_waiting", WAITING)
