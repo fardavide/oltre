@@ -59,7 +59,7 @@ class AllianceRowTest {
             TEST_NOW,
             experience = 0,
             taken = 1,
-            seatsBought = 1,
+            projects = ProjectsBought(seats = 1),
         )
 
         assertEquals(OPENING_SEATS + AllianceBalance.SEATS_PER_LEVEL, earned.alliance.seats.cap)
@@ -90,11 +90,13 @@ class AllianceRowTest {
             experience = 0,
             taken = 1,
             pool = pool,
-            seatsBought = 2,
+            projects = ProjectsBought(seats = 2, logistics = 3),
         )
 
         assertEquals(pool, stored.pool)
-        assertEquals(2, stored.seatsBought)
+        // Both counters, because a row that carried the seats and dropped the speed would leave a
+        // paid-for boon on the floor with nothing to say so.
+        assertEquals(ProjectsBought(seats = 2, logistics = 3), stored.projects)
     }
 
     private companion object {

@@ -31,7 +31,7 @@ internal fun allianceFrom(
     // Postgres reader passes both; the tests that are about roles and succession do not have to
     // carry a pool they are not asking about.
     pool: Resources = Resources.of(),
-    seatsBought: Int = 0,
+    projects: ProjectsBought = ProjectsBought.NONE,
 ): StoredAlliance {
     val progress = AllianceBalance.progressOf(experience)
     return StoredAlliance(
@@ -47,13 +47,13 @@ internal fun allianceFrom(
             // beside the guard; this is where it is paid.
             seats = AllianceSeats(
                 taken = taken,
-                cap = maxOf(AllianceBalance.seatCap(progress.level, seatsBought), taken),
+                cap = maxOf(AllianceBalance.seatCap(progress.level, projects.seats), taken),
             ),
         ),
         version,
         createdAt,
         experience,
         pool,
-        seatsBought,
+        projects,
     )
 }

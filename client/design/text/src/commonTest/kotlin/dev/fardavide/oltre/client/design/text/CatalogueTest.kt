@@ -457,6 +457,8 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.allianceProjectsEmpty())
     add(Strings.allianceProjectCharter())
     add(Strings.allianceProjectCharterEffect())
+    add(Strings.allianceProjectLogistics())
+    add(Strings.allianceProjectLogisticsEffect())
     add(Strings.allianceProjectBuy())
     add(Strings.allianceProjectBought(2))
     add(Strings.allianceProjectShort())

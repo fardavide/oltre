@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import java.sql.Connection
 import java.sql.PreparedStatement
+import java.sql.ResultSet
 import javax.sql.DataSource
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -140,17 +141,8 @@ internal class PostgresColonyRepository(
     private fun Connection.selectColony(player: PlayerId): StoredColony? = query(
         SELECT_COLONY,
         bind = { setString(1, player.value) },
-        // **`getObject` and not `getLong` on the third column**, because it is nullable and
-        // `getLong` answers 0 for SQL null — which is a real alliance level rather than an absence,
-        // and would hand every colony in no alliance the boon of a level-zero one. That is the same
-        // figure by luck today (level 0 takes nothing off) and would stop being so the day the
-        // opening level did anything.
         read = { rows ->
-            if (rows.next()) {
-                colonyFrom(rows.getString(1), rows.getLong(2), (rows.getObject(3) as? Number)?.toLong())
-            } else {
-                null
-            }
+            if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2), rows.allianceStanding()) else null
         },
     )
 
@@ -202,15 +194,24 @@ private fun PreparedStatement.bindColony(
 internal fun Connection.lockedColony(player: PlayerId): StoredColony? = query(
     LOCK_COLONY,
     bind = { setString(1, player.value) },
-    // Nullable third column, read as an object for `selectColony`'s reason.
     read = { rows ->
-        if (rows.next()) {
-            colonyFrom(rows.getString(1), rows.getLong(2), (rows.getObject(3) as? Number)?.toLong())
-        } else {
-            null
-        }
+        if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2), rows.allianceStanding()) else null
     },
 )
+
+// **The join's two nullable columns as one nullable standing**, which is the whole reason
+// `AllianceStanding` is a type: a member has both and a player in no alliance has neither, and a
+// `LEFT JOIN` is exactly the shape that would otherwise let one arrive without the other.
+//
+// **`getObject` and not `getLong`**, because the columns are nullable and `getLong` answers 0 for a
+// SQL null — which is a real experience figure rather than an absence, and would hand every colony in
+// no alliance the boon of a level-zero one. That is the same figure by luck today (level 0 takes
+// nothing off) and would stop being so the day the opening level did anything. The presence of the
+// alliance is decided by the first column alone; `logistics_bought` is `NOT NULL DEFAULT 0` on a row
+// that exists, so its fallback is a null row's, never a stored absence.
+private fun ResultSet.allianceStanding(): AllianceStanding? = (getObject(3) as? Number)?.let { experience ->
+    AllianceStanding(experience.toLong(), (getObject(4) as? Number)?.toInt() ?: 0)
+}
 
 // The same compare-and-set `write` uses, on a connection somebody else opened. Under `lockedColony`
 // it cannot lose, and it asserts the version anyway: the assertion is what bumps it, and a write that
@@ -251,7 +252,7 @@ private const val INSERT_COLONY = """
 // *this player has no colony* for every one of them — which founds a second galaxy over the top of
 // the first. See `colonyFrom`.
 private const val SELECT_COLONY = """
-    SELECT c.snapshot_json, c.version, a.experience
+    SELECT c.snapshot_json, c.version, a.experience, a.logistics_bought
     FROM colonies c
     LEFT JOIN alliance_members m ON m.player_id = c.player_id
     LEFT JOIN alliances a ON a.id = m.alliance_id
@@ -266,7 +267,7 @@ private const val SELECT_COLONY = """
 // moment would serialise behind each other for no reason. Naming the table keeps the lock exactly
 // where the pessimistic-locking argument below put it: on the colony being written.
 private const val LOCK_COLONY = """
-    SELECT c.snapshot_json, c.version, a.experience
+    SELECT c.snapshot_json, c.version, a.experience, a.logistics_bought
     FROM colonies c
     LEFT JOIN alliance_members m ON m.player_id = c.player_id
     LEFT JOIN alliances a ON a.id = m.alliance_id

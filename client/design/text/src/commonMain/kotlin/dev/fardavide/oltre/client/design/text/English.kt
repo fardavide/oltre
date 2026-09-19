@@ -344,11 +344,17 @@ object English : Translations {
         // The sheet's two sentences, and they are the only place the effect is explained. The level
         // is named because it is the thing that moves — a player who reads this at 7 and again at 8
         // has been told why the number changed.
+        //
+        // **Two sentences rather than one, and the `so` that joined them is gone on purpose.** It
+        // claimed the percentage followed from the level, which was true for exactly one release:
+        // `SHARED_LOGISTICS` lets a pool buy points outright, so two alliances at level 7 can take
+        // off different amounts and a causal sentence would be false on one of them. Stated as two
+        // facts it is true of both, and the level is still named and still the thing that moves.
         StringId.AlliancePerkBuild ->
-            "Your alliance is level ${args.number(0)}, so every build you start takes " +
+            "Your alliance is level ${args.number(0)}. Every build you start takes " +
                 "${args.number(1)}% less time."
         StringId.AlliancePerkResearch ->
-            "Your alliance is level ${args.number(0)}, so every research you start takes " +
+            "Your alliance is level ${args.number(0)}. Every research you start takes " +
                 "${args.number(1)}% less time."
 
         // **What it does not touch**, said plainly rather than left to be discovered: a job carries
@@ -657,6 +663,12 @@ object English : Translations {
         StringId.AllianceProjectsEmpty -> "Nothing left to build. The pool keeps paying into the level."
         StringId.AllianceProjectCharter -> "Charter Expansion"
         StringId.AllianceProjectCharterEffect -> "Two more seats on the roster, and a level toward the next."
+        StringId.AllianceProjectLogistics -> "Shared Logistics"
+        // **It says *every member* and not *you*.** The row is read by a founder spending a pool other
+        // people paid into, and what the purchase buys is a percentage on somebody else's colony as
+        // much as on theirs — which is the first thing in this game that is true.
+        StringId.AllianceProjectLogisticsEffect ->
+            "One percent off every member's builds and research, for good."
         StringId.AllianceProjectBuy -> "Buy"
         StringId.AllianceProjectBought -> "BOUGHT ${args.number(0)}×"
         StringId.AllianceProjectShort -> "The pool is short of this."

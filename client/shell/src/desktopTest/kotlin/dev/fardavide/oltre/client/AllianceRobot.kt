@@ -17,6 +17,7 @@ import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.net.data.AllianceRequest
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.JoinDecision
@@ -102,8 +103,14 @@ internal class AllianceRobot(private val app: AppRobot) {
         test.waitForIdle()
     }
 
-    fun buyTheFirstProject() = apply {
-        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.PROJECT_BUY, 0)).performScrollTo().performClick()
+    fun buyTheFirstProject() = apply { buyProject(0) }
+
+    // The second project row, which is the entry `#168` put on the shelf. Its own method for
+    // `kickTheSecondMember`'s reason: a test says which thing it pressed, not which offset.
+    fun buyTheSecondProject() = apply { buyProject(1) }
+
+    private fun buyProject(index: Int) {
+        test.onNodeWithTag(AllianceTestTags.row(AllianceTestTags.PROJECT_BUY, index)).performScrollTo().performClick()
         test.waitForIdle()
     }
 
@@ -308,6 +315,13 @@ internal class AllianceRobot(private val app: AppRobot) {
     fun assertBoughtAProject() = apply {
         val bought = app.server.allianceRequests().filterIsInstance<AllianceRequest.BuyProject>()
         assertEquals(1, bought.size, "projects bought: $bought")
+    }
+
+    // **Which project left the phone, not merely that one did.** With a catalogue of one those were
+    // the same assertion; with two, a row wired to its neighbour's offer passes the weaker one.
+    fun assertBoughtProject(project: AllianceProject) = apply {
+        val bought = app.server.allianceRequests().filterIsInstance<AllianceRequest.BuyProject>()
+        assertEquals(listOf(project), bought.map { it.project }, "projects bought: $bought")
     }
 
     fun withdraw() = apply {

@@ -394,11 +394,13 @@ object Italian : Translations {
         // ── Ciò che l’alleanza toglie ────────────────────────────────────────────────────────
         StringId.AlliancePerkTrailing -> "−${args.number(0)}% · la tua alleanza"
         StringId.AlliancePerkShort -> "−${args.number(0)}%"
+        // Il `quindi` è caduto con la Logistica condivisa: il livello non è più l'unica cosa che
+        // decide la percentuale. Vedi `English.kt`.
         StringId.AlliancePerkBuild ->
-            "La tua alleanza è al livello ${args.number(0)}, quindi ogni costruzione che avvii " +
+            "La tua alleanza è al livello ${args.number(0)}. Ogni costruzione che avvii " +
                 "richiede il ${args.number(1)}% di tempo in meno."
         StringId.AlliancePerkResearch ->
-            "La tua alleanza è al livello ${args.number(0)}, quindi ogni ricerca che avvii " +
+            "La tua alleanza è al livello ${args.number(0)}. Ogni ricerca che avvii " +
                 "richiede il ${args.number(1)}% di tempo in meno."
         StringId.AlliancePerkBuildRunning ->
             "Una costruzione già in corso mantiene il tempo con cui è iniziata."
@@ -687,6 +689,9 @@ object Italian : Translations {
         StringId.AllianceProjectsEmpty -> "Non c'è altro da costruire. Il fondo continua a pagare il livello."
         StringId.AllianceProjectCharter -> "Ampliamento dello statuto"
         StringId.AllianceProjectCharterEffect -> "Due posti in più nell'organico, e un livello verso il prossimo."
+        StringId.AllianceProjectLogistics -> "Logistica condivisa"
+        StringId.AllianceProjectLogisticsEffect ->
+            "Un percento in meno su costruzioni e ricerche di ogni membro, per sempre."
         StringId.AllianceProjectBuy -> "Compra"
         StringId.AllianceProjectBought -> "COMPRATO ${args.number(0)}×"
         StringId.AllianceProjectShort -> "Il fondo non basta."

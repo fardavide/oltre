@@ -206,13 +206,28 @@ see how the Alliance feature goes, and I will see organically."***
 because the mechanism and the recommendation are the expensive half of that decision and the day it
 reopens they should not have to be re-derived.
 
+> **The hold lifted on 2026-09-18** — Davide: *"We should work on more power-ups for the alliances"* —
+> and §4.2 and §4.3 were the specification rather than a starting point, which is what they were kept
+> for. **Perks shipped in 0.27.0** (`#167`): 2% a level off every build and every research a member
+> starts, floored at 30%, delivered as `AllianceSpeedup` on `GameState`.
+>
+> **And the catalogue grew its second row in 0.28.0** (`#168`): `SHARED_LOGISTICS`, a percentage point
+> off the same two rates, bought by the pool outright. It is §4.3's recommendation reached from the
+> *projects* tier rather than the capacity one, and it is the only one of `#168`'s four candidates
+> that needed no mechanic invented in order to be sold — the vault ceiling and the alliance mark are
+> both still blocked on exactly that, and the second admin seat still on the absence of an admin cap.
+>
+> **The ceiling is one ceiling over both sources.** The level's points and the pool's are summed and
+> clamped once, at `AllianceSpeedup.MAX_PERCENT`. A ceiling each would have doubled Davide's floor
+> through a door nobody opened, and §4.3's stated risk is exactly what a floor that high is.
+
 ### 4.1 The two tiers that ship, and the one on the shelf
 
 | | Effect | Cost | Where |
 |---|---|---|---|
 | **Capacity** | member cap `BASE + level`, vault ceiling, the tag beside a name | alliance tables only | slice 2 |
 | **Projects** | the pool buys things the alliance owns — seats, vault, standing | server + a project catalogue | slice 8 |
-| **Perks** | a number in every member's colony | **`core`**: a boon field, a schema hop, an `ApiVersion` bump | **held** |
+| **Perks** | a number in every member's colony | **`core`**: a boon field, a schema hop, an `ApiVersion` bump | ~~held~~ **0.27.0** |
 
 The floor holds regardless: **whatever ships must do something on the day it ships.** A vault you can
 pay into that buys nothing is a control that silently does nothing, which the global rule calls worse

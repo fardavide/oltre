@@ -41,8 +41,9 @@ internal class InMemoryAllianceRepository(
     // same thing the left joins answer with a SQL null — see `colonyFrom`. It takes no lock because
     // `InMemoryColonyRepository` calls it while already holding its own, and a second one here would
     // deadlock the pair the moment a colony read needed an alliance.
-    internal fun experienceOf(player: PlayerId): Long? =
-        seats[player]?.alliance?.let { alliances[it] }?.experience
+    internal fun standingOf(player: PlayerId): AllianceStanding? =
+        seats[player]?.alliance?.let { alliances[it] }
+            ?.let { AllianceStanding(it.experience, it.projects.logistics) }
     private val petitions = mutableMapOf<PlayerId, Petition>()
 
     // Takes the founding price out of the colony, or says why it could not. **Null is paid** — the
@@ -331,10 +332,10 @@ internal class InMemoryAllianceRepository(
             AllianceRole.MEMBER -> return@withLock TreasuryRead.Refused(ApiError.AllianceRoleTooLow)
         }
         val level = stored.alliance.level
-        if (AllianceBalance.isExhausted(project, level, stored.seatsBought)) {
+        if (AllianceBalance.isExhausted(project, level, stored.projects)) {
             return@withLock TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
         }
-        val cost = AllianceBalance.costOf(project, stored.seatsBought)
+        val cost = AllianceBalance.costOf(project, stored.projects.timesBought(project))
         if (!stored.pool.covers(cost)) return@withLock TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
 
         val bought = stored.copy(
@@ -344,9 +345,7 @@ internal class InMemoryAllianceRepository(
             // level would fall for doing the thing the level exists to encourage — `alliance-sheet
             // .md` §3, and the one property of this ladder that is not a placeholder.
             experience = stored.experience + AllianceBalance.projectAward(cost),
-            seatsBought = when (project) {
-                AllianceProject.CHARTER_EXPANSION -> stored.seatsBought + 1
-            },
+            projects = stored.projects.after(project),
         )
         alliances[seat.alliance] = bought.reseated()
         TreasuryRead.Present(alliances.getValue(seat.alliance), seat.contributed, seat.role)
@@ -381,7 +380,7 @@ internal class InMemoryAllianceRepository(
                 level = progress.level,
                 seats = AllianceSeats(
                     taken = taken,
-                    cap = maxOf(AllianceBalance.seatCap(progress.level, seatsBought), taken),
+                    cap = maxOf(AllianceBalance.seatCap(progress.level, projects.seats), taken),
                 ),
             ),
         )

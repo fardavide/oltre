@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.28.0", "2026-09-19", "The pool buys speed for everyone",
+            "Shared Logistics: the pool buys a point off every member's builds and research.",
+            "Buy it again for another point at a rising price, up to the same 30% ceiling.",
+            "An alliance already at the ceiling is not offered it, so no row does nothing.",
+        ),
+        release(
             "0.27.0", "2026-09-18", "Your alliance builds it faster",
             "Every alliance level takes 2% off every build and research you start, up to 30%.",
             "The screen says it once above the list; the waits below it are simply shorter.",

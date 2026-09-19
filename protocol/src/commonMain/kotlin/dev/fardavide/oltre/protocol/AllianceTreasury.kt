@@ -17,30 +17,38 @@ import kotlinx.serialization.Serializable
 // like the other eight acts. The contribution is the one act that takes resources out of a colony,
 // and that is `ClientVerb.Contribute`, replayed through the sync pair like every other verb.
 
-// **What the level and the projects have bought, which is the only thing in v1 that they buy.**
-// Production perks are on hold (Davide, 2026-09-05) and there is no withdrawal, ever — so the
-// catalogue is one entry and the honest thing is to say so in the type rather than to ship an enum
-// with room in it that reads as a promise.
+// **What the level and the projects have bought.** There is no withdrawal, ever, so everything here
+// is one-way: the pool goes in and standing, seats or speed come out.
 //
-// **A `Serializable` enum decoded by every client, so it is one constant until a release pays for a
-// second** — `AllianceRole`'s rule, which this is the second instance of. A constant added after
-// these routes ship is a wire break; `JoinDecision` escapes it only by being send-only, and this one
-// is not, because a treasury read lists what is on sale.
+// **A `Serializable` enum decoded by every client, so a constant costs a release** — `AllianceRole`'s
+// rule, which this is the second instance of. A constant added after these routes ship is a wire
+// break, because a treasury read lists what is on sale and an installed build handed a name it has
+// never heard cannot decode the 200 at all; `JoinDecision` escapes it only by being send-only, and
+// this one is not. **`SHARED_LOGISTICS` is the release that paid for it** — `ApiVersion` 4 → 5,
+// `OLDEST_SERVED` with it, which is the same forced update the boon itself cost one release earlier
+// and is affordable for the same reason: the installed population is one person. After launch this
+// enum stops being cheap to grow.
 @Serializable
 enum class AllianceProject {
 
-    // Two more seats on the roster, buyable again and again at a rising price. **The only thing an
-    // alliance can own today that a player can see move**: the roster header reads `4 of 20` and
-    // this makes it `4 of 22`, on the same check-in, with no other mechanic involved.
-    //
-    // Why it is the whole catalogue on day one, recorded so the shortness is read as a decision: the
-    // design frame sketched two more — a second admin seat, and an alliance mark — and neither has
-    // anything behind it. There is no admin cap in the shipped role logic, so *a second admin seat*
-    // would be a new rule invented to be sold rather than a thing for sale; and there is no alliance
-    // mark anywhere on this wire, so it is a route, a picker face and its own baselines. Both are
-    // cheap to add later and neither is what §8 asks for, which is **one** project whose effect is
-    // legible on a screen this slice draws.
+    // Two more seats on the roster, buyable again and again at a rising price. **The first thing an
+    // alliance could own that a player could see move**: the roster header reads `4 of 20` and this
+    // makes it `4 of 22`, on the same check-in, with no other mechanic involved.
     CHARTER_EXPANSION,
+
+    // **A percentage point off every member's builds and research, bought outright rather than
+    // levelled into.** The one candidate in `#168` whose effect was already being built: the boon is
+    // `AllianceSpeedup`, the ceiling is that type's own `MAX_PERCENT`, and the screens that state it
+    // — the colony's section label, research's, and the facility sheet's `→`-pair — shipped in
+    // 0.27.0 and need no line changing. So this entry is a value here, a curve in `AllianceBalance`,
+    // an increment in both stores and two strings, and what reads differently the next check-in is a
+    // number that was already on screen.
+    //
+    // **Why the other two the frame sketched are still not here**, recorded so the shortness stays a
+    // decision: a *second admin seat* would be a new rule invented in order to be sold — there is no
+    // admin cap in the shipped role logic — and an *alliance mark* is a route, a picker face and its
+    // own baselines, which is a slice rather than an entry. Both objections are unchanged.
+    SHARED_LOGISTICS,
 }
 
 // One row on the project list: what it is, what it costs *now*, and whether the pool covers it.

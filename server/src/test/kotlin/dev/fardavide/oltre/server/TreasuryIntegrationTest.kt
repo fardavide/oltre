@@ -172,7 +172,7 @@ class TreasuryIntegrationTest {
             PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
         )
         val before = assertIs<TreasuryRead.Present>(alliances.treasuryOf(davide, TEST_NOW))
-        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, before.alliance.seatsBought)
+        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, before.alliance.projects.seats)
 
         val bought = assertIs<TreasuryRead.Present>(
             alliances.buy(davide, AllianceProject.CHARTER_EXPANSION, TEST_NOW, before.alliance.version),
@@ -303,7 +303,10 @@ class TreasuryIntegrationTest {
         // contribution's *worth* rather than one of its three numbers, which is the whole reason
         // `PoolCredit` carries `award` beside the resources.
         assertEquals(AllianceBalance.award(paid), answer.response.contributed)
-        assertEquals(listOf(AllianceProject.CHARTER_EXPANSION), answer.response.projects.map { it.project })
+        assertEquals(
+            listOf(AllianceProject.CHARTER_EXPANSION, AllianceProject.SHARED_LOGISTICS),
+            answer.response.projects.map { it.project },
+        )
     }
 
     @Test
@@ -331,7 +334,7 @@ class TreasuryIntegrationTest {
             PoolCredit(seat.alliance, seat.id, paid, AllianceBalance.award(paid)),
         )
         val before = assertIs<TreasuryRead.Present>(alliances.treasuryOf(davide, TEST_NOW))
-        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, before.alliance.seatsBought)
+        val cost = AllianceBalance.costOf(AllianceProject.CHARTER_EXPANSION, before.alliance.projects.seats)
 
         val answer = assertIs<Answer.Treasury>(
             buyAllianceProject(alliances, authenticator, clock, asDavide(), buyBody()),

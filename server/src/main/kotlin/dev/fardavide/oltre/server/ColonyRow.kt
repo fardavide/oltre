@@ -23,12 +23,12 @@ import kotlin.time.Instant
 // Raising instead reaches `served`'s one `catch` and becomes `ApiError.Internal`, which is a 500 the
 // player's client retries and an operator can go and look at. Neither answer gets the colony back;
 // only one of them leaves it there to be got back.
-// **`allianceExperience` is the boon's whole delivery mechanism**, and it arrives here rather than
-// being read separately because of where it must not be read. The sync route deliberately looks a
-// membership up only when a request actually carries a `Contribute` — *"an unconditional membership
-// lookup would put a second query on the hot path of the one route every check-in calls"* — and the
-// boon needs the level on **every** sync. So it comes off the colony read itself, as a join, and
-// costs no round trip at all.
+// **`alliance` is the boon's whole delivery mechanism**, and it arrives here rather than being read
+// separately because of where it must not be read. The sync route deliberately looks a membership up
+// only when a request actually carries a `Contribute` — *"an unconditional membership lookup would
+// put a second query on the hot path of the one route every check-in calls"* — and the boon needs
+// the standing on **every** sync. So it comes off the colony read itself, as a join, and costs no
+// round trip at all.
 //
 // Null is *this player is in no alliance*, which is `AllianceSpeedup.NONE` and nineteen colonies in
 // twenty.
@@ -39,13 +39,13 @@ import kotlin.time.Instant
 // read is what makes the boon begin at a member's next check-in — `alliance-sheet.md` §4.2 — and it
 // is also what makes a member who has been away a week arrive to the level their alliance reached
 // while they were gone.
-internal fun colonyFrom(snapshotJson: String, version: Long, allianceExperience: Long?): StoredColony =
+internal fun colonyFrom(snapshotJson: String, version: Long, alliance: AllianceStanding?): StoredColony =
     when (val decoded = GameSave.decode(snapshotJson)) {
         is DecodeResult.Success -> StoredColony(
             decoded.snapshot.copy(
                 state = decoded.snapshot.state.copy(
-                    allianceSpeedup = allianceExperience
-                        ?.let { AllianceBalance.speedupOf(it) }
+                    allianceSpeedup = alliance
+                        ?.let { AllianceBalance.speedupOf(it.experience, it.logisticsBought) }
                         ?: AllianceSpeedup.NONE,
                 ),
             ),
@@ -59,6 +59,17 @@ internal fun colonyFrom(snapshotJson: String, version: Long, allianceExperience:
         is DecodeResult.Obsolete ->
             error("a stored colony is on schema ${decoded.schemaVersion} which this build refuses: ${decoded.reason}")
     }
+
+// **Everything about an alliance that a member's colony read needs, which is two numbers and not the
+// alliance.** It exists as a type rather than as a second parameter on `colonyFrom` because the two
+// numbers arrive or are absent *together*: a member has both, and a player in no alliance has
+// neither. Two nullable parameters would let a caller pass one of each, which is a colony taking a
+// boon from an alliance it is not in — and the `LEFT JOIN` that fills them is exactly the shape that
+// would do it.
+//
+// `logisticsBought` is a count rather than a percentage because the ceiling is applied once, in
+// `AllianceBalance.speedupAt`, over the level and the purchases together.
+internal data class AllianceStanding(val experience: Long, val logisticsBought: Int)
 
 // `timestamptz` in, and it is `OffsetDateTime` at UTC rather than a `Timestamp` because a
 // `java.sql.Timestamp` carries no zone at all: the driver would read the JVM's default one, and a
