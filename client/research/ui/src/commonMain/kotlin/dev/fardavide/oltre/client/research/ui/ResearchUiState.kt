@@ -46,6 +46,19 @@ data class ResearchUiState(
     // — and it is handed in for the same reason the Colony screen's copy is: what a facility is
     // called belongs to the screen that draws facilities.
     val watching: TextRes?,
+    // **`−14%`, bare, joined to this screen's existing rule with the app's own middle dot.** Null on
+    // a colony in no alliance.
+    //
+    // The attribution is what drops here, and only here: `one project at a time · −14% · your
+    // alliance` does not fit 320dp in either language, and the clause that goes is the one the
+    // heading and the neighbouring rule already imply — the sheet behind any row says it in words
+    // anyway. The colony's label keeps `your alliance` at both widths, which is where a player meets
+    // the attribution first. That is the Deuterium Synth. abbreviation rule, not a second decision.
+    //
+    // **It goes on TECHNOLOGIES and not on ADAPTATIONS**, because the perk is build and research
+    // speed and an adaptation ladder is neither — see `AdaptationBalance`, which this slice does not
+    // touch. A percentage over the adaptation rows would be claiming something untrue of them.
+    val alliancePerk: TextRes? = null,
 )
 
 // Which project landed between the instant the save was written and the instant the app came back.
@@ -72,6 +85,9 @@ data class TechnologyRowUiState(
     val verdict: VerdictUiState?,
     val costs: List<CostChipUiState>,
     val duration: TextRes,
+    // What this research would take with no alliance behind the colony, and null when there is
+    // none. Drawn only in the sheet — see `SheetFooter.base`.
+    val baseDuration: TextRes? = null,
     val action: ResearchActionUiState,
     // What the card body opens: the arithmetic behind the verdict, the ladder of what the level
     // gates, and the numbers the verdict displaced. Derived here rather than in the screen because

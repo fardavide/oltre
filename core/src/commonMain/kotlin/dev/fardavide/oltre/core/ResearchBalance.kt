@@ -125,6 +125,9 @@ object ResearchBalance {
         technology: Technology,
         toLevel: TechLevel,
         roboticsFactory: BuildingLevel,
+        // Defaulted for `upgradeDuration`'s reason, and it means the same thing: omitting it asks for
+        // the curve, passing it asks what this colony will wait.
+        speedup: AllianceSpeedup = AllianceSpeedup.NONE,
     ): Duration {
         val base = when (technology) {
             Technology.PHOTOVOLTAICS -> 60
@@ -143,8 +146,15 @@ object ResearchBalance {
         // reductions compose the way they read: the discount is the opening, the divisor is the
         // factory.
         val minutes = openingDiscount((base * toLevel.value).toLong(), toLevel.value, FULL_PRICE_LEVEL)
-        return minutes.minutes * RESEARCH_ROBOTICS_NUMERATOR /
-            (RESEARCH_ROBOTICS_NUMERATOR + RESEARCH_ROBOTICS_PER_LEVEL * roboticsFactory.value)
+        // The alliance comes last, after the opening discount and after the Robotics divisor, for the
+        // reason the ordering comment above gives about those two: each reduction reads against what
+        // the one before it left. **There is no floor here and none is added** — a research start has
+        // never had one, and inventing a minimum in the slice that adds the boon would be a balance
+        // change wearing a boon's clothes.
+        return (
+            minutes.minutes * RESEARCH_ROBOTICS_NUMERATOR /
+                (RESEARCH_ROBOTICS_NUMERATOR + RESEARCH_ROBOTICS_PER_LEVEL * roboticsFactory.value)
+            ).shortenedBy(speedup)
     }
 
     // Photovoltaics 1.10, Extraction 1.08, Enrichment 1.14. Enrichment climbs fastest because

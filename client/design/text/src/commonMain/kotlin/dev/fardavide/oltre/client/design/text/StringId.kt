@@ -285,6 +285,19 @@ enum class StringId {
     RuleOneProjectAtATime,
     RuleOneLadderAtATime,
     RuleOneAtATime,
+
+    // ── What the alliance takes off ──────────────────────────────────────────────────────────
+    //
+    // The screen says it once, in the section label's trailing slot, and the row's sheet does the
+    // arithmetic. Nothing here ever says "bonus", "boost", "sped up" or "thanks to your alliance" —
+    // the number is the statement and the sheet is the explanation.
+    AlliancePerkTrailing,
+    AlliancePerkShort,
+    AlliancePerkBuild,
+    AlliancePerkResearch,
+    AlliancePerkBuildRunning,
+    AlliancePerkResearchRunning,
+    AlliancePerkAtTheFloor,
     ResearchVerb,
     VerdictNothingThrottled,
     VerdictNothingThrottledCompact,

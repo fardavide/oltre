@@ -5,9 +5,13 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.RowSheetContent
+import dev.fardavide.oltre.client.design.component.SheetLine
+import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.BuildingType
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -27,6 +31,46 @@ class FacilitySheetScreenshotTest {
     @Test
     fun `the sheet behind the row that gates the rest of the game`() {
         captureSheet(row = roboticsFacilityRow, name = "facility_sheet_robotics", height = 460)
+    }
+
+    // **The only place in the app a number is drawn that will not happen.** `5h 40m → 4h 52m` in the
+    // duration slot, in the rate line's own →-pair, with the two sentences that attribute it
+    // directly above. Read against `facility_sheet_robotics`: the delta is two lines and one number.
+    @Test
+    fun `the sheet behind a row an alliance is shortening`() {
+        captureSheet(
+            row = roboticsFacilityRow.copy(
+                baseDuration = TextRes("5h 40m"),
+                duration = TextRes("4h 52m"),
+                detail = roboticsFacilityRow.detail.copy(
+                    lines = roboticsFacilityRow.detail.lines +
+                        SheetLine(listOf(words(Strings.alliancePerkBuild(level = 7, percent = 14)))) +
+                        SheetLine(listOf(words(Strings.alliancePerkBuildRunning()))),
+                ),
+            ),
+            name = "facility_sheet_alliance",
+            height = 520,
+        )
+    }
+
+    // The same sheet at 320dp, where the chips and the pair share a `FlowRow` and the pair wraps to
+    // its own line rather than squeezing them.
+    @Test
+    fun `the alliance sheet at the narrowest width`() {
+        captureSheet(
+            row = roboticsFacilityRow.copy(
+                baseDuration = TextRes("5h 40m"),
+                duration = TextRes("4h 52m"),
+                detail = roboticsFacilityRow.detail.copy(
+                    lines = roboticsFacilityRow.detail.lines +
+                        SheetLine(listOf(words(Strings.alliancePerkBuild(level = 7, percent = 14)))) +
+                        SheetLine(listOf(words(Strings.alliancePerkBuildRunning()))),
+                ),
+            ),
+            name = "facility_sheet_alliance_narrow",
+            height = 560,
+            width = 320,
+        )
     }
 
     // The frame the whole design is about: a verdict that honestly reads "nothing", the three
@@ -54,8 +98,8 @@ class FacilitySheetScreenshotTest {
         captureSheet(row = testColonyUiState.facilities.last(), name = "facility_sheet_locked", height = 400)
     }
 
-    private fun captureSheet(row: FacilityRowUiState, name: String, height: Int) {
-        runDesktopComposeUiTest(width = 393, height = height) {
+    private fun captureSheet(row: FacilityRowUiState, name: String, height: Int, width: Int = 393) {
+        runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {

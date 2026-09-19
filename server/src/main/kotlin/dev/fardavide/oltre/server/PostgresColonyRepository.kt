@@ -140,7 +140,18 @@ internal class PostgresColonyRepository(
     private fun Connection.selectColony(player: PlayerId): StoredColony? = query(
         SELECT_COLONY,
         bind = { setString(1, player.value) },
-        read = { rows -> if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2)) else null },
+        // **`getObject` and not `getLong` on the third column**, because it is nullable and
+        // `getLong` answers 0 for SQL null — which is a real alliance level rather than an absence,
+        // and would hand every colony in no alliance the boon of a level-zero one. That is the same
+        // figure by luck today (level 0 takes nothing off) and would stop being so the day the
+        // opening level did anything.
+        read = { rows ->
+            if (rows.next()) {
+                colonyFrom(rows.getString(1), rows.getLong(2), (rows.getObject(3) as? Number)?.toLong())
+            } else {
+                null
+            }
+        },
     )
 
     // The seven values a colony write carries, bound once for both statements that write one. That is
@@ -191,7 +202,14 @@ private fun PreparedStatement.bindColony(
 internal fun Connection.lockedColony(player: PlayerId): StoredColony? = query(
     LOCK_COLONY,
     bind = { setString(1, player.value) },
-    read = { rows -> if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2)) else null },
+    // Nullable third column, read as an object for `selectColony`'s reason.
+    read = { rows ->
+        if (rows.next()) {
+            colonyFrom(rows.getString(1), rows.getLong(2), (rows.getObject(3) as? Number)?.toLong())
+        } else {
+            null
+        }
+    },
 )
 
 // The same compare-and-set `write` uses, on a connection somebody else opened. Under `lockedColony`
@@ -222,10 +240,39 @@ private const val INSERT_COLONY = """
     ON CONFLICT (player_id) DO NOTHING
 """
 
-private const val SELECT_COLONY = "SELECT snapshot_json, version FROM colonies WHERE player_id = ?"
+// **Two left joins rather than a second query**, and the sync route's own comment is the reason:
+// it reads a membership only when a request carries a `Contribute`, because *"an unconditional
+// membership lookup would put a second query on the hot path of the one route every check-in
+// calls"*. The alliance boon needs the level on every sync, so asking for it separately would be
+// exactly the round trip that guard exists to avoid. Joined, it is free — `alliance_members` is keyed
+// by `player_id`, so this is a primary-key lookup and the row count cannot change.
+//
+// `LEFT`, because nineteen colonies in twenty are in no alliance and an inner join would answer
+// *this player has no colony* for every one of them — which founds a second galaxy over the top of
+// the first. See `colonyFrom`.
+private const val SELECT_COLONY = """
+    SELECT c.snapshot_json, c.version, a.experience
+    FROM colonies c
+    LEFT JOIN alliance_members m ON m.player_id = c.player_id
+    LEFT JOIN alliances a ON a.id = m.alliance_id
+    WHERE c.player_id = ?
+"""
 
 // The same read, holding the row until the transaction ends. See `lockedColony`.
-private const val LOCK_COLONY = "SELECT snapshot_json, version FROM colonies WHERE player_id = ? FOR UPDATE"
+//
+// **`FOR UPDATE OF c`, not a bare `FOR UPDATE`.** With the joins above, an unqualified `FOR UPDATE`
+// locks a row in *every* table the select touched — so founding a colony would take a row lock on
+// the whole alliance and on the member row, and two members of one alliance founding at the same
+// moment would serialise behind each other for no reason. Naming the table keeps the lock exactly
+// where the pessimistic-locking argument below put it: on the colony being written.
+private const val LOCK_COLONY = """
+    SELECT c.snapshot_json, c.version, a.experience
+    FROM colonies c
+    LEFT JOIN alliance_members m ON m.player_id = c.player_id
+    LEFT JOIN alliances a ON a.id = m.alliance_id
+    WHERE c.player_id = ?
+    FOR UPDATE OF c
+"""
 
 // The compare-and-set. The trailing `AND version = ?` is the whole of it: it updates one row or no
 // rows, and which of the two is the answer.

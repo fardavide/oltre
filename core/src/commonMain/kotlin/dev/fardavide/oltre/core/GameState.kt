@@ -118,6 +118,19 @@ data class GameState(
     // Directly above `eventLog` because they are one fact written twice — a summary and its source —
     // and a reader who finds one should not have to hunt for the other.
     val experience: Experience,
+    // **The one field on this state that nothing in `core` ever computes.** The server writes it when
+    // it advances this colony, which is the whole of `alliance-sheet.md` §4.2's timing answer: the
+    // boon's effective instant is that member's next check-in, so nothing is backdated and `advance`
+    // stays composable. Every other field here is a consequence of the log; this one arrives from
+    // outside and is simply carried.
+    //
+    // Directly below `experience` because it is the other number the empire's standing is made of,
+    // and above `eventLog` because it reaches the log no more than `experience` does.
+    //
+    // `AllianceSpeedup.NONE` for a colony in no alliance, which is what the 20 → 21 hop writes onto
+    // every save that predates it — a missing alliance is an alliance that takes nothing off, and
+    // that is a fact rather than a default standing in for one.
+    val allianceSpeedup: AllianceSpeedup,
     val eventLog: List<Event>,
 ) {
     init {
@@ -183,6 +196,9 @@ data class GameState(
             // `AlertSettings.CARRIED_FORWARD` and the 16 -> 17 hop.
             alerts = AlertSettings.NEW_COLONY,
             experience = Experience.NONE,
+            // A colony is founded in no alliance — joining one is a request somebody else answers —
+            // so every balance figure ever measured against a fresh colony is unchanged.
+            allianceSpeedup = AllianceSpeedup.NONE,
             eventLog = emptyList(),
         )
     }

@@ -39,6 +39,7 @@ import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.alertCategory
 import dev.fardavide.oltre.core.asksOnRow
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -82,6 +83,10 @@ fun GameState.toResearchUiState(
     // with signal — and the shell hands in the real one. See the colony's mapper, which takes it the
     // same way for the same reason.
     held: HeldActions = HeldActions.NONE,
+    // The alliance's level, handed in for the colony mapper's reason: the boon is on `GameState` and
+    // needs no parameter, but the sentence that explains it names the level, which cannot be
+    // recovered from the percentage at the ceiling.
+    allianceLevel: Int? = null,
 ): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
@@ -93,6 +98,11 @@ fun GameState.toResearchUiState(
     val finishedProject = (finishedWhileAway as? FinishedWhileAway.Project)?.technology
     val finishedLadder = (finishedWhileAway as? FinishedWhileAway.Ladder)?.technology
     return ResearchUiState(
+        // The bare figure; the screen joins it to this branch's own rule. Absent on a colony in no
+        // alliance.
+        alliancePerk = allianceSpeedup
+            .takeIf { it != AllianceSpeedup.NONE }
+            ?.let { Strings.alliancePerkShort(it.percent) },
         technologies = Technology.entries.map {
             toTechnologyRow(
                 it,
@@ -102,6 +112,7 @@ fun GameState.toResearchUiState(
                 timeZone = timeZone,
                 finishedWhileAway = it == finishedProject,
                 held = held,
+                allianceLevel = allianceLevel,
             )
         },
         adaptation = AdaptationTechnology.entries.map {
@@ -126,6 +137,7 @@ private fun GameState.toTechnologyRow(
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
     held: HeldActions,
+    allianceLevel: Int?,
 ): TechnologyRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -143,8 +155,15 @@ private fun GameState.toTechnologyRow(
         cost.crystal.toCostChip(ResourceKind.CRYSTAL, short),
         cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
     )
-    // Already divided by Robotics, because that is the duration the player would actually wait.
-    val duration = ResearchBalance.researchDuration(technology, toLevel, buildings.roboticsFactory).toChipLabel()
+    // Already divided by Robotics **and by the alliance**, because that is the duration the player
+    // would actually wait. The row says nothing about either — both are simply true of the number.
+    val wait = ResearchBalance.researchDuration(technology, toLevel, buildings.roboticsFactory, allianceSpeedup)
+    val duration = wait.toChipLabel()
+    // What it would take with no alliance behind the colony, for the sheet's pair. Null when there
+    // is none, which is the sheet that ships.
+    val baseDuration = allianceSpeedup.takeIf { it != AllianceSpeedup.NONE }?.let {
+        ResearchBalance.researchDuration(technology, toLevel, buildings.roboticsFactory).toChipLabel()
+    }
     val action = when {
         running != null -> runningAction(
             toLevel = running.toLevel,
@@ -165,6 +184,7 @@ private fun GameState.toTechnologyRow(
         verdict = verdict.takeIf { running == null },
         costs = costs,
         duration = duration,
+        baseDuration = baseDuration,
         action = action,
         sheet = rowSheet(
             name = technology.displayName(),
@@ -172,13 +192,15 @@ private fun GameState.toTechnologyRow(
             verdict = verdict,
             action = action,
             requirement = requirement,
-            lines = projectLines(purpose = purpose, effect = effect, name = technology.displayName()),
+            lines = projectLines(purpose = purpose, effect = effect, name = technology.displayName()) +
+                allianceResearchLines(allianceLevel, running != null),
             ladder = technology.sheetLadder(level),
             // Only an inert row carries one: a row with a rate to state has its own argument, and
             // an arrow to a better buy would be the screen arguing against the row it is on.
             bestBuy = bestBuy.takeIf { purpose is LevelPurpose.Inert },
             costs = costs,
             duration = duration,
+            baseDuration = baseDuration,
         ),
         watch = watchOn(
             target = WatchTarget.Project(technology),
@@ -446,6 +468,20 @@ internal fun ShortlistUiState.toVerdictUiState(): VerdictUiState =
 // what it requires and points at the row that would move that. A **running** row has been paid for,
 // so it keeps its first sentence and nothing else — mid-project the question is when, not what.
 // Everything else is the whole sheet.
+// The research branch's half of the sheet's explanation — the same two sentences the colony's rows
+// carry, in the words this branch uses. Empty on a colony in no alliance, and empty on a row in
+// flight for the colony mapper's reason: that project's wait was fixed when it started, so what an
+// alliance takes off the *next* one is not the question the card is being asked.
+private fun GameState.allianceResearchLines(allianceLevel: Int?, running: Boolean): List<SheetLine> {
+    if (running || allianceSpeedup == AllianceSpeedup.NONE || allianceLevel == null) return emptyList()
+    return listOfNotNull(
+        SheetLine(listOf(words(Strings.alliancePerkResearch(allianceLevel, allianceSpeedup.percent)))),
+        SheetLine(listOf(words(Strings.alliancePerkAtTheFloor())))
+            .takeIf { allianceSpeedup.percent == AllianceSpeedup.MAX_PERCENT },
+        SheetLine(listOf(words(Strings.alliancePerkResearchRunning()))),
+    )
+}
+
 private fun GameState.rowSheet(
     name: TextRes,
     level: TechLevel,
@@ -457,6 +493,8 @@ private fun GameState.rowSheet(
     bestBuy: SheetPointer?,
     costs: List<CostChipUiState>,
     duration: TextRes,
+    // Null on the adaptation branch and on any colony with no alliance — see `SheetFooter.base`.
+    baseDuration: TextRes? = null,
 ): RowSheetUiState = RowSheetUiState(
     name = name,
     level = level.value,
@@ -496,12 +534,20 @@ private fun GameState.rowSheet(
         is ResearchActionUiState.Locked,
         is ResearchActionUiState.Running,
         -> null
-        ResearchActionUiState.Start ->
-            SheetFooter(costs = costs, duration = duration, action = SheetAction.Live(Strings.researchVerb()))
+        ResearchActionUiState.Start -> SheetFooter(
+            costs = costs,
+            base = baseDuration,
+            duration = duration,
+            action = SheetAction.Live(Strings.researchVerb()),
+        )
         // The row's own ghost, carried whole: no disabled state here either, because a player who
         // wants the level they cannot afford yet is told when rather than told no.
-        is ResearchActionUiState.AvailableIn ->
-            SheetFooter(costs = costs, duration = duration, action = SheetAction.Ghost(action.label))
+        is ResearchActionUiState.AvailableIn -> SheetFooter(
+            costs = costs,
+            base = baseDuration,
+            duration = duration,
+            action = SheetAction.Ghost(action.label),
+        )
     },
 )
 
@@ -694,11 +740,14 @@ private fun GameState.gatePointer(requirement: ResearchRequirement): SheetPointe
             detail = Strings.pointerLevelStep(
                 from = held.value,
                 to = next.value,
+                // The colony's own wait for the facility this technology is blocked on, so the
+                // alliance is in it: the pointer says how long that build would take *you*.
                 wait = PlaceholderBalance.upgradeDuration(
                     building = requirement.building,
                     toLevel = next,
                     roboticsFactory = buildings.roboticsFactory,
                     naniteFactory = buildings.naniteFactory,
+                    speedup = allianceSpeedup,
                 ).toChipLabel(),
             ),
         )

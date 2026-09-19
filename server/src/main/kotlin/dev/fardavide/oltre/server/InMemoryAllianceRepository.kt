@@ -36,6 +36,13 @@ internal class InMemoryAllianceRepository(
     private val lock = Mutex()
     private val alliances = mutableMapOf<AllianceId, StoredAlliance>()
     private val seats = mutableMapOf<PlayerId, Seat>()
+
+    // **The two joins in `SELECT_COLONY`, as one lookup.** Null is *in no alliance*, which is the
+    // same thing the left joins answer with a SQL null — see `colonyFrom`. It takes no lock because
+    // `InMemoryColonyRepository` calls it while already holding its own, and a second one here would
+    // deadlock the pair the moment a colony read needed an alliance.
+    internal fun experienceOf(player: PlayerId): Long? =
+        seats[player]?.alliance?.let { alliances[it] }?.experience
     private val petitions = mutableMapOf<PlayerId, Petition>()
 
     // Takes the founding price out of the colony, or says why it could not. **Null is paid** — the

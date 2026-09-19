@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceProject
@@ -13,6 +14,51 @@ import kotlin.test.assertTrue
 // that pinned a threshold would be pinning a guess and making the balance round's job harder. What
 // is pinned is what must stay true whatever the balance round does to the constants.
 class AllianceBalanceTest {
+
+    // ── What the level takes off a wait ──────────────────────────────────────────────────────
+    //
+    // **The one place the alliance's level becomes a number `core` understands.** `core` never
+    // learns an alliance exists — it is handed a percentage — so this is the whole of the
+    // translation, and the ceiling on `AllianceSpeedup` is what stops it ever mattering how far
+    // the ladder is walked.
+
+    @Test
+    fun `an alliance at level zero takes nothing off`() {
+        assertEquals(AllianceSpeedup.NONE, AllianceBalance.speedupOf(earned = 0))
+    }
+
+    @Test
+    fun `two percent a level, up to the floor at fifteen`() {
+        assertEquals(2, AllianceBalance.speedupOf(experienceForLevel(1)).percent)
+        assertEquals(14, AllianceBalance.speedupOf(experienceForLevel(7)).percent)
+        assertEquals(30, AllianceBalance.speedupOf(experienceForLevel(15)).percent)
+    }
+
+    // **The ladder runs to 200 and the boon stops at 15**, so every level past it buys seats and
+    // standing and no more speed. Asserted rather than assumed, because the clamp is the only thing
+    // between a very old alliance and a build that serves instantly.
+    @Test
+    fun `no alliance can take off more than the floor, however far the ladder is walked`() {
+        assertEquals(30, AllianceBalance.speedupOf(experienceForLevel(40)).percent)
+        assertEquals(30, AllianceBalance.speedupOf(Long.MAX_VALUE / 2).percent)
+    }
+
+    // The walk in `progressOf` is what decides the level, so the boon has to move on exactly the
+    // same boundary the gauge does — an alliance one point short of a level takes off what the level
+    // below it does.
+    @Test
+    fun `the boon moves on the same boundary the gauge does`() {
+        val atSeven = experienceForLevel(7)
+
+        assertEquals(14, AllianceBalance.speedupOf(atSeven).percent)
+        assertEquals(12, AllianceBalance.speedupOf(atSeven - 1).percent)
+    }
+
+    private fun experienceForLevel(level: Int): Long {
+        var earned = 0L
+        repeat(level) { earned += AllianceBalance.spanOf(AllianceLevel(it)) }
+        return earned
+    }
 
     // **Geometric, not linear**, which is the one thing about this ladder that is a measurement.
     // A player's experience accrues linearly in time; an alliance's income is contributions and

@@ -83,8 +83,14 @@ fun ResearchScreen(
                     // here, and the only defence against that is naming it where it can be read.
                     // "One project at a time" is learned in the first minute and is still legible
                     // from the five rows reading the same wait; the watch is legible from nothing.
-                    rule = uiState.watching
-                        ?: if (compact) Strings.ruleOneAtATime() else Strings.ruleOneProjectAtATime(),
+                    // Three claimants now, and the order is the one already argued above: the watch
+                    // wins, then the screen's own rule carries the alliance's figure beside it.
+                    rule = uiState.watching ?: run {
+                        val rule = if (compact) Strings.ruleOneAtATime() else Strings.ruleOneProjectAtATime()
+                        // `clauses` is the app's own middle-dot join, already used wherever two facts
+                        // share a line — a second joiner would be a second separator to keep in step.
+                        uiState.alliancePerk?.let { Strings.clauses(listOf(rule, it)) } ?: rule
+                    },
                 )
                 TechnologyList(
                     technologies = uiState.technologies,

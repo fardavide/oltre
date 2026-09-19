@@ -390,6 +390,21 @@ object Italian : Translations {
         StringId.RuleOneProjectAtATime -> "un progetto alla volta"
         StringId.RuleOneLadderAtATime -> "una scala alla volta"
         StringId.RuleOneAtATime -> "uno alla volta"
+
+        // ── Ciò che l’alleanza toglie ────────────────────────────────────────────────────────
+        StringId.AlliancePerkTrailing -> "−${args.number(0)}% · la tua alleanza"
+        StringId.AlliancePerkShort -> "−${args.number(0)}%"
+        StringId.AlliancePerkBuild ->
+            "La tua alleanza è al livello ${args.number(0)}, quindi ogni costruzione che avvii " +
+                "richiede il ${args.number(1)}% di tempo in meno."
+        StringId.AlliancePerkResearch ->
+            "La tua alleanza è al livello ${args.number(0)}, quindi ogni ricerca che avvii " +
+                "richiede il ${args.number(1)}% di tempo in meno."
+        StringId.AlliancePerkBuildRunning ->
+            "Una costruzione già in corso mantiene il tempo con cui è iniziata."
+        StringId.AlliancePerkResearchRunning ->
+            "Una ricerca già in corso mantiene il tempo con cui è iniziata."
+        StringId.AlliancePerkAtTheFloor -> "È il massimo che un’alleanza toglie."
         StringId.ResearchVerb -> "Ricerca"
         StringId.VerdictNothingThrottled -> "niente finché le tue miniere sono rallentate"
         StringId.VerdictNothingThrottledCompact -> "niente se rallentate"

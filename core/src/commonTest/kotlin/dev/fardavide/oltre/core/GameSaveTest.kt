@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":20,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":21,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -148,7 +148,7 @@ class GameSaveTest {
                 // the hop being honest rather than a slip: the treasury adds nothing to a colony. It
                 // widens what `eventLog` may contain, and a genesis colony has contributed nothing,
                 // so the shape a fresh save has is the shape it had at 18.
-                """"experience":0,"eventLog":[]}}""",
+                """"experience":0,"allianceSpeedup":0,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -1256,8 +1256,55 @@ class GameSaveTest {
     // and handing every migration test a save stamped with the current version. That is precisely
     // what happened when 19 landed without this link.
     private fun schema19(state: GameState): String =
+        schema20(state).replace(""""schemaVersion":20""", """"schemaVersion":19""")
+
+    // ── 20 -> 21: what the alliance takes off ───────────────────────────────────────────────
+    //
+    // **The new root of the chain, and the one link this hop needed** — exactly what the note above
+    // `schema19` promised: every older fixture goes through here, so nothing else in the chain moved.
+    //
+    // Unlike 18 -> 19 and 19 -> 20 this hop *adds a key*, so the fixture has to take it away again.
+    // The value is read off the state rather than pasted as `0`, which is `chartedKey`'s own rule: a
+    // fixture that hard-coded the zero would silently stop stripping anything the day a test handed
+    // in a colony that was already in an alliance, and the save it produced would be a schema 20 with
+    // a schema 21 key in it — which decodes, and means nothing.
+    private fun schema20(state: GameState): String =
         GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
-            .replace(""""schemaVersion":20""", """"schemaVersion":19""")
+            .replace(""""schemaVersion":21""", """"schemaVersion":20""")
+            .replace(""","allianceSpeedup":${state.allianceSpeedup.percent}""", "")
+
+    @Test
+    fun `a colony saved before an alliance could help it has nothing taken off`() {
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema20(GameState.initial()))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(AllianceSpeedup.NONE, decoded.state.allianceSpeedup)
+    }
+
+    // **Zero is a fact here, not a placeholder.** A colony saved at 20 was saved by a build in which
+    // no alliance could shorten anything, so *nothing was taken off* is exactly what was true of it —
+    // and the build it wakes up in serves the same durations until the server writes a boon on the
+    // next sync, which is the check-in rule rather than a gap in the hop.
+    @Test
+    fun `a carried-forward colony waits exactly what it waited before`() {
+        val carried = assertIs<DecodeResult.Success>(GameSave.decode(schema20(GameState.initial()))).snapshot
+
+        assertEquals(
+            PlaceholderBalance.upgradeDuration(
+                building = BuildingType.METAL_MINE,
+                toLevel = BuildingLevel(2),
+                roboticsFactory = BuildingLevel(0),
+                naniteFactory = BuildingLevel(0),
+            ),
+            PlaceholderBalance.upgradeDuration(
+                building = BuildingType.METAL_MINE,
+                toLevel = BuildingLevel(2),
+                roboticsFactory = BuildingLevel(0),
+                naniteFactory = BuildingLevel(0),
+                speedup = carried.state.allianceSpeedup,
+            ),
+        )
+    }
 
     // Derived from the state rather than pasted, for the reason the whole fixture chain is.
     private fun chartedKey(state: GameState): String =

@@ -161,7 +161,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 20
+    const val SCHEMA_VERSION: Int = 21
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -514,6 +514,18 @@ object GameSave {
         // player earned. The hop's whole job is to exist, so `migratedToCurrent` can carry a 19
         // forward instead of reading a missing step as "this build cannot get there".
         19 to { root -> root },
+        // 20 -> 21: the alliance's boon, and **the first hop since 17 that actually writes a key**.
+        // `allianceSpeedup` is a required field — the wire sets `encodeDefaults` with no
+        // `ignoreUnknownKeys`, so nothing on this format has a default to fall back on — and every
+        // save written before this build has no such key, which `decode` would refuse as malformed.
+        //
+        // Zero rather than anything cleverer, and it is a fact rather than a placeholder: a colony
+        // saved at 20 was saved by a build in which no alliance could shorten anything, so *nothing
+        // was taken off* is precisely what was true of it. A migration that guessed at a level from
+        // the log would be inventing history, and there is no alliance level in the save to read —
+        // the boon is the server's to write on the next sync, which is exactly the check-in rule
+        // `alliance-sheet.md` §4.2 settled.
+        20 to { root -> root.withState("allianceSpeedup" to JsonPrimitive(0)) },
     )
 
     private val EVENT_LOG = ListSerializer(Event.serializer())

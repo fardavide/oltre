@@ -239,11 +239,33 @@ private fun Footer(footer: SheetFooter, onAct: () -> Unit, actionModifier: Modif
                 modifier = Modifier.weight(1f),
             ) {
                 for (chip in footer.costs) CostChip(chip = chip)
+                // **One number, or the pair.** With an alliance behind the colony the slot reads
+                // `5h 40m → 4h 52m` in the rate line's own shape: the number that will not happen in
+                // secondary, the one that will in body. Inside the `FlowRow` with the chips, so at
+                // 320dp it wraps to its own line rather than squeezing them.
+                footer.base?.let { base ->
+                    Text(
+                        text = base.resolve(),
+                        color = OltreColors.textSecondary,
+                        fontFamily = oltreMono(),
+                        fontSize = 10.5.sp,
+                    )
+                    Text(
+                        text = "→",
+                        color = OltreColors.textTertiary,
+                        fontFamily = oltreMono(),
+                        fontSize = 10.5.sp,
+                    )
+                }
                 Text(
                     text = footer.duration.resolve(),
-                    color = OltreColors.textSecondary,
+                    // Body and SemiBold only when it is the second half of a pair — alone it is the
+                    // plain secondary figure the sheet has always drawn, and nothing about a colony
+                    // in no alliance moves.
+                    color = if (footer.base == null) OltreColors.textSecondary else OltreColors.text,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
+                    fontWeight = if (footer.base == null) FontWeight.Normal else FontWeight.SemiBold,
                 )
             }
             SheetActionButton(action = footer.action, onAct = onAct, modifier = actionModifier)
@@ -319,7 +341,17 @@ data class SheetLadderStep(val level: TextRes, val opens: TextRes, val held: Boo
 
 data class SheetPointer(val name: TextRes, val detail: TextRes)
 
-data class SheetFooter(val costs: List<CostChipUiState>, val duration: TextRes, val action: SheetAction)
+// **The duration slot holds one number or two.** `base` is what the wait would be with no alliance
+// behind the colony, and it is null on every colony that has none — which is the sheet that ships
+// today, one line and one number shorter. Drawn as `base → duration` in the same →-pair the rate line
+// already uses, muted into body SemiBold, so the shape a player has already learned for *this became
+// that* is the shape this borrows rather than a second one invented for it.
+data class SheetFooter(
+    val costs: List<CostChipUiState>,
+    val base: TextRes? = null,
+    val duration: TextRes,
+    val action: SheetAction,
+)
 
 sealed interface SheetAction {
 

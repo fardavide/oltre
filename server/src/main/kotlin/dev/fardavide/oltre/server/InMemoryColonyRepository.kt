@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.AllianceSpeedup
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import kotlinx.coroutines.sync.Mutex
@@ -41,7 +42,25 @@ internal class InMemoryColonyRepository : ColonyRepository {
         Founding.Founded(founded)
     }
 
-    override suspend fun colonyOf(player: PlayerId): StoredColony? = lock.withLock { colonies[player] }
+    // **Stamped with the alliance's boon on the way out, exactly as the Postgres store's join does.**
+    // A fake that answered differently from the store it doubles would make every test standing on it
+    // a lie — and this is the one field on a colony that does not come from the colony, so it is
+    // precisely the field a fake would get wrong by simply not thinking about it.
+    override suspend fun colonyOf(player: PlayerId): StoredColony? = lock.withLock {
+        colonies[player]?.withAllianceSpeedup(player)
+    }
+
+    // Null `pools` is a fixture that never wired an alliance repository up, which is most of them:
+    // no alliances exist at all, so nobody is in one.
+    private fun StoredColony.withAllianceSpeedup(player: PlayerId): StoredColony = copy(
+        snapshot = snapshot.copy(
+            state = snapshot.state.copy(
+                allianceSpeedup = pools?.experienceOf(player)
+                    ?.let { AllianceBalance.speedupOf(it) }
+                    ?: AllianceSpeedup.NONE,
+            ),
+        ),
+    )
 
     override suspend fun appliedAmong(player: PlayerId, keys: Set<IdempotencyKey>): Set<IdempotencyKey> =
         lock.withLock { keys.filterTo(mutableSetOf()) { player to it in applied } }

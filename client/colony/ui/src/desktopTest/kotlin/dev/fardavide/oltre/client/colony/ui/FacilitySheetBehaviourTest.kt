@@ -33,6 +33,29 @@ class FacilitySheetBehaviourTest {
         }
     }
 
+    // **The claim the whole perk rests on, driven rather than photographed.** A screenshot proves the
+    // pair was drawn; this proves the sheet a *tap* opens carries it — which is the only route a
+    // player has to the arithmetic, since the row deliberately says nothing.
+    @Test
+    fun `the sheet an alliance is shortening shows both numbers`() {
+        facilitySheet(
+            roboticsFacilityRow.copy(baseDuration = TextRes("5h 40m"), duration = TextRes("4h 52m")),
+        ) {
+            assertTheSheetReads("5h 40m")
+            assertTheSheetReads("4h 52m")
+        }
+    }
+
+    // And the sheet without one carries a single number — absent rather than a dash or a zero, so
+    // nothing is there for a player with no alliance to ask about.
+    @Test
+    fun `the sheet without an alliance shows one number`() {
+        facilitySheet(roboticsFacilityRow.copy(duration = TextRes("5h 40m"))) {
+            assertTheSheetReads("5h 40m")
+            assertTheSheetDoesNotRead("→ 4h 52m")
+        }
+    }
+
     @Test
     fun `the sheet repeats what the row said and then says the rest`() {
         facilitySheet(roboticsFacilityRow) {

@@ -401,6 +401,16 @@ fun App(
             // Which of the member face's two steps is up. False is the commands, true is the last
             // step — and it resets with `commanding`, so a sheet never reopens mid-question.
             var kicking by remember { mutableStateOf(false) }
+            // **The alliance's level, for the one sentence on the row sheets that names it.** The
+            // *boon* reaches those screens on `GameState`, written by the server — this is only what
+            // the explanation says out loud, and it cannot be recovered from the percentage at the
+            // ceiling, where level 15 and level 40 both take off 30%.
+            //
+            // Null whenever the standing is anything but enlisted, which includes every launch before
+            // the first alliance read answers. The screens read that as *no alliance* and draw the
+            // sheet that ships — which is the honest picture for a second, and the same one they
+            // would draw if the read failed.
+            val allianceLevel = (standing as? AllianceState.Enlisted)?.alliance?.level?.value
             // **One profile write at a time, because the row goes up whole.** The mark commits as it
             // is touched and the name has a button — the frame's own split — which makes them the one
             // pair of controls in this app that can be pressed inside each other's round trip. Two
@@ -1950,6 +1960,7 @@ fun App(
                                     finishedWhileAway = finishedFacility,
                                     watching = watching,
                                     held = held,
+                                    allianceLevel = allianceLevel,
                                 ),
                                 onUpgrade = { building ->
                                     send(ClientVerb.StartUpgrade(building)) { state, at ->
@@ -1981,6 +1992,7 @@ fun App(
                                     finishedWhileAway = finishedProject,
                                     watching = watching,
                                     held = held,
+                                    allianceLevel = allianceLevel,
                                 ),
                                 onStartResearch = { technology ->
                                     send(ClientVerb.StartResearch(technology)) { state, at ->
