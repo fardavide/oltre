@@ -598,6 +598,32 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **Every refusal the server can send, through the real screen and out the other side.**
+    // `AllianceRefusalUiStateTest` proves the mapping; this proves the *wiring* carries all of it —
+    // the flag the shell holds, the call site that reads it, the slot on the destination and the
+    // block that draws it. With one error scripted per case they were the same test twelve times;
+    // as a walk it is one sentence: **no refusal leaves this screen silent, and each says its own
+    // thing.**
+    //
+    // The three cases below it are the ones with a second claim to make — what the block does to
+    // the fields, and what takes it down — and they stay named for that reason.
+    @Test
+    fun `no refusal the server can send leaves the screen silent`() {
+        for ((error, body) in EVERY_REFUSAL) {
+            val saved = founderColony()
+            val server = unaffiliated(saved).apply { createAllianceError = error }
+            app(saved = saved, api = server) {
+                open(OltreTab.ALLIANCE)
+                val alliance = AllianceRobot(this)
+
+                alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+                alliance.assertReads(Strings.refusedAllianceLead())
+                alliance.assertReads(body)
+            }
+        }
+    }
+
     // The block goes with the tap that follows it, which is `dispatch`'s own rule: a sentence about
     // a tap the player has moved past is furniture.
     @Test
@@ -1009,6 +1035,35 @@ class AllianceAppBehaviourTest {
         founderColony().let { rich -> rich to unaffiliated(rich) }
 
     private companion object {
+
+        // **Every member of `ApiError` a refusal can carry, paired with the sentence it earns.**
+        // Written out rather than derived: `ApiError` is sealed and has no `entries`, and a list
+        // that quietly missed one would let exactly the refusal nobody thought about go back to
+        // saying nothing — which is the bug `#164` is.
+        //
+        // The two that are absent are absent on purpose. `AllianceNameTaken` and `AllianceTagTaken`
+        // draw no block at all, because they have a field to land under; the two tests above this
+        // one are theirs.
+        val EVERY_REFUSAL: List<Pair<ApiError, TextRes>> = listOf(
+            ApiError.AllianceFoundingUnaffordable to Strings.refusedAllianceShortBody(),
+            ApiError.AllianceTreasuryShort to Strings.refusedAllianceShortBody(),
+            ApiError.AlreadyInAnAlliance to Strings.refusedAllianceStandingBody(),
+            ApiError.NotInAnAlliance to Strings.refusedAllianceStandingBody(),
+            ApiError.AllianceRoleTooLow to Strings.refusedAllianceStandingBody(),
+            ApiError.AllianceFull to Strings.refusedAllianceStandingBody(),
+            ApiError.NoSuchAlliance to Strings.refusedAllianceStandingBody(),
+            ApiError.StaleAlliance to Strings.refusedAllianceStandingBody(),
+            ApiError.UnsupportedApiVersion(ApiVersion.CURRENT, ApiVersion.CURRENT) to
+                Strings.refusedAllianceOutdatedBody(),
+            ApiError.Unauthenticated to Strings.refusedAllianceServerBody(),
+            ApiError.SessionExpired to Strings.refusedAllianceServerBody(),
+            ApiError.NoColony to Strings.refusedAllianceServerBody(),
+            ApiError.StaleColony to Strings.refusedAllianceServerBody(),
+            ApiError.TooManyRequests(retryAfterSeconds = 30) to Strings.refusedAllianceServerBody(),
+            ApiError.Malformed(detail = "that did not parse") to Strings.refusedAllianceServerBody(),
+            ApiError.Internal(detail = "a bad day") to Strings.refusedAllianceServerBody(),
+        )
+
         // The founding price as the block writes it — `AllianceBalance.FOUNDING_PRICE` through the
         // catalogue, so the assertion is about the figure the server charges rather than a string.
         val PRICE_LINE = Strings.clauses(
