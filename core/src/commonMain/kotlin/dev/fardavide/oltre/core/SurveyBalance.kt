@@ -72,9 +72,18 @@ object SurveyBalance {
     val SHIPS: Ships = Ships.of(ShipType.SCOUT, 1)
 
     // Crossing to a neighbouring galaxy costs as much as crossing a whole one end to end, so the
-    // four galaxies read as genuinely separate places rather than as one strip of a thousand
-    // systems. Nothing in 0.2 makes the other three worth reaching; the constant is here so the
-    // duration curve does not have to be redrawn the day something does.
+    // galaxies read as genuinely separate places rather than as one strip of a few thousand
+    // systems. Nothing in 0.2 makes the others worth reaching; the constant is here so the duration
+    // curve does not have to be redrawn the day something does.
+    //
+    // **It survived the space going from four galaxies to nine at 0.29.0, and the day ceiling did
+    // not.** Eight hops plus a galaxy's width is 38 hours, which broke the build's own rule that no
+    // dispatch outlasts a day. Davide's call, 2026-09-25: *"Let's revisit the rules. I'm fine to
+    // extend the probe time."* The rule that stands is about the target a player would pick — the
+    // next galaxy over, at 8h 49m, which is the range check-in gaps were measured at — and the far
+    // corner is simply far. Shrinking the hop to keep the ceiling would have made crossing to a
+    // neighbour cheaper than crossing your own galaxy, which is the one thing this constant exists
+    // to prevent.
     const val GALAXY_JUMP_UNITS: Int = SYSTEMS_PER_GALAXY_UNITS
 
     // Every probe carries this before distance is counted at all — a dispatch to the system next

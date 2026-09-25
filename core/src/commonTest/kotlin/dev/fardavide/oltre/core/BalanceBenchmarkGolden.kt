@@ -160,79 +160,79 @@ internal object BalanceBenchmarkGolden {
           atmospheric 5                                       24301   17h 14m                1.91
 
         [galaxy] the map as generated, from seed 20260807
-        worlds in the coordinate space                    4746 of 15000 slots
-          temperature band passes                         25.93%
-          gravity band passes                             25.28%
-          pressure band passes                            25.01%
-          passes every band                               1.51%
+        worlds in the coordinate space                    10686 of 33750 slots
+          temperature band passes                         25.01%
+          gravity band passes                             25.66%
+          pressure band passes                            25.09%
+          passes every band                               1.50%
         settleable at adaptation level                    count    share
-          all three ladders at 0                             13    0.27%
-          all three ladders at 1                             41    0.86%
-          all three ladders at 2                            107    2.25%
-          all three ladders at 3                            210    4.42%
-          all three ladders at 4                            349    7.35%
-          all three ladders at 6                            730   15.38%
+          all three ladders at 0                             32    0.29%
+          all three ladders at 1                            107    1.00%
+          all three ladders at 2                            264    2.47%
+          all three ladders at 3                            490    4.58%
+          all three ladders at 4                            785    7.34%
+          all three ladders at 6                           1672   15.64%
         [galaxy] the opening screen, over 100 colonies
         non-home worlds on the screen, median             5
           cheapest neighbour, levels away, median         1
-          second neighbour, levels away, median           9
-          third neighbour, levels away, median            14
+          second neighbour, levels away, median           7
+          third neighbour, levels away, median            12
         colonies with a neighbour at one level            100.00%
-        colonies with every neighbour blocked             62.00%
+        colonies with every neighbour blocked             53.00%
 
         [fleet] the hull price and one representative run
           every skiff                                     800 metal / 200 crystal, priced 1200
           every skiff takes                               2h 04m at robotics 0 · 24m at robotics 4
           five in one order take                          10h 20m at robotics 0 · 2h 04m at robotics 4
-        6h run to the next slot, round trip               32m
-          station time                                    5h 28m
-          one skiff brings home                           339 metal
-          as hours of a genesis colony's metal            3.76h
+        6h run to the next slot, round trip               36m
+          station time                                    5h 24m
+          one skiff brings home                           311 metal
+          as hours of a genesis colony's metal            3.45h
           a skiff repays itself in                        20 station-hours
         [frontier] the 24h rung at one richness — what distance and danger are worth
-          the next slot                                   band 0 · round trip 32m · 1964 metal · 1.00x
-          60 systems out                                  band 1 · round trip 2h 58m · 2217 metal · 1.12x
-          across your own galaxy                          band 2 · round trip 6h 38m · 2207 metal · 1.12x
-          the next galaxy                                 band 3 · round trip 18h 20m · 843 metal · 0.42x
+          the next slot                                   band 0 · round trip 36m · 1351 metal · 1.00x
+          60 systems out                                  band 1 · round trip 2h 58m · 1639 metal · 1.21x
+          across your own galaxy                          band 2 · round trip 5h 30m · 1816 metal · 1.34x
+          the next galaxy                                 band 3 · round trip 18h 20m · 670 metal · 0.49x
         [drive] what a Propulsion level buys, per target — round trip · rungs the ladder offers
-          the next slot at drive 0                        32m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
-          the next slot at drive 1                        26m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
-          the next slot at drive 3                        22m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 0                        36m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 1                        28m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 3                        24m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
           the next slot at drive 5                        22m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
           60 systems out at drive 0                       2h 58m · 6h 00m · 12h 00m · 24h 00m
           60 systems out at drive 1                       1h 38m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
           60 systems out at drive 3                       58m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
           60 systems out at drive 5                       46m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
-          across your own galaxy at drive 0               6h 38m · 12h 00m · 24h 00m
-          across your own galaxy at drive 1               3h 28m · 6h 00m · 12h 00m · 24h 00m
-          across your own galaxy at drive 3               1h 54m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
-          across your own galaxy at drive 5               1h 22m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 0               5h 30m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 1               2h 54m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 3               1h 36m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 5               1h 10m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
           the next galaxy at drive 0                      18h 20m · 24h 00m
           the next galaxy at drive 1                      9h 20m · 12h 00m · 24h 00m
           the next galaxy at drive 3                      4h 50m · 6h 00m · 12h 00m · 24h 00m
           the next galaxy at drive 5                      3h 20m · 6h 00m · 12h 00m · 24h 00m
         [hauler] per berth — four skiffs against one hauler, which the hauler always loses
-          per berth, the next slot at 1h 00m              156 without · the hauler cannot fly it
-          per berth, the next slot at 3h 00m              826 without · 647 with · -179 to the hauler
-          per berth, the next slot at 6h 00m              1830 without · 1652 with · -178 to the hauler
-          per berth, the next slot at 12h 00m             3839 without · 3661 with · -178 to the hauler
-          per berth, the next slot at 24h 00m             7858 without · 7679 with · -179 to the hauler
+          per berth, the next slot at 1h 00m              92 without · the hauler cannot fly it
+          per berth, the next slot at 3h 00m              554 without · 415 with · -139 to the hauler
+          per berth, the next slot at 6h 00m              1247 without · 1108 with · -139 to the hauler
+          per berth, the next slot at 12h 00m             2633 without · 2494 with · -139 to the hauler
+          per berth, the next slot at 24h 00m             5405 without · 5266 with · -139 to the hauler
         [hauler] per pool — Design's own cells: two skiffs against a hauler and two skiffs
-          per pool, the next slot at 1h 00m               78 without · the hauler cannot fly it
-          per pool, the next slot at 3h 00m               413 without · 971 with · +558 to the hauler
-          per pool, the next slot at 6h 00m               915 without · 2478 with · +1563 to the hauler
-          per pool, the next slot at 12h 00m              1919 without · 5491 with · +3572 to the hauler
-          per pool, the next slot at 24h 00m              3929 without · 8092 with · +4163 to the hauler · the vein, not the window
+          per pool, the next slot at 1h 00m               46 without · the hauler cannot fly it
+          per pool, the next slot at 3h 00m               277 without · 623 with · +346 to the hauler
+          per pool, the next slot at 6h 00m               623 without · 1663 with · +1040 to the hauler
+          per pool, the next slot at 12h 00m              1316 without · 3742 with · +2426 to the hauler
+          per pool, the next slot at 24h 00m              2702 without · 5582 with · +2880 to the hauler · the vein, not the window
           per pool, the next galaxy at 1h 00m             neither flies it
           per pool, the next galaxy at 3h 00m             neither flies it
           per pool, the next galaxy at 6h 00m             neither flies it
           per pool, the next galaxy at 12h 00m            neither flies it
-          per pool, the next galaxy at 24h 00m            1686 without · the hauler cannot fly it
+          per pool, the next galaxy at 24h 00m            1341 without · the hauler cannot fly it
         [drive] one skiff on the 24h rung at the adjacent galaxy, by level
-          level 0                                         drive 843 metal · prospecting 843 metal
-          level 1                                         drive 2182 metal · prospecting 927 metal
-          level 2                                         drive 2629 metal · prospecting 1012 metal
-          level 3                                         drive 2852 metal · prospecting 1110 metal
+          level 0                                         drive 670 metal · prospecting 670 metal
+          level 1                                         drive 1736 metal · prospecting 737 metal
+          level 2                                         drive 2091 metal · prospecting 805 metal
+          level 3                                         drive 2269 metal · prospecting 883 metal
 
         [horizon] the same fixed player, out to 90 days
         day                                               levels     mine   income/h         metal     placed

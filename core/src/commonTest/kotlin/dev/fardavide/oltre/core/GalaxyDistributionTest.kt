@@ -31,11 +31,11 @@ import kotlin.test.assertTrue
 class GalaxyDistributionTest {
 
     @Test
-    fun `the coordinate space holds about 4700 worlds`() {
-        assertEquals(15_000, GalaxyBalance.TOTAL_SLOTS)
+    fun `the coordinate space holds about 10700 worlds`() {
+        assertEquals(33_750, GalaxyBalance.TOTAL_SLOTS)
         assertTrue(
-            galaxy().size in 4_500..5_000,
-            "expected ~4,750 worlds galaxy-wide, generated ${galaxy().size}",
+            galaxy().size in 10_100..11_300,
+            "expected ~10,687 worlds universe-wide, generated ${galaxy().size}",
         )
     }
 
@@ -144,7 +144,7 @@ class GalaxyDistributionTest {
         val worlds = galaxy(OTHER_GALAXY_SEED)
         val settleable = worlds.count { it.verdictAtLevelZero() is WorldVerdict.Settleable }
 
-        assertTrue(worlds.size in 4_500..5_000, "second seed generated ${worlds.size} worlds")
+        assertTrue(worlds.size in 10_100..11_300, "second seed generated ${worlds.size} worlds")
         assertTrue(
             settleable * 10_000 / worlds.size in 20..50,
             "second seed made ${settleable * 10_000 / worlds.size} settleable per 10,000",
@@ -210,7 +210,7 @@ class GalaxyDistributionTest {
         // Somewhere the sampled worlds are not, so no sampled world is ever read as Home.
         val HOME = GalaxyCoordinate(galaxy = 1, system = 1, slot = 1)
 
-        // Six maps of 4,700 worlds each. Enough that a 1–2% row cannot hold on luck; few enough
+        // Six maps of 10,700 worlds each. Enough that a 1–2% row cannot hold on luck; few enough
         // that the whole file still runs in a couple of seconds.
         val DISTRIBUTION_SEEDS = listOf(
             TEST_GALAXY_SEED,

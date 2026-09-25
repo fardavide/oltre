@@ -46,7 +46,14 @@ data class StarMix(val dimPercent: Int, val standardPercent: Int, val brightPerc
 object GalaxyBalance {
 
     // ── The coordinate space ─────────────────────────────────────────────────────────────────
-    const val GALAXIES: Int = 4
+    //
+    // **Nine since the One Sky pass, and one universe for every player** — Davide, 2026-09-25. The
+    // four were a single-player coordinate space; the sky the galaxy tab now draws is a field of
+    // galaxies on one serpentine that cohorts open along, so the number is what a launch's worth of
+    // arrivals needs rather than what one player can visit. Three across and three down is what the
+    // universe depth reads as on a 393dp screen; the drawing derives its rows from this, so raising
+    // it again costs nothing but a longer path.
+    const val GALAXIES: Int = 9
     const val SYSTEMS_PER_GALAXY: Int = 250
     const val SLOTS_PER_SYSTEM: Int = 15
     const val TOTAL_SLOTS: Int = GALAXIES * SYSTEMS_PER_GALAXY * SLOTS_PER_SYSTEM

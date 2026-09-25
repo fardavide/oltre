@@ -12,11 +12,11 @@ import kotlin.test.assertTrue
 class GalaxyBalanceTest {
 
     @Test
-    fun `the coordinate space is 4 galaxies of 250 systems of 15 slots`() {
-        assertEquals(4, GalaxyBalance.GALAXIES)
+    fun `the coordinate space is 9 galaxies of 250 systems of 15 slots`() {
+        assertEquals(9, GalaxyBalance.GALAXIES)
         assertEquals(250, GalaxyBalance.SYSTEMS_PER_GALAXY)
         assertEquals(15, GalaxyBalance.SLOTS_PER_SYSTEM)
-        assertEquals(15_000, GalaxyBalance.TOTAL_SLOTS)
+        assertEquals(33_750, GalaxyBalance.TOTAL_SLOTS)
     }
 
     @Test
@@ -29,11 +29,11 @@ class GalaxyBalanceTest {
     }
 
     @Test
-    fun `a system averages 4_75 worlds and the galaxy holds about 4700`() {
+    fun `a system averages 4_75 worlds and the universe holds about 10700`() {
         val perSystem = (1..GalaxyBalance.SLOTS_PER_SYSTEM).sumOf { GalaxyBalance.occupancyPercent(it) }
         assertEquals(475, perSystem, "hundredths of a world per system")
         val total = perSystem * GalaxyBalance.SYSTEMS_PER_GALAXY * GalaxyBalance.GALAXIES / 100
-        assertEquals(4_750, total, "expected worlds galaxy-wide")
+        assertEquals(10_687, total, "expected worlds universe-wide")
     }
 
     @Test
@@ -245,7 +245,9 @@ class GalaxyBalanceTest {
     @Test
     fun `a coordinate outside the published space is refused rather than generated`() {
         assertFailsWith<IllegalArgumentException> { GalaxyCoordinate(galaxy = 0, system = 1, slot = 1) }
-        assertFailsWith<IllegalArgumentException> { GalaxyCoordinate(galaxy = 5, system = 1, slot = 1) }
+        assertFailsWith<IllegalArgumentException> {
+            GalaxyCoordinate(galaxy = GalaxyBalance.GALAXIES + 1, system = 1, slot = 1)
+        }
         assertFailsWith<IllegalArgumentException> { GalaxyCoordinate(galaxy = 1, system = 251, slot = 1) }
         assertFailsWith<IllegalArgumentException> { GalaxyCoordinate(galaxy = 1, system = 1, slot = 16) }
         assertFailsWith<IllegalArgumentException> { GalaxyCoordinate(galaxy = 1, system = 1, slot = 0) }
