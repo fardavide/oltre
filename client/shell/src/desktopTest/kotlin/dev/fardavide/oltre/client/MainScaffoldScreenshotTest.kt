@@ -10,11 +10,12 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
-import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import io.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.datetime.TimeZone
 import org.junit.Test
+import kotlin.time.Duration.Companion.minutes
 
 // The frame as a whole, and the only baseline that sees the starfield at all: it is drawn inside
 // the destination box, so every per-screen baseline in the repo renders the screen without the
@@ -58,6 +59,30 @@ class MainScaffoldScreenshotTest {
         }
     }
 
+    // **The field under a lean, which nothing in the repository drew until this frame.** Desktop
+    // reports `Tilt.NONE` forever, so every other baseline takes the un-wrapped branch of the draw
+    // and the sideways wrap — the arithmetic `StarfieldTest` walks — had never put a pixel down.
+    // Two thirds of a unit across and a third up: enough to carry the near plane a visible way and
+    // fold the stars that leave the right edge back in at the left, which is what the wrap is for.
+    @Test
+    fun `the field under a lean`() {
+        runDesktopComposeUiTest(width = 393, height = 600) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        Starfield(scrollOffset = { 0f }, tilt = { Tilt(x = 0.66f, y = 0.33f) })
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/starfield_leaning.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
     @Test
     fun `the frame and the field behind it in a phone-sized window`() {
         captureFrame(name = "main_scaffold")
@@ -78,29 +103,25 @@ class MainScaffoldScreenshotTest {
 
     // **The one new piece of chrome the offline era adds**, and the frame that holds where it sits:
     // under the rail, above the destination, and 22dp tall — which is exactly the height every
-    // destination loses and `GalaxyRobot.DESTINATION_HEIGHT` had to move by.
+    // destination loses and `GalaxyRobot.DESTINATION_HEIGHT` had to move by. Built through
+    // `offlineLine` rather than by hand so the frame carries the words the app puts on it: the
+    // minute is the one the server was last heard, read in the zone the frame names.
     @Test
     fun `the frame with no network`() {
-        captureFrame(
-            name = "main_scaffold_offline",
-            offline = OfflineLineUiState(
-                text = Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = false),
-            ),
-        )
+        captureFrame(name = "main_scaffold_offline", offline = offlineSinceHalfPastEleven(compact = false))
     }
 
     // The same line at 320, where the noun goes and both numbers stay — the design's rule for this
     // width, and the one string in the frame that is authored twice.
     @Test
     fun `the frame with no network in a Slide Over window`() {
-        captureFrame(
-            name = "main_scaffold_offline_slide_over",
-            width = SLIDE_OVER_WIDTH,
-            offline = OfflineLineUiState(
-                text = Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = true),
-            ),
-        )
+        captureFrame(name = "main_scaffold_offline_slide_over", width = SLIDE_OVER_WIDTH, offline = offlineSinceHalfPastEleven(compact = true))
     }
+
+    // Twenty-nine minutes before `TEST_NOW`, which is 11:31 in the zone the frame reads — the
+    // minute both offline baselines were recorded against.
+    private fun offlineSinceHalfPastEleven(compact: Boolean): OfflineLineUiState? =
+        offlineLine(reachable = false, since = TEST_NOW - 29.minutes, held = 3, timeZone = TimeZone.UTC, compact = compact)
 
     // **A real trip through the bar, recomposing `Destination`'s own `when (selected)` — not five
     // frames each composed fresh.** Every capture above hands `MainScaffold` a `selected` it never

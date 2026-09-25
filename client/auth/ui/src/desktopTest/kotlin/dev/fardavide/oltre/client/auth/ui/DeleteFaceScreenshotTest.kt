@@ -63,6 +63,14 @@ class DeleteFaceScreenshotTest {
         capture(name = "delete_face_confirm_slide_over", state = confirm(), width = SLIDE_OVER_WIDTH, compact = true)
     }
 
+    // **The four fact rows stacked**, which the Slide Over frame above cannot show because the last
+    // step has no facts. At 320 the label loses its 74dp column and the value wraps under it: every
+    // number and every name kept, nothing cut — the branch of `FactRow` no other baseline draws.
+    @Test
+    fun `the face the account row opens, in a Slide Over window`() {
+        capture(name = "delete_face_warn_slide_over", state = warn(), width = SLIDE_OVER_WIDTH, compact = true)
+    }
+
     private fun capture(
         name: String,
         state: DeleteFaceUiState,

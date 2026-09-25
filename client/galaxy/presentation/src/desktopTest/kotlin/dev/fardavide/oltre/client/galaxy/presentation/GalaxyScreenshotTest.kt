@@ -2,6 +2,8 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
@@ -19,6 +21,7 @@ import dev.fardavide.oltre.client.galaxy.ui.DESTINATION_HEIGHT
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.galaxy.ui.SLIDE_OVER_WIDTH
+import dev.fardavide.oltre.client.galaxy.ui.SkyScene
 import dev.fardavide.oltre.client.galaxy.ui.SkyViewState
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -113,6 +116,16 @@ class GalaxyScreenshotTest {
     @Test
     fun `in front of a world a run may be sent to`() {
         capture(frame = runnableWorldFrame, name = "galaxy_world_run")
+    }
+
+    // **Halfway through the dive from the region to home**, the one frame that shows the flight
+    // the design specified: 420ms, easing out, the zoom in log space and the centre in a straight
+    // line, with the bar and the count line already saying where it is going. A settled frame of
+    // either depth says nothing about it — and a flight nothing photographs is a flight that can
+    // quietly become a cut.
+    @Test
+    fun `the region halfway through the dive to home`() {
+        capture(frame = regionFrame, name = "galaxy_region_diving", dive = true)
     }
 
     // ── The slide-over width ─────────────────────────────────────────────────────────────────
@@ -309,11 +322,14 @@ class GalaxyScreenshotTest {
         frame: SkyFrame,
         name: String,
         translations: Translations = English,
+        // When set, the frame is taken mid-flight rather than settled: the dive into the frame's
+        // selection is started on the first composition and the clock is wound to the middle of it.
+        dive: Boolean = false,
     ) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
-            setContent { OltreTheme(translations) { Surface { Page(frame) } } }
-            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            setContent { OltreTheme(translations) { Surface { Page(frame, dive = dive) } } }
+            mainClock.advanceTimeBy(if (dive) HALF_FLIGHT_MILLIS else SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
@@ -324,10 +340,14 @@ class GalaxyScreenshotTest {
     // Every callback is empty: a screenshot renders a state, and a frame that could react to a tap
     // would be a frame whose baseline depended on where the mouse was.
     @Composable
-    private fun Page(frame: SkyFrame) {
+    private fun Page(frame: SkyFrame, dive: Boolean = false) {
+        val viewState = remember { SkyViewState(frame.view) }
+        if (dive) {
+            LaunchedEffect(Unit) { viewState.fly(SkyScene(frame.uiState).dived(frame.view)) }
+        }
         GalaxyPage(
             uiState = frame.uiState,
-            viewState = SkyViewState(frame.view),
+            viewState = viewState,
             onDispatchProbe = {},
             onRun = {},
             onCloseDispatch = {},
@@ -337,5 +357,10 @@ class GalaxyScreenshotTest {
             onDispatchRun = {},
             onToggleAnnounce = {},
         )
+    }
+
+    private companion object {
+        // Half of the design's 420ms, where the view is neither depth and the flight is visible.
+        const val HALF_FLIGHT_MILLIS = SkyViewState.FLIGHT_MILLIS / 2L
     }
 }

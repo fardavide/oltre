@@ -7,18 +7,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.advance
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
+import kotlin.time.Duration.Companion.hours
 
 @OptIn(ExperimentalTestApi::class)
 class ResourceRailScreenshotTest {
 
     @Test
     fun `resource rail with metal stock and rate`() {
-        capture(name = "resource_rail", throttled = false)
+        capture(name = "resource_rail", uiState = settledRail(throttled = false))
     }
 
     // The rail is the component that misled the player: it stated the throttled rate in the
@@ -26,7 +31,7 @@ class ResourceRailScreenshotTest {
     // strings take the amber and the mark, at no cost in width.
     @Test
     fun `resource rail while a power shortage throttles the rates`() {
-        capture(name = "resource_rail_throttled", throttled = true)
+        capture(name = "resource_rail_throttled", uiState = settledRail(throttled = true))
     }
 
     // A Slide Over pane, where the stock and its rate stop fitting one line. Left to the measurement
@@ -35,14 +40,39 @@ class ResourceRailScreenshotTest {
     // it gains.
     @Test
     fun `resource rail in a Slide Over window`() {
-        capture(name = "resource_rail_slide_over", throttled = false, width = SLIDE_OVER_WIDTH, height = SLIDE_OVER_HEIGHT)
+        capture(name = "resource_rail_slide_over", uiState = settledRail(throttled = false), width = SLIDE_OVER_WIDTH, height = SLIDE_OVER_HEIGHT)
+    }
+
+    // **Halfway through the arrival**, which is the one thing the rail does that the three frames
+    // above cannot show: the count from the figure the player last saw to the one the colony has
+    // accrued to, over 900ms, once. A settled frame of either end says nothing about it — and a
+    // roll nothing photographs is a roll that can quietly stop happening, or start from the wrong
+    // figure, which is the defect `App` is careful about when it sets `lastSeen` before the session.
+    //
+    // Built the way the app builds it rather than from a pair of numbers: a colony saved at noon and
+    // resumed four hours later, the arrival read off the two states by `arrivalOf`, the rail by
+    // `toResourceRailUiState`. So the figures rolling are the ones the game computes, and the frame
+    // breaks on the day either mapping does.
+    @Test
+    fun `resource rail halfway through the arrival roll`() {
+        val saved = GameState.initial(GalaxySeed(SEED))
+        val resumed = advance(saved, from = TEST_NOW, to = TEST_NOW + 4.hours)
+        val arrival = arrivalOf(saved = saved, resumed = resumed)
+        capture(
+            name = "resource_rail_arriving",
+            uiState = resumed.toResourceRailUiState(lastSeen = arrival?.lastSeen),
+            settleMillis = OltreMotion.FILL_MILLIS / 2L,
+        )
     }
 
     private fun capture(
         name: String,
-        throttled: Boolean,
+        uiState: ResourceRailUiState,
         width: Int = RAIL_WIDTH,
         height: Int = RAIL_HEIGHT,
+        // How far the clock is wound before the shutter: past the roll for a settled frame, and to
+        // the middle of it for the one frame that is about the roll.
+        settleMillis: Long = SETTLED_MILLIS,
     ) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
@@ -55,33 +85,11 @@ class ResourceRailScreenshotTest {
                     // something that fills its window, which is why this was the only one that could
                     // come out 67 pixels tall on Linux against 68 on macOS.
                     Box(modifier = Modifier.fillMaxSize()) {
-                        ResourceRail(
-                        uiState = ResourceRailUiState(
-                            // Settled: what the player last saw is what the colony holds, so the
-                            // roll has nowhere to travel and the bar draws its final figures on the
-                            // first frame. These baselines are about the cells, not the arrival.
-                            metal = ResourceStockUiState(
-                                stock = 482_910,
-                                lastSeenStock = 482_910,
-                                ratePerHour = TextRes("+12,400/h"),
-                            ),
-                            crystal = ResourceStockUiState(
-                                stock = 198_340,
-                                lastSeenStock = 198_340,
-                                ratePerHour = TextRes("+6,180/h"),
-                            ),
-                            deuterium = ResourceStockUiState(
-                                stock = 74_120,
-                                lastSeenStock = 74_120,
-                                ratePerHour = TextRes("+900/h"),
-                            ),
-                            throttled = throttled,
-                            ),
-                        )
+                        ResourceRail(uiState = uiState)
                     }
                 }
             }
-            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            mainClock.advanceTimeBy(settleMillis)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
@@ -89,7 +97,31 @@ class ResourceRailScreenshotTest {
         }
     }
 
+    // Settled: what the player last saw is what the colony holds, so the roll has nowhere to travel
+    // and the bar draws its final figures on the first frame. These baselines are about the cells,
+    // not the arrival.
+    private fun settledRail(throttled: Boolean) = ResourceRailUiState(
+        metal = ResourceStockUiState(
+            stock = 482_910,
+            lastSeenStock = 482_910,
+            ratePerHour = TextRes("+12,400/h"),
+        ),
+        crystal = ResourceStockUiState(
+            stock = 198_340,
+            lastSeenStock = 198_340,
+            ratePerHour = TextRes("+6,180/h"),
+        ),
+        deuterium = ResourceStockUiState(
+            stock = 74_120,
+            lastSeenStock = 74_120,
+            ratePerHour = TextRes("+900/h"),
+        ),
+        throttled = throttled,
+    )
+
     private companion object {
+
+        const val SEED = 20_260_807L
 
         // **The one screenshot test in the repo that used to state no window size**, and the only
         // one that could fail on a mismatch of *dimensions* rather than of pixels. A one-pixel
