@@ -4076,3 +4076,57 @@ not the founder.** Until then nobody has bought a project with another player's 
 speed perk bought out of a shared pool is by construction a thing one player cannot feel the shape of.
 Specifically unmeasured: whether a point per purchase reads as worth 110,000 at the bottom of the
 curve, and whether the ×1.5 makes the third one feel like a wall or like a ceiling approaching.
+
+## Round 35 — nine galaxies, one universe, and the probe's day ceiling goes (0.29.0, 2026-09-25)
+
+**One dial moved and one rule was dropped; nothing else in the probe's clock changed.** One Sky
+needed a universe to draw, and the four-galaxy space was sized for a universe *per player*. Davide's
+two calls, made together: nine galaxies, and everyone shares them.
+
+| Dial | Was | Now | Standing |
+|---|---|---|---|
+| `GalaxyBalance.GALAXIES` | 4 | **9** | Davide, 2026-09-25 |
+| `SurveyBalance.GALAXY_JUMP_UNITS` | 250 | 250 | unmoved — see below |
+| *no dispatch outlasts a day* | held since round 8 | **dropped** | Davide, 2026-09-25 |
+| `SurveyBalance.GRACE_SYSTEMS` | 30 | 30 | unmoved |
+| `COST_METAL` | 150 | 150 | unmoved |
+
+### The arithmetic that forced the choice
+
+A probe is 30 minutes plus a minute a unit, and a galaxy hop is 250 units. Under four galaxies the
+worst flight was three hops plus a galaxy's width — 1,000 units, **17h 10m** — and the rule that a
+dispatch never outlasts a day held with room. Under nine it is eight hops plus a width, 2,250 units,
+**38h**. Something had to give: the hop, the count, or the rule.
+
+**Shrinking the hop was rejected first.** A hop is 250 *because* it is a galaxy's width — the
+constant exists so that the next galaxy over is never closer than your own far edge, and a hop of
+100 would put galaxy 7's nearest star at 2h 10m from a home at system 137 while your own system 250
+sat at 2h 23m. The galaxies would stop being places.
+
+**Nine is not negotiable** — it is the number the universe depth draws and the number Davide asked
+for. So the rule went. Davide: *"Let's revisit the rules. I'm fine to extend the probe time."*
+
+### What the rule was for, and why it still holds where it mattered
+
+Round 8 set the probe's range against measured check-in gaps of four to nine hours, and the day
+ceiling was the build's own restatement of that: a target you would actually pick should land inside
+the gap you are about to leave. **That is still true of every target a player would pick.** The far
+corner of the *next* galaxy is at most 8h 49m, unchanged, and the caption on any star prices its flight
+before the tap, so a 38-hour probe is a thing you would have to choose with the number in front of
+you. Nothing in the harness is affected: `:sim:run`'s `probeTargetFor` picks the farthest unsurveyed
+star whose flight fits the gap ahead, so the ceiling only ever bound it on a gap over a day, and the
+bot's check-ins are hours apart.
+
+### What nine galaxies does to the light
+
+Nothing, per galaxy. `chartedCountIn` is per galaxy, the grace is thirty systems either side of a
+survey, and a genesis colony still opens on 61 of 250. The universe depth reads *9 galaxies · yours
+is 6* and eight of them are grain until a probe crosses — which, at 8h 49m to the near corner of the
+neighbour, is a deliberate overnight flight and not an accident.
+
+### What would move these numbers
+
+**A player who sends a probe across two hops.** No reading exists past one, because no player has
+had a reason to; if the far galaxies turn out to be where people want to go, the hop is the dial and
+the width is its floor. And the shared universe has no arrival yet: the first time two colonies sit
+in one galaxy is the first time the occupancy rates in `GalaxyBalance` mean anything beyond a seed.

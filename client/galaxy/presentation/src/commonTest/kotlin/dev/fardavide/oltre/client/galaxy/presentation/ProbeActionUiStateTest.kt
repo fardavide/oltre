@@ -4,8 +4,6 @@ import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.TextRes
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
@@ -25,6 +23,7 @@ import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -34,9 +33,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
-// The footer of the system card: the one place the fourth verb is bought, and the one place it
-// reports back. Six states, and which one a system is in is entirely derived — nothing about the
-// probe is stored outside `surveys` and the event log.
+// The probe's six states, and which one a system is in is entirely derived — nothing about the
+// probe is stored outside `surveys` and the event log. Since One Sky the footer that drew all six is
+// gone; what is left of it feeds the caption's verb and the dispatch sheet's refusal, and the
+// decision it makes is the same one.
 class ProbeActionUiStateTest {
 
     @Test
@@ -303,26 +303,12 @@ class ProbeActionUiStateTest {
     private fun GameState.probeActionAt(
         target: SystemAddress,
         now: Instant = EPOCH,
-        // The footer is the *system* view's furniture, so the frame has to be asked for that view:
-        // neither map scale nor the worlds list prices a flight, and building one for them would be
-        // paying for a footer nothing draws.
-    ): ProbeActionUiState = assertIs<GalaxyBodyUiState.System>(
-        toGalaxyUiState(
-            nav = navigationAt(SystemSelection(galaxy = target.galaxy, system = target.system)),
-            now = now,
-            timeZone = TimeZone.UTC,
-        ).body,
-    ).probe
-
-    // Everything a navigation still carries is furniture for the *other* three views — the query and
-    // the discovery boundary belong to the worlds list — so the footer's frame is the selection and
-    // three inert fields. It stopped needing a `GameState` at 0.12, when the chips it used to derive
-    // from one went.
-    private fun navigationAt(at: SystemSelection): GalaxyNavigation = GalaxyNavigation(
-        view = GalaxyView.SYSTEM,
-        at = at,
-        query = "",
-        seenAt = EPOCH,
+    ): ProbeActionUiState = probeActionFor(
+        at = target,
+        now = now,
+        timeZone = TimeZone.UTC,
+        held = HeldActions.NONE,
+        refusal = null,
     )
 
     private fun offerAt(state: GameState, systemsAway: Int): ProbeOfferUiState =

@@ -45,7 +45,7 @@ class LegacySaveAppBehaviourTest {
             open(OltreTab.RESEARCH)
             assertRowsReading("LV 0", count = 8)
             open(OltreTab.GALAXY)
-            assertReads("OF 250 CHARTED")
+            assertReads("of 250 charted")
         }
     }
 

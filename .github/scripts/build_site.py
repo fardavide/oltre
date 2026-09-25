@@ -54,7 +54,7 @@ ASSETS = {
     "icon.svg": "art/icon/threshold.svg",
     "icon.png": "art/icon/android/play-store-512.png",
     "shots/colony.png": "client/colony/ui/src/desktopTest/screenshots/colony_screen_watching_phone.png",
-    "shots/galaxy.png": "client/galaxy/presentation/src/desktopTest/screenshots/galaxy_ledger.png",
+    "shots/galaxy.png": "client/galaxy/presentation/src/desktopTest/screenshots/galaxy_region.png",
     "shots/fleets.png": "client/fleets/ui/src/desktopTest/screenshots/fleets_three_runs.png",
     "shots/research.png": "client/research/ui/src/desktopTest/screenshots/research_watching_phone.png",
 }

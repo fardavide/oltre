@@ -6750,3 +6750,81 @@ affordance — it is a reward for guessing.
 
 The arrow is purely additive: it is drawn in space the bar already has, it is a character the product
 already uses in *"→ LV 13"*, and **the strip stays 38dp**. That is the whole reason it won.
+
+## One sky (2026-09-25, 0.29.0)
+
+The Galaxy tab was five surfaces — the fold map, the four-disc universe grid, the system page, the
+worlds ledger, and the map/worlds switch that chose between two of them — and it is now one
+`Canvas`. Claude Design's `One Sky.dc.html` is the design; this entry is what the build settled on
+its way to it.
+
+### One drawing, five zooms, and the depth is a number
+
+`SkyView(ppu, centreX, centreY, selection)` is the whole eye: pixels per unit and a centre. Depth
+is *derived* from `ppu` — below 0.45 is the universe, below 3.4 a galaxy, below 34 a region, then a
+system, and 260 and up is a world if one is in front — so there is no page state to keep in step
+with the zoom, and a pinch that crosses a threshold changes the bar, the count and the caption
+without anybody dispatching anything. `SkyGeometry.ppuOf(depth)` is the reverse map (0.082, 2.1,
+5.6, 70, 940), and it is what a bar tap flies to.
+
+**Rejected: a depth enum the gestures set.** It is what the old tab had, three times, and every one
+of them needed a rule for what happens when the eye is between two of them. A number has no
+between.
+
+### The selection follows the eye past the galaxy depth
+
+At the universe and galaxy depths a tap selects; from the region depth in, the selection is
+whatever the eye settles on — `SkyScene.settled` picks the nearest star from 34 ppu, holds a system
+from 56, and adopts a world from 260 if it lies within `IN_FRONT` (0.45 × the short side) of the
+centre. Pan away from the world and the selection is handed back to its star. **The caption is
+therefore never about something off screen**, which is the whole complaint the old worlds ledger
+existed to answer.
+
+### Tap selects, a second tap dives, and the bar flies out
+
+Two taps rather than one because one tap must be able to *ask* about a star without committing to
+it — the caption on an unsurveyed star is the probe's price, and reading a price is not buying.
+The dive is a 420ms flight (`SkyViewState.fly`), the same animation a bar step uses to go the other
+way, so in and out are one motion reversed. `dived` from a galaxy lands on the home region if it is
+your galaxy and on the middle region (5) otherwise, because a galaxy you have never been to has no
+better place to open on.
+
+### Fog is grain at every depth, and a world is never drawn under an unsurveyed star
+
+The three tiers of 0.12 — grain, charted, surveyed — survive unchanged and now apply at every
+zoom: an uncharted galaxy is grain from the universe, an uncharted star is grain in its region, and
+at the system depth an unsurveyed star draws *sockets* where its worlds would be rather than the
+worlds. **The last one is the rule the old system page broke** by drawing discs it had generated for
+a star nobody had visited; a probe that reveals nothing you had not already seen is not a verb.
+`GalaxyPageBehaviourTest.a world is never drawn under a star nobody has charted` walks all fifteen
+slots and finds nothing to tap.
+
+### One shared universe of nine galaxies
+
+Davide, asked directly: *"All the nine galaxies and also all the players should share the same
+world, so we will not have a word for each player."* `GalaxyBalance.GALAXIES` is 9, the seed is
+one seed, and home is a placement in it rather than the origin of it. The four-galaxy space was
+sized for a universe per player; nine is what the universe depth draws as a three-by-three, and it
+is the number the design was drawn against.
+
+### The probe's day ceiling is gone
+
+Eight hops of 250 plus a galaxy's width is 38 hours, which the rule *no dispatch outlasts a day*
+could not hold without shrinking the hop, and a hop shorter than a galaxy makes the next galaxy
+over closer than your own far edge. Davide: *"Let's revisit the rules. I'm fine to extend the probe
+time."* The ceiling went; the hop stayed. Balance-log round 35 has the numbers.
+
+### The step bar scrolls to the lit step, one frame late
+
+Five steps do not fit a phone, and the one that falls off the right edge is the world — the lit
+one. `BringIntoViewRequester` from a `LaunchedEffect` asks for nothing on the first composition
+because the step has no coordinates yet; the effect waits one `withFrameNanos` first. Caught by
+the world baseline, which ended on a separator, and pinned by `the bar scrolls so the lit step is on
+screen`.
+
+### What was deleted rather than moved
+
+`GalaxyMap`, the universe grid, `SystemPage`, the worlds ledger and its search and filters, the
+map/worlds switch, the ruler band, and their strings. Nothing was kept behind a flag: a second
+surface that is never shown is a second surface that rots, and the ledger's one argument — *the
+caption is about something off screen* — is answered by the selection rule above.

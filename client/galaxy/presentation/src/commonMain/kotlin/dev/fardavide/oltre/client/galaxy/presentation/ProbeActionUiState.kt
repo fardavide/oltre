@@ -32,18 +32,18 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-// Which of the probe footer's six states the system card is in, and what each one says.
-
-
+// Which of the probe's six states a system is in, and what each one says. Since One Sky the
+// dispatch sheet is the only thing that renders one — the caption offers the verb and the sheet
+// carries its refusal — but the six states are the same six, because they are `startSurvey`'s.
 internal fun GameState.toProbeActionUiState(
-    at: SystemSelection,
+    at: SystemAddress,
     worlds: List<World>,
     now: Instant,
     timeZone: TimeZone,
     held: HeldActions,
     refusal: RefusalUiState?,
 ): ProbeActionUiState {
-    val target = SystemAddress(galaxy = at.galaxy, system = at.system)
+    val target = at
 
     // Asked first, and it has to be: a system with no worlds is *vacuously* surveyed — `hasSurveyed`
     // asks whether every occupied slot is known and there are none — so every branch below would

@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.client
 
-import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -33,7 +32,6 @@ class FlightAlertAppBehaviourTest {
         // The change this version is, from the outside: a fleet return fired unasked until now.
         app(saved = snapshot(withHulls())) {
             open(OltreTab.GALAXY)
-            openTheWorldsList()
             openTheWorld(runnable)
             sendTheRun()
 
@@ -45,7 +43,6 @@ class FlightAlertAppBehaviourTest {
     fun `a run sent with the bell lit books the one alert it is about`() {
         app(saved = snapshot(withHulls())) {
             open(OltreTab.GALAXY)
-            openTheWorldsList()
             openTheWorld(runnable)
             // Nothing is booked by the tap itself — there is no flight yet to be told about. What
             // the commit behind it saves is the position of the control.
@@ -64,7 +61,6 @@ class FlightAlertAppBehaviourTest {
         // which is the property that makes a per-flight ask cheap enough to be worth having.
         app(saved = snapshot(withHulls())) {
             open(OltreTab.GALAXY)
-            openTheWorldsList()
             openTheWorld(runnable)
             tapTheBellOnTheSheet()
             // **One hull, so there is a fleet left for the second run.** The sheet opens on the
@@ -91,7 +87,6 @@ class FlightAlertAppBehaviourTest {
     fun `the bell tapped with no signal is held and can be taken back`() {
         app(saved = snapshot(withHulls()), api = FakeOltreApi().apply { colony = null; founds = null; offline = true }) {
             open(OltreTab.GALAXY)
-            openTheWorldsList()
             openTheWorld(runnable)
 
             tapTheBellOnTheSheet()
@@ -119,10 +114,10 @@ class FlightAlertAppBehaviourTest {
         val seeded: GameState = GameState.initial(GalaxySeed(20_260_807L))
             .copy(alerts = AlertSettings.CARRIED_FORWARD)
 
-        // A world the ledger lists and a run may actually be sent to. Genesis surveys the whole home
-        // system, so its worlds are on the ledger from the first launch — and read off the seed
-        // rather than written down, because which of them is neither home nor held is the
-        // generator's answer rather than this file's guess.
+        // A world the sky draws in the home system's orbit view and a run may actually be sent to.
+        // Genesis surveys the whole home system, so its worlds are on the sky from the first launch
+        // — and read off the seed rather than written down, because which of them is neither home
+        // nor held is the generator's answer rather than this file's guess.
         private val runnableWorlds: List<GalaxyCoordinate> = seeded.galaxy.home.let { home ->
             seeded.galaxy.surveyed
                 .filter { it.galaxy == home.galaxy && it.system == home.system }

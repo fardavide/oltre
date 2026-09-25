@@ -15,54 +15,62 @@ All rights reserved. No license is granted for reuse of this code.
 <img src="client/colony/ui/src/desktopTest/screenshots/colony_screen_watching_phone.png" alt="The Colony screen: a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_ledger.png" alt="The Galaxy screen: every world you have surveyed, nearest first, each with its name, its drawn planet disc, what it is, and what is still in the ground" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_region.png" alt="The Galaxy screen: the arm of the galaxy about home, the charted stretch lit and the rest in grain, your star ringed, and the caption naming it" width="320">
 </td>
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — the worlds you know, nearest first, each with the name the seed gave it and a disc drawn from what it is: the fill is temperature, the size is gravity, the banding is pressure. Search it, filter it, or switch to the map to go and find another.</td>
+<td align="center"><b>Galaxy</b> — one sky, drawn once. Pinch out and it is nine galaxies; pinch in and it is the arm about your star, then the star and its orbits, then one world in front of you. The bar across the top spells where you are.</td>
 </tr>
 </table>
 
+### One sky
+
+The Galaxy tab is a single drawing at five zooms — universe, galaxy, region, system, world — and
+nothing on it is a page. Pinch and pan take you between them; tap a thing to select it, tap it
+again to dive into it; tap a step of the bar to fly back out. There is no list to switch to,
+because there is nothing a list would say that the sky does not.
+
+The bar is the address, not a menu: `universe / galaxy 6 / Torux Blaze / Teshezon / Teshezon IX`,
+one step per depth you have pointed at, and a step for somewhere you have not pointed at is not
+drawn. Under it, one line counts what the depth holds — nine galaxies, sixty-one systems charted,
+five worlds, one fleet out. The caption at the foot names the selection and offers the one verb
+it has: `open` to dive, `probe` to survey, `run` to send a fleet.
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_system.png" alt="The system depth: a star with its orbits, five worlds drawn as discs, the count line reading five worlds and your own system" width="320">
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_world.png" alt="The world depth: one world filling the frame, its climate and gravity and pressure on the caption, and the bar scrolled to its name" width="320">
+
 ### Sending a probe
 
-A dispatch costs 150 metal wherever it goes, so the only thing you are choosing is a **duration** —
-which is why the band across the top is a ruler measured in hours rather than a list of coordinates.
-All 250 systems of the galaxy at once, one tick each: short and faint for a dim star, tall and
-bright for a bright one, blue for yours and amber for a probe already out there. The marks say how
-long a flight to that part of the map would take, so the question the screen answers is *what can I
-reach in the nine hours I am about to be asleep?*
+Fog is grain at every depth. The stretch of arm your probes have charted is drawn with its stars
+and names; the rest is dust, and a star nobody has charted has no name, only its address. Select
+one and the caption prices the flight and says how many systems the probe would chart on its way
+— a probe past the edge of the light widens the light, which is the whole reason to send one far.
+There is no ceiling on how far: a flight to the other end of the galaxy is just a long flight.
 
-The galaxy is not symmetric around you, and the ruler says so without a word of copy: from a home
-near one edge, the hour marks simply run out on that side.
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_region_uncharted.png" alt="A star in the dark: the bar reads its range and its address, the caption says uncharted and how many systems the probe would chart, and offers the probe with its flight time" width="320">
 
-Drag the band to move; tap one of the seven cells to open a system. The cell beside the lit one is
-what the ± stepper used to be — still one tap, except it now tells you what you are stepping onto
-before you step. Crossing a galaxy used to be 249 taps.
+Once the probe is away, the sky draws its path from home and the caption reads a clock rather than
+offering a second flight. When it lands the star gains its worlds — a world is never drawn under a
+star nobody has surveyed, only a socket where one would be — and the notification you get while the
+app is closed says the same words off the same count, so the lock screen and the caption can never
+disagree about what your probe found.
 
-Everything the probe says lands in the card that owns the star it is about: the price and the
-flight, then a countdown, then what it found.
-
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
-
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
-
-**"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
-the same breath as the count rather than burying it — a run of them should read as calibration, not
-as bad luck. The notification you get while the app is closed says the same words off the same
-count, so the lock screen and the card can never disagree about what your probe found.
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_region_in_flight.png" alt="A probe in flight: the path from home to the neighbouring star, the count line reading one fleet out, and the caption counting down to landing" width="320">
 
 ### What a surveyed world says
 
 A surveyed world carries a verdict — settleable, blocked, barren, occupied — and two stocks rather
 than two richness figures. Worlds run out: a run takes from a finite deposit and a stripped world
-comes back at five percent a day, so a row reading `metal full crystal 174/819` is the difference
-between a rock worth flying to and one worth skipping this week.
+comes back at five percent a day, so a caption reading `metal full crystal 174/819` is the
+difference between a rock worth flying to and one worth skipping this week.
 
 A blocked world names the ladder that would unblock it and the level it would take, which is what
-turns 98% of the galaxy from a wall into a shopping list:
+turns 98% of the galaxy from a wall into a shopping list. The disc itself is drawn from what the
+world is: the fill is temperature, the size is gravity, the banding is pressure.
 
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: the home world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_world_run.png" alt="A surveyed world at the world depth: its verdict and stocks on the caption, and the run verb that raises the dispatch sheet" width="320">
 
 ### Sending a fleet
 
@@ -226,6 +234,25 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.ai/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.29.0 — 2026-09-25
+
+- **The Galaxy tab is one sky.** The map, the four-disc universe, the system page and the worlds
+  list are gone; in their place is a single drawing you pinch through — nine galaxies, one galaxy,
+  the arm about your star, the star and its orbits, one world in front of you. Pan to look around,
+  pinch to go deeper or further out.
+- **Tap a thing to select it, tap it again to dive into it.** The caption at the foot names what you
+  selected and offers the one verb it has: *open*, *probe* or *run*. The dispatch sheet comes up
+  from a world's caption, as before.
+- **The bar at the top spells where you are** — `universe / galaxy 6 / Torux Blaze / Teshezon` —
+  and tapping a step flies you back out to it. Under it, one line counts what the depth holds.
+- **Fog is grain.** What your probes have charted is drawn with stars and names; the rest is dust,
+  and a star nobody has charted is its address rather than a name. A world is never drawn under a
+  star nobody has surveyed — only a socket where it would be.
+- **Nine galaxies, and everyone shares them.** There is one universe now, not one per player, and
+  a galaxy hop is 250 units on the same ruler as everything else.
+- **A probe can fly as far as you like.** The day-long ceiling on a survey flight is gone; the far
+  side of the galaxy is just a long flight, and the caption says how many systems it would chart.
 
 ### 0.28.1 — 2026-09-19
 

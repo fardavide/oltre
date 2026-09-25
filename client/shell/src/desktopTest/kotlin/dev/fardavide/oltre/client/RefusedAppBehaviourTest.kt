@@ -86,7 +86,6 @@ class RefusedAppBehaviourTest {
 
     private fun AppRobot.openTheSheet() = apply {
         open(OltreTab.GALAXY)
-        openTheWorldsList()
         openTheWorld(runnable)
     }
 

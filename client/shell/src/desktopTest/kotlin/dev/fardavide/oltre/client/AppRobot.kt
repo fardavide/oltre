@@ -58,7 +58,8 @@ import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.client.player.ui.IdentityTestTags
 import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
-import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
+import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
+import dev.fardavide.oltre.client.galaxy.ui.SkyViewState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
@@ -249,14 +250,6 @@ internal class AppRobot(
         // well before either.
         repeat(2) { test.mainClock.advanceTimeByFrame() }
         test.mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS.toLong())
-        test.waitForIdle()
-    }
-
-    // The Galaxy tab's own switch, reached from the shell rather than from the feature: what this
-    // adds over `LedgerBehaviourTest`'s version of it is the composition root's half — the lambda
-    // that turns a tap into a line in a preferences file.
-    fun openTheWorldsList() = apply {
-        test.onNodeWithTag(GalaxyTestTags.mode(LedgerMode.WORLDS)).performClick()
         test.waitForIdle()
     }
 
@@ -665,22 +658,35 @@ internal class AppRobot(
         )
     }
 
-    // ── The dispatch sheet, from the ledger ─────────────────────────────────────────────────
+    // ── The dispatch sheet, from the sky ────────────────────────────────────────────────────
     //
     // Three taps that only mean anything together, which is why they are here rather than in a
     // feature Robot: the bell is a control on the sheet and the alert it is worth is booked by the
     // composition root's commit, and nothing below this can see both ends.
 
+    // **Down to the world and onto its sheet.** Since One Sky the tab is one drawing, so a world is
+    // reached by flying rather than by scrolling: the system step of the bar frames the selected
+    // system's orbits — from the landing, which selects home, and equally from a world the last run
+    // was sent to — then the world's anchor twice, once to select it and once to open it, and the
+    // caption's verb at the world depth is the run. Every flight is `FLIGHT_MILLIS` long, walked
+    // explicitly for the tests that hold the clock.
+    //
+    // By anchor rather than by text, because the orbit view is drawn on a canvas and the anchors are
+    // the one thing on it a test can address — see `GalaxyTestTags`.
     fun openTheWorld(at: GalaxyCoordinate) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(at)).performScrollTo().performClick()
+        test.onNodeWithTag(GalaxyTestTags.step(SkyDepth.SYSTEM)).performClick()
+        letTheFlightLand()
+        test.onNodeWithTag(GalaxyTestTags.world(at)).performClick()
+        test.waitForIdle()
+        test.onNodeWithTag(GalaxyTestTags.world(at)).performClick()
+        letTheFlightLand()
+        test.onNodeWithTag(GalaxyTestTags.CAPTION_ACTION).performClick()
         test.waitForIdle()
     }
 
-    // **The map card's verb**, which is the second of the two that cannot be held. Reached by tag
-    // because the word on it changes with the window — `Dispatch probe` at 393 and `Dispatch` at 320
-    // — and a robot that could only find one of them would pass on a phone and fail on an iPad.
-    fun dispatchTheProbe() = apply {
-        test.onNodeWithTag(GalaxyTestTags.DISPATCH).performScrollTo().performClick()
+    private fun letTheFlightLand() {
+        repeat(2) { test.mainClock.advanceTimeByFrame() }
+        test.mainClock.advanceTimeBy(SkyViewState.FLIGHT_MILLIS.toLong())
         test.waitForIdle()
     }
 

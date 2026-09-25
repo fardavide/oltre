@@ -7,7 +7,6 @@ import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.FleetBalance
@@ -22,6 +21,7 @@ import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
@@ -229,7 +229,7 @@ class DispatchUiStateTest {
     fun `a window that will not fit is absent rather than dead and the sheet says why`() {
         // The only way to show "too far" without a control that refuses its own tap — and the rung
         // that vanishes is the copy: a ladder narrowing teaches distance before any sentence does.
-        val far = SystemSelection(galaxy = home.galaxy + 1, system = home.system)
+        val far = SystemAddress(galaxy = home.galaxy + 1, system = home.system)
         val target = firstWorld(far)
 
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, surveying(target)))
@@ -244,7 +244,7 @@ class DispatchUiStateTest {
 
     @Test
     fun `a world nobody has looked at cannot be priced and hands back the flight that would fix it`() {
-        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system - 1)
 
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere)))
 
@@ -264,7 +264,7 @@ class DispatchUiStateTest {
         // **`CARRIED_FORWARD` on both, because a new colony's settings take the bell off the sheet
         // entirely** — a run and a probe are both announced by their kind there. The test below is
         // that case.
-        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system - 1)
         val quiet = withSkiffs(1).copy(alerts = AlertSettings.CARRIED_FORWARD)
         val asked = quiet.copy(announceFlights = true)
 
@@ -288,7 +288,7 @@ class DispatchUiStateTest {
         // **Both, and asserted together for the reason the test above states it**: the two squares
         // are renderings of one flag, so a mapper that removed one and kept the other would leave a
         // control on the sheet that the scheduler no longer consults.
-        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system - 1)
 
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
         val probe = assertIs<RefuseActionUiState.Probe>(
@@ -305,7 +305,7 @@ class DispatchUiStateTest {
         // has no map card above the sheet, so it passes null. The refusal still says why the world
         // cannot be priced; what it must not do is invent a flight, or quote a cost it was not
         // given.
-        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system - 1)
         val target = firstWorld(elsewhere)
 
         val refusal = assertIs<DispatchUiState.Refuse>(
@@ -501,7 +501,7 @@ class DispatchUiStateTest {
         // on says nothing about which world a row is. A selection that carried a slot alone read the
         // page's system for the other two thirds of the address and priced a different world — the
         // same slot of wherever the player last looked, which on the ledger's own screen is home.
-        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system - 1)
         val target = firstWorld(elsewhere)
 
         val sheet = assertNotNull(dispatchAt(target, state = surveying(target)))
@@ -653,7 +653,7 @@ class DispatchUiStateTest {
     // an offer it cannot honour is the dead control this whole layer exists to prevent.
     private val state: GameState =
         GameState.initial(seed).copy(galaxy = galaxy, ships = Ships.of(ShipType.SCOUT, 1))
-    private val homeSelection = SystemSelection(galaxy = home.galaxy, system = home.system)
+    private val homeSelection = SystemAddress(galaxy = home.galaxy, system = home.system)
 
     // ── The vein, which is where this sheet's mechanic actually lives ────────────────────────
 
@@ -895,7 +895,7 @@ class DispatchUiStateTest {
 
     @Test
     fun `a target in another galaxy is priced as a whole galaxy away`() {
-        val far = SystemSelection(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
+        val far = SystemAddress(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
         val target = firstWorld(far)
 
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, state = surveying(target)))
@@ -1006,7 +1006,7 @@ class DispatchUiStateTest {
         (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { it != home.slot && worldAt(seed, homeSystemAt(it)) != null },
     )
 
-    private fun firstWorld(at: SystemSelection): GalaxyCoordinate = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+    private fun firstWorld(at: SystemAddress): GalaxyCoordinate = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
         .map { GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it) }
         .first { worldAt(seed, it) != null }
 
@@ -1020,7 +1020,7 @@ class DispatchUiStateTest {
         announced = false,
     )
 
-    private fun worldsIn(at: SystemSelection): List<World> = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+    private fun worldsIn(at: SystemAddress): List<World> = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
         .mapNotNull { worldAt(seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it)) }
 
     private fun dispatchAt(
@@ -1030,7 +1030,7 @@ class DispatchUiStateTest {
     ): DispatchUiState? {
         // The target's own system, which is the only one the sheet knows about: a ledger row belongs
         // to wherever it came from, and nothing here may stand in for the page's.
-        val its = SystemSelection(galaxy = target.galaxy, system = target.system)
+        val its = SystemAddress.of(target)
         return state.toDispatchUiState(
             selection = selection,
             // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only

@@ -17,6 +17,15 @@ and obeyed; where it named an option without choosing, this sheet chooses and sa
 > table; the reasoning is in `decisions.md` under "The Sky pass". Everything else here — the
 > verdicts, the thresholds, the balance — is untouched.
 
+> **Superseded again, 2026-09-25 (0.29.0, One Sky).** The Galaxy tab is one zoomable `Canvas`
+> across five depths — universe, galaxy, region, system, world — and the map, the universe grid,
+> the system page and the worlds ledger this sheet describes as separate screens no longer exist.
+> §4's space is **nine** galaxies, not four, and it is **one universe shared by every player**
+> rather than one per seed. The survey's day ceiling is gone (Davide, 2026-09-25: *"Let's revisit
+> the rules. I'm fine to extend the probe time"*); the 250-unit galaxy hop stays. The reasoning is
+> in `decisions.md` under "One sky" and in balance-log round 35. The verdicts, thresholds and
+> occupancy rates below are untouched.
+
 ---
 
 ## The one-sentence version
@@ -109,11 +118,12 @@ blocks, which is the only actionable part).
 
 `galaxy : system : slot` — the mockup's `2 : 118` with a slot number under it.
 
-- **4 galaxies × 250 systems × 15 slots** = 15,000 slots.
+- **4 galaxies × 250 systems × 15 slots** = 15,000 slots. *(Nine galaxies since 0.29.0 — see the
+  supersession note at the top; the per-galaxy figures below still hold.)*
 - A slot holds a world with probability **0.45 for slots 4–10** and **0.20 for slots 1–3 and
   11–15**, so a system averages ~4.75 worlds and the mockup's "4 / 15 occupied" is typical.
 - **~4,700 worlds total**, ~1,180 per galaxy. That is Notion's "hundreds of systems", four times
-  over.
+  over. *(~10,600 across nine.)*
 
 **Temperature is a function of slot.** `slot 1` is the hottest orbit and `slot 15` the coldest,
 offset by star class (`Dim −40 °C`, `Standard 0`, `Bright +40 °C`) plus jitter. This is why the

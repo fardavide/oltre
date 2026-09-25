@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.0", "2026-09-25", "Un solo cielo",
+            "La scheda Galassia è un disegno solo: dalle nove galassie fino a un singolo mondo.",
+            "Tocca una cosa per sceglierla, toccala di nuovo per entrarci; la barra dice dove sei.",
+            "Nove galassie, condivise da tutti. Una sonda vola lontano quanto vuoi.",
+        ),
+        release(
             "0.28.1", "2026-09-19", "Fondala ora dice quando fallisce",
             "Un rifiuto che non era un nome o un tag già presi non faceva nulla. Ora parla.",
             "Dice quale delle quattro cose è successa, perché ognuna richiede una mossa diversa.",

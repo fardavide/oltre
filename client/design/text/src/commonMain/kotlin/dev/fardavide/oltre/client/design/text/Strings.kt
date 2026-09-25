@@ -364,11 +364,6 @@ object Strings {
 
     fun yourOwnSystem(): TextRes = message(StringId.YourOwnSystem)
 
-    // The same three words, capitalised, because on the astronomy line they open the sentence and on
-    // the dispatch sheet's danger line they sit inside one. Two entries rather than a `capitalize()`
-    // for `resourceTitle`'s reason: case is not a transformation a language shares.
-    fun yourOwnSystemCapitalised(): TextRes = message(StringId.YourOwnSystemCapitalised)
-
     fun anotherGalaxy(): TextRes = message(StringId.AnotherGalaxy)
 
     // "195 units out". Takes the *written* number rather than the figure, because the two callers
@@ -871,9 +866,6 @@ object Strings {
 
     // ── The Galaxy tab ───────────────────────────────────────────────────────────────────────
 
-    // "G3" — the galaxy chip, the tab and the universe disc all name a galaxy this way.
-    fun galaxyLabel(galaxy: Int): TextRes = message(StringId.GalaxyLabel, Arg.Number(galaxy.toLong()))
-
     // "Galaxy 3" — the universe caption, which has the room the chip does not.
     fun galaxyNamed(galaxy: Int): TextRes = message(StringId.GalaxyNamed, Arg.Number(galaxy.toLong()))
 
@@ -882,8 +874,6 @@ object Strings {
     fun systemsCount(count: TextRes): TextRes = message(StringId.SystemsCount, Arg.Text(count))
 
     fun surveyedCount(count: Int): TextRes = message(StringId.SurveyedCount, Arg.Count(count))
-
-    fun pinnedCount(count: Int): TextRes = message(StringId.PinnedCount, Arg.Count(count))
 
     // "61 of 250 charted" — fog's whole readout, on the head's count line and on a galaxy disc.
     // Deliberately **not** a second progression gauge: the player strip counts what you are, this
@@ -903,7 +893,7 @@ object Strings {
     fun systemsOut(count: Int): TextRes = message(StringId.SystemsOut, Arg.Count(count))
 
     // "1–25" — a band whose name the light has not reached yet says where it is instead. The en
-    // dash is the house form for a range, as in `reachRange` above.
+    // dash is the house form for a range.
     fun systemRange(from: Int, to: Int): TextRes =
         message(StringId.SystemRange, Arg.Number(from.toLong()), Arg.Number(to.toLong()))
 
@@ -911,27 +901,8 @@ object Strings {
     fun systemAddress(galaxy: Int, system: Int): TextRes =
         message(StringId.SystemAddressLabel, Arg.Number(galaxy.toLong()), Arg.Number(system.toLong()))
 
-    // The relay's one sentence. It states its effect and stops: no holding mechanic exists until
-    // multiplayer, and a relay has no hold for a fleet to fill either.
-    fun relayEffect(): TextRes = message(StringId.RelayEffect)
-
-    // "danger 2 from here" — the astronomy line's fuller form, which drops "from here" when the
-    // whole line will not fit and falls back to `dangerLevel`.
-    fun dangerFromHere(danger: Int): TextRes =
-        message(StringId.DangerFromHere, Arg.Number(danger.toLong()))
-
     // "20m out and back"
     fun reachSingle(trip: TextRes): TextRes = message(StringId.ReachSingle, Arg.Text(trip))
-
-    // "1h 04m–2h 12m out and back"
-    fun reachRange(from: TextRes, to: TextRes): TextRes =
-        message(StringId.ReachRange, Arg.Text(from), Arg.Text(to))
-
-    // "20–26m out and back" — the collapsed form, and it is the *language's* collapse rather than
-    // the mapper's: which unit may be elided from the near end of a range is a fact about how the
-    // language writes durations. The caller says only that both ends are minutes, by calling this.
-    fun reachRangeMinutes(fromMinutes: Long, to: TextRes): TextRes =
-        message(StringId.ReachRangeMinutes, Arg.Number(fromMinutes), Arg.Text(to))
 
     fun starClassName(starClass: StarClass): TextRes = message(
         when (starClass) {
@@ -941,22 +912,11 @@ object Strings {
         },
     )
 
-    // "standard · 3 worlds", and the compact form drops the noun rather than a figure.
-    fun starDetail(starClass: StarClass, worlds: Int): TextRes =
-        message(StringId.StarDetail, Arg.Text(starClassName(starClass)), Arg.Count(worlds))
-
-    fun starDetailCompact(starClass: StarClass, worlds: Int): TextRes =
-        message(StringId.StarDetailCompact, Arg.Text(starClassName(starClass)), Arg.Count(worlds))
-
     // "no worlds" at zero, which is a different sentence rather than a zero.
     fun worldCount(count: Int): TextRes = message(StringId.WorldCount, Arg.Count(count))
 
     fun worldsSurveyedCount(count: Int): TextRes =
         message(StringId.WorldsSurveyedCount, Arg.Count(count))
-
-    fun noWorlds(): TextRes = message(StringId.NoWorlds)
-
-    fun homeNote(): TextRes = message(StringId.HomeNote)
 
     fun probeLandsIn(wait: TextRes): TextRes = message(StringId.ProbeLandsIn, Arg.Text(wait))
 
@@ -967,9 +927,6 @@ object Strings {
     // card above it is already about the probe.
     fun probeFlightLabel(duration: TextRes): TextRes =
         message(StringId.ProbeFlightLabel, Arg.Text(duration))
-
-    // "run 9h 20m"
-    fun runFlight(duration: TextRes): TextRes = message(StringId.RunFlight, Arg.Text(duration))
 
     fun nothingToSurvey(slots: Int): TextRes =
         message(StringId.NothingToSurvey, Arg.Number(slots.toLong()))
@@ -995,9 +952,6 @@ object Strings {
     fun gravityReading(value: TextRes): TextRes = message(StringId.GravityReading, Arg.Text(value))
 
     fun pressureReading(value: TextRes): TextRes = message(StringId.PressureReading, Arg.Text(value))
-
-    // "found 5h 12m ago"
-    fun foundAgo(elapsed: TextRes): TextRes = message(StringId.FoundAgo, Arg.Text(elapsed))
 
     fun axisName(axis: HostilityAxis): TextRes = message(
         when (axis) {
@@ -1050,42 +1004,18 @@ object Strings {
 
     fun noteHome(): TextRes = message(StringId.NoteHome)
 
-    fun noteOccupied(holder: TextRes): TextRes = message(StringId.NoteOccupied, Arg.Text(holder))
-
-    fun noteSettleable(): TextRes = message(StringId.NoteSettleable)
-
     // "Yield 0.71, worth it at 0.92" — naming the threshold is what makes a run of Barren answers
     // read as calibration rather than as bad luck.
     fun noteBarren(yield: TextRes, threshold: TextRes): TextRes =
         message(StringId.NoteBarren, Arg.Text(yield), Arg.Text(threshold))
-
-    fun noteBarrenDiscovery(): TextRes = message(StringId.NoteBarrenDiscovery)
-
-    fun noteBlocked(): TextRes = message(StringId.NoteBlocked)
-
-    // "Gravitic 9 would land it."
-    fun noteWouldLandIt(technology: TextRes, level: Int): TextRes =
-        message(StringId.NoteWouldLandIt, Arg.Text(technology), Arg.Number(level.toLong()))
-
-    fun noteSurveyed(): TextRes = message(StringId.NoteSurveyed)
-
-    fun worthItAt(threshold: TextRes): TextRes = message(StringId.WorthItAt, Arg.Text(threshold))
 
     // "174/819" — a deposit read as a fraction, because 120 of 600 and 120 of 2,400 are the same
     // number and not the same target.
     fun depositFraction(remaining: TextRes, cap: TextRes): TextRes =
         message(StringId.DepositFraction, Arg.Text(remaining), Arg.Text(cap))
 
-    fun ledgerEmptyHeadline(): TextRes = message(StringId.LedgerEmptyHeadline)
-
-    fun ledgerEmptyDetail(): TextRes = message(StringId.LedgerEmptyDetail)
-
-    fun ledgerNoMatchHeadline(): TextRes = message(StringId.LedgerNoMatchHeadline)
-
-    fun ledgerNoMatchDetail(): TextRes = message(StringId.LedgerNoMatchDetail)
-
-    // The one word at the right end of a world row. `UNSURVEYED` has none — an empty socket is the
-    // state, stated in the position the state belongs in.
+    // The verdict as one word, on the count line at the world depth. `UNSURVEYED` has none — an
+    // empty socket is the state, stated in the position the state belongs in.
     fun verdictWordHome(): TextRes = message(StringId.VerdictWordHome)
 
     fun verdictWordOccupied(): TextRes = message(StringId.VerdictWordOccupied)
@@ -1096,32 +1026,46 @@ object Strings {
 
     fun verdictWordSettleable(): TextRes = message(StringId.VerdictWordSettleable)
 
-    // "SURVEYED" over one discovery card, "3 WORLDS SURVEYED" over several. Two entries rather than
-    // a count of one, because the singular heading names no number at all.
-    fun discoveriesHeadingOne(): TextRes = message(StringId.DiscoveriesHeadingOne)
-
-    fun discoveriesHeadingMany(count: Int): TextRes =
-        message(StringId.DiscoveriesHeadingMany, Arg.Count(count))
-
-    fun pinnedHeading(): TextRes = message(StringId.PinnedHeading)
-
-    fun relayLabel(): TextRes = message(StringId.RelayLabel)
-
-    fun ledgerModeWorlds(): TextRes = message(StringId.LedgerModeWorlds)
-
-    fun ledgerModeMap(): TextRes = message(StringId.LedgerModeMap)
-
-    fun searchPlaceholder(): TextRes = message(StringId.SearchPlaceholder)
-
     // "gravity 2.62, you tolerate 1.45 g" — the unit is written once, on the tolerance, because both
     // figures are the same axis and the four characters that saves keep the ladder on the line.
     fun blockedAxisLine(axis: TextRes, reading: TextRes, tolerated: TextRes): TextRes =
         message(StringId.BlockedAxisLine, Arg.Text(axis), Arg.Text(reading), Arg.Text(tolerated))
 
-    // The middot on its own, between two `Text`s in two colours rather than inside one string.
-    fun middot(): TextRes = message(StringId.MiddotStandalone)
+    // ── One sky: the step bar, the count line and the caption at the five depths ─────────────
 
-    fun orbitSlot(slot: Int): TextRes = message(StringId.OrbitSlot, Arg.Number(slot.toLong()))
+    // The first step of the address, and the caption's coordinate for a galaxy you are in.
+    fun universeWord(): TextRes = message(StringId.UniverseWord)
+
+    fun yoursIsGalaxy(galaxy: Int): TextRes =
+        message(StringId.YoursIsGalaxy, Arg.Number(galaxy.toLong()))
+
+    fun yoursWord(): TextRes = message(StringId.YoursWord)
+
+    // The caption's pill where the only verb is diving one depth in.
+    fun openWord(): TextRes = message(StringId.OpenWord)
+
+    // The caption's pill on a world with a deposit left: opens the dispatch sheet.
+    fun runVerb(): TextRes = message(StringId.RunVerb)
+
+    fun fleetsOut(count: Int): TextRes = message(StringId.FleetsOut, Arg.Count(count))
+
+    // "3h 20m to its edge" — the flight to the far side of a region, so the number is the worst
+    // case a probe into it can cost.
+    fun toItsEdge(duration: TextRes): TextRes = message(StringId.ToItsEdge, Arg.Text(duration))
+
+    // The deposits a probe has found in a region or a system, counted as veins.
+    fun veinsCount(count: Int): TextRes = message(StringId.VeinsCount, Arg.Count(count))
+
+    fun unsurveyedWord(): TextRes = message(StringId.UnsurveyedWord)
+
+    fun slotWord(slot: Int): TextRes = message(StringId.SlotWord, Arg.Number(slot.toLong()))
+
+    // "galaxy 3" — the bar's step, lower-case because the address reads as one line:
+    // `universe / galaxy 3 / Elyutis Reach / …`.
+    fun galaxyStep(galaxy: Int): TextRes = message(StringId.GalaxyStep, Arg.Number(galaxy.toLong()))
+
+    // The caption's second line on a world a fleet of yours is at or bound for.
+    fun yourRun(): TextRes = message(StringId.YourRun)
 
     // ── The shell ────────────────────────────────────────────────────────────────────────────
 

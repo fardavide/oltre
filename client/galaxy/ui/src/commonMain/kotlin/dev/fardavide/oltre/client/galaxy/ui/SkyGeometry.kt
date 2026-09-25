@@ -97,6 +97,14 @@ class SkyGeometry(private val homeGalaxy: Int) {
         }
     }
 
+    // A point given in the galaxy's own frame — upright, unsquashed, about its core — placed in the
+    // sky: for the dust the canvas scatters through a bulge or along a ring.
+    fun skyOf(galaxy: Int, localX: Float, localY: Float): SkyPoint {
+        val centre = centreOf(galaxy)
+        val inclined = incline(shapeOf(galaxy), localX, localY)
+        return SkyPoint(x = centre.x + inclined.x, y = centre.y + inclined.y)
+    }
+
     // **The path itself**, with the two directions a drawing needs at every point on it: along the
     // arm, which is where a region's name is set and where a drift travels, and across it, which is
     // where a system's worlds are strung and where a label is pushed clear of the light.

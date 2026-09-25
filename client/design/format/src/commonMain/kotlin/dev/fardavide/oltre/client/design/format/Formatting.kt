@@ -122,7 +122,7 @@ fun Long.groupedByThousands(): TextRes = Strings.groupedNumber(this)
 
 // ── The three physical quantities the galaxy is measured in ──────────────────────────────────
 //
-// These were private to `GalaxyUiState` until the adaptation branch reached the Research screen.
+// These were private to the galaxy mapper until the adaptation branch reached the Research screen.
 // Both screens now print the same axes — Galaxy as a world's reading against a bound ("gravity
 // 2.62, you tolerate 1.45 g"), Research as the band that bound comes from ("0.65 … 1.40 → 0.60 …
 // 1.52 g") — and the second is only readable against the first if they are written identically.

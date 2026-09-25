@@ -281,7 +281,7 @@ class MainScaffoldBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
-                        galaxy = { _, _ -> Text(GALAXY_MARKER) },
+                        galaxy = { Text(GALAXY_MARKER) },
                         ships = { scroll, mode, onSelectMode ->
                             ShipsScreen(
                                 scrollState = scroll,
@@ -368,7 +368,7 @@ class MainScaffoldBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
-                        galaxy = { _, _ -> Text(GALAXY_MARKER) },
+                        galaxy = { Text(GALAXY_MARKER) },
                         ships = ships,
                         alliance = alliance,
                         // Null: a colony with signal, which is what every test here that is not about

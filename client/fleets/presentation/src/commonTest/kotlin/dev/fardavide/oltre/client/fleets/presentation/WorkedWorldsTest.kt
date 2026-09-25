@@ -240,7 +240,8 @@ class WorkedWorldsTest {
 
         val row = state.worked().rows.single()
 
-        assertTrue(English.resolve(row.prefix).startsWith("[3:"), English.resolve(row.prefix))
+        // The home galaxy's, whichever the seed puts the colony in.
+        assertTrue(English.resolve(row.prefix).startsWith("[${near.galaxy}:"), English.resolve(row.prefix))
         // The name is the identity now, and the address is in the sheet's own head one tap later.
         assertEquals("1 run", English.resolve(row.compactPrefix))
     }

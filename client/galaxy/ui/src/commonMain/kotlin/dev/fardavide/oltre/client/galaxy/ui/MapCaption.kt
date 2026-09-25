@@ -3,7 +3,6 @@ package dev.fardavide.oltre.client.galaxy.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,25 +23,26 @@ import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
-import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.settlingColor
 
-// **The whole bar is the 44dp target**, which is what lets the stars be 3dp across and still cost
-// nothing to miss: you scrub with a thumb anywhere on the drawing and act down here, where there is
-// room for a finger. Tapping it opens the system the map has selected — the one real push in the
-// tab, because a system is a different kind of object and it is where you act.
+// **The whole bar is the 44dp target**, which is what lets a star be two pixels across and still
+// cost nothing to miss: you scrub with a thumb anywhere on the sky and act down here, where there
+// is room for a finger. Tapping it dives one depth into what is selected — the same thing a second
+// tap on the selection does, for the thumb that would rather not aim.
 //
-// The trailing element is the only other thing that can be tapped, and only when there is a probe to
-// send. A probe is aimed at a **star**, so the map may aim one; a run is aimed at a **world**, and
-// worlds are what a survey pays for, so the map quotes the run's clock and sends you to the orbit
-// page to choose. One rule, straight out of the knowledge tiers.
+// The trailing pill is the only other thing that can be tapped, and it carries the one verb the
+// selection affords beyond the dive. A probe is aimed at a **star**, so a star may send one; a run
+// is aimed at a **world**, and worlds are what a survey pays for, so a surveyed world offers the
+// run and the sheet prices it. One rule, straight out of the knowledge tiers.
 @Composable
 internal fun MapCaption(
     uiState: MapCaptionUiState,
     compact: Boolean,
     onOpen: () -> Unit,
     onDispatchProbe: () -> Unit,
+    onRun: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -87,9 +87,9 @@ internal fun MapCaption(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                // A galaxy's caption has no address inside itself, so the resolved line is empty
-                // and there is nothing to draw — checked on the resolved string, because whether a
-                // message is empty is the language's answer rather than the model's.
+                // The universe has no address inside itself, so the resolved line is empty and there
+                // is nothing to draw — checked on the resolved string, because whether a message is
+                // empty is the language's answer rather than the model's.
                 val coordinate = uiState.coordinate.resolve()
                 if (coordinate.isNotEmpty()) {
                     Text(
@@ -110,26 +110,40 @@ internal fun MapCaption(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            uiState.detail?.let { detail ->
+                Text(
+                    text = detail.resolve(),
+                    color = OltreColors.textTertiary,
+                    fontFamily = oltreMono(),
+                    fontSize = 10.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        when (val trailing = uiState.trailing) {
+        uiState.trailing?.let { trailing ->
+            // A ghost rather than a filled button, and the difference is load-bearing: it sits
+            // beside a name that is already accented by being selected, and two solid accents in
+            // one bar is the screen shouting at itself. Amber for the run, because amber is your
+            // fleet everywhere the sky draws one.
+            val (onClick, colour) = when (trailing) {
+                is MapCaptionTrailingUiState.Dispatch -> onDispatchProbe to OltreColors.accent
+                is MapCaptionTrailingUiState.Run -> onRun to OltreColors.warn
+                is MapCaptionTrailingUiState.Open -> onOpen to OltreColors.accent
+            }
             // `PressableFace`, because this claims 44dp and draws about 30: the ripple belongs on
             // the ghost rather than on the whole height the button asks the row for.
-            is MapCaptionTrailingUiState.Dispatch -> PressableFace(
-                onClick = onDispatchProbe,
+            PressableFace(
+                onClick = onClick,
                 shape = oltreActionShape,
                 modifier = Modifier
                     .heightIn(min = TOUCH_MINIMUM)
                     .testTag(GalaxyTestTags.CAPTION_ACTION),
-                faceModifier = Modifier
-                    .border(1.dp, OltreColors.accent.copy(alpha = 0.45f), oltreActionShape),
+                faceModifier = Modifier.border(1.dp, colour.copy(alpha = 0.45f), oltreActionShape),
             ) {
-                // A ghost rather than a filled button, and the difference is load-bearing: the
-                // filled accent verb belongs to the orbit page's footer, where the whole screen is
-                // about one system. Here it sits beside a name that is already accented by being
-                // selected, and two solid accents in one bar is the screen shouting at itself.
                 Text(
                     text = trailing.label.resolve(),
-                    color = OltreColors.accent,
+                    color = colour,
                     fontFamily = oltreMono(),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -138,16 +152,6 @@ internal fun MapCaption(
                     modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                 )
             }
-
-            is MapCaptionTrailingUiState.Note -> Text(
-                text = trailing.label.resolve(),
-                color = OltreColors.textTertiary,
-                fontFamily = oltreMono(),
-                fontSize = 10.5.sp,
-                maxLines = 1,
-                softWrap = false,
-            )
-
         }
     }
 }
@@ -155,6 +159,6 @@ internal fun MapCaption(
 private val TOUCH_MINIMUM = 44.dp
 private val SHAPE = RoundedCornerShape(14.dp)
 
-// The opaque card fill, not white at 4.5%: the starfield sits behind the content column on the
-// worlds list, and an alpha fill would let stars through the card so they read as dust on it.
+// The opaque card fill, not white at 4.5%: it sits on the sky, and an alpha fill would let the
+// stars through the card so they read as dust on it.
 private val CARD_FILL = Color(0xFF101218)

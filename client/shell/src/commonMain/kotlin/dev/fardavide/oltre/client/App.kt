@@ -103,7 +103,6 @@ import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.client.design.text.translationsFor
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
-import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
@@ -468,18 +467,17 @@ fun App(
             // it, the moment it has been shown — and by the first action the player takes, because
             // once they have changed the colony themselves, "while you were away" is old news.
             var finishedWhileAway by remember { mutableStateOf<AwayCompletion?>(null) }
-            // **The map until the player says otherwise.** Claude Design's call for the landing
-            // screen, with Davide's amendment that it should then follow whichever list was last
-            // used. Read once, written on every switch, and the tab is composed with the map before
-            // the file comes back — which is right rather than a race, because the map is the
-            // default and a first launch has no file to wait for.
-            var galaxyLanding by remember { mutableStateOf(GalaxyLanding.MAP) }
-            // **The whole record, beside the one field of it the frame reads.** Since 0.19 the
-            // preferences file holds two things, and a write is always about one of them — so the
-            // other has to come from somewhere. Keeping the loaded record here is what makes
-            // `copy(…)` possible: without it, saving a landing would have to invent a value for the
-            // version whose changelog has been read, and inventing one is how a player gets told
-            // twice or never.
+            // **The whole record, beside the fields of it the frame reads.** Since 0.19 the
+            // preferences file holds more than one thing, and a write is always about one of them —
+            // so the others have to come from somewhere. Keeping the loaded record here is what
+            // makes `copy(…)` possible: without it, saving one field would have to invent a value
+            // for the version whose changelog has been read, and inventing one is how a player gets
+            // told twice or never.
+            //
+            // `galaxyLanding` is still on the record and nothing here reads it any more: the Galaxy
+            // tab stopped having two pages to land on when One Sky made it one drawing. The field
+            // stays in the file so a save written by an earlier build still loads, and the
+            // composition root simply carries it through.
             var remembered by remember { mutableStateOf(Preferences.NONE) }
 
             LaunchedEffect(shakeDetector) {
@@ -789,7 +787,6 @@ fun App(
                 // that both touch one record is one effect.
                 val loaded = preferences.load()
                 remembered = loaded
-                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
                 provider = loaded.provider.toAuthProvider()
                 // **Read back rather than started from nothing**, which is the whole point of writing
                 // it down: a cold launch with no signal has to be able to say *since when*.
@@ -2063,28 +2060,14 @@ fun App(
                         },
                         // The galaxy stopped being read-only at 0.2.0: surveying is a colony action
                         // with no ship in it, so the fourth verb goes through the same path the other
-                        // three do. Which system is on screen is still the feature's own navigation
-                        // rather than the shell's — what it asks the shell for is the way to the
-                        // Research tab, because a blocked world's remedy is a tap target and only the
-                        // scaffold can change destination.
-                        galaxy = { scroll, openResearch ->
+                        // three do. Where the eye is — the zoom, the centre and the selection — is
+                        // the feature's own navigation rather than the shell's, and since One Sky
+                        // it asks the shell for nothing but the verbs.
+                        galaxy = {
                             GalaxyScreen(
-                                scrollState = scroll,
                                 state = current.state,
                                 now = current.lastUpdatedAt,
-                                // What the ledger's discovery section is measured from: the instant
-                                // this launch advanced from, so a world surveyed while the app was
-                                // closed is new and one surveyed before that is not.
-                                since = current.resumedFrom,
                                 timeZone = TimeZone.currentSystemDefault(),
-                                onOpenResearch = openResearch,
-                                landing = galaxyLanding,
-                                onLandingChange = { chosen ->
-                                    galaxyLanding = chosen
-                                    val next = remembered.copy(galaxyLanding = chosen.name)
-                                    remembered = next
-                                    scope.launch { preferences.save(next) }
-                                },
                                 onDispatchProbe = { target -> ask(ClientVerb.StartSurvey(target)) },
                                 // **The fifth verb, reaching a finger for the first time.** `core`
                                 // has carried `startRun` since 0.3.0 and nothing called it: the
@@ -2571,14 +2554,6 @@ private class AccountWork {
     // control in the app that cannot be repeated behind a request that may take the whole timeout.
     val lock: Mutex = Mutex()
 }
-
-// **The composition root is where the two vocabularies meet**, and that is not an accident of layout:
-// `:client:save:data` may not see a `presentation` module, so the file stores the name of the landing
-// and this is the one place that knows what the name means. An unreadable or unknown value is the
-// map, which is also what a first launch gets — so a preferences file corrupted between builds costs
-// a player one tap rather than a wrong screen.
-private fun String?.toGalaxyLanding(): GalaxyLanding =
-    GalaxyLanding.entries.firstOrNull { it.name == this } ?: GalaxyLanding.MAP
 
 // **The Account section, and the two rows it holds.** Built here because it is the one part of the
 // settings sheet that is not about the colony: who is signed in is the composition root's to know,
