@@ -40,6 +40,7 @@ import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.test.runTest
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -1304,10 +1305,19 @@ class GameNotificationsTest {
     // asking `futureEvents` what each candidate would report rather than by hardcoding a
     // coordinate: the prediction is the thing under test's own input, so a fixture picked this way
     // cannot disagree with it, and it survives the seed's home moving.
+    //
+    // **Every star of the home galaxy, nearest first**, rather than `awayFromHome`'s walk: that
+    // helper goes up until the edge and then down from the far side, so a home in the middle of the
+    // galaxy leaves the near side below it unvisited — and since the universe grew to nine, the
+    // settleable world nearest 6:137 is on that side.
     private fun surveyingSomething(settleable: Boolean): GameState {
         val state = wealthy().copy(announceFlights = true)
-        for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
-            val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
+        val home = state.galaxy.home
+        val candidates = (1..GalaxyBalance.SYSTEMS_PER_GALAXY)
+            .filter { it != home.system }
+            .sortedBy { abs(it - home.system) }
+        for (system in candidates) {
+            val started = startSurvey(state, SystemAddress(galaxy = home.galaxy, system = system), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
             val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             if ((landing.settleable > 0) == settleable) return started.state

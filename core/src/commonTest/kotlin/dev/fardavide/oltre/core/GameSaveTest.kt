@@ -79,7 +79,7 @@ class GameSaveTest {
                 // Two fields, one slot — at most one of them is ever anything but null.
                 """"activeResearch":null,"activeAdaptation":null,""" +
                 // The whole galaxy, in one line: a seed, where home is, the handful of worlds the
-                // home system holds, and who owns what. Four thousand seven hundred worlds of
+                // home system holds, and who owns what. Ten thousand seven hundred worlds of
                 // traits are absent on purpose — they are regenerated from that seed.
                 //
                 // **The home coordinate moved at 0.5.1 and the schema did not**, which is the one
@@ -91,16 +91,20 @@ class GameSaveTest {
                 // system it was founded in. The frozen `VERSION_*` fixtures below still carry
                 // [3:165:7] for exactly that reason, and must never be rewritten to agree with
                 // this one.
-                """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":171,"slot":7},""" +
-                """"surveyed":[{"galaxy":3,"system":171,"slot":1},{"galaxy":3,"system":171,"slot":2},""" +
-                """{"galaxy":3,"system":171,"slot":4},{"galaxy":3,"system":171,"slot":7},""" +
-                """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
-                """{"galaxy":3,"system":171,"slot":11}],""" +
-                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}],""" +
+                //
+                // **It moved again at 0.29.0, and for the same kind of reason**: nine galaxies
+                // instead of four is a wider draw for `seededGalaxyOf`, so the test seed's home
+                // landed at [6:137:9]. An installed save is untouched — its `home` is on disk and
+                // every galaxy index it can hold is still inside the wider space.
+                """"galaxy":{"seed":20260807,"home":{"galaxy":6,"system":137,"slot":9},""" +
+                """"surveyed":[{"galaxy":6,"system":137,"slot":6},{"galaxy":6,"system":137,"slot":7},""" +
+                """{"galaxy":6,"system":137,"slot":9},{"galaxy":6,"system":137,"slot":10},""" +
+                """{"galaxy":6,"system":137,"slot":12}],""" +
+                """"ownership":[{"at":{"galaxy":6,"system":137,"slot":9},"holder":"player"}],""" +
                 // The fog, and it is two integers: an hour of flight either side of the one place a
-                // new colony is standing. 171 ± 30, so a genesis save opens on 61 of 250 systems.
-                // Absent for the other three galaxies rather than empty — nothing has been there.
-                """"deposits":[],"pinned":[],"charted":[{"galaxy":3,"lo":141,"hi":201}]},""" +
+                // new colony is standing. 137 ± 30, so a genesis save opens on 61 of 250 systems.
+                // Absent for the other eight galaxies rather than empty — nothing has been there.
+                """"deposits":[],"pinned":[],"charted":[{"galaxy":6,"lo":107,"hi":167}]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
@@ -1306,6 +1310,13 @@ class GameSaveTest {
         )
     }
 
+    // The one span a genesis save carries, read off the state rather than pasted. **Derived because
+    // where genesis lands is content and not format**: the 0.29.0 widening to nine galaxies moved it
+    // from [3:141–201] to [6:107–167], and three tamper tests that had the old numbers inline
+    // silently stopped tampering — their `replace` matched nothing, so a well-formed save was
+    // asserted to be rejected and was not.
+    private fun genesisSpan(): ChartedSpan = GameState.initial().galaxy.charted.single()
+
     // Derived from the state rather than pasted, for the reason the whole fixture chain is.
     private fun chartedKey(state: GameState): String =
         ""","charted":[""" +
@@ -1742,8 +1753,9 @@ class GameSaveTest {
 
     @Test
     fun `a save whose charted span runs backwards decodes to a failure`() {
+        val span = genesisSpan()
         val tampered = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
-            .replace(""""lo":141,"hi":201""", """"lo":201,"hi":141""")
+            .replace(""""lo":${span.lo},"hi":${span.hi}""", """"lo":${span.hi},"hi":${span.lo}""")
 
         assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
     }
@@ -1755,15 +1767,16 @@ class GameSaveTest {
         // own synthetic constructor, and `init` is the one thing both share. Every bound, both ways,
         // because a span read off disk is the only span nothing has clamped.
         val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
-        val span = """"galaxy":3,"lo":141,"hi":201"""
+        val charted = genesisSpan()
+        val span = """"galaxy":${charted.galaxy},"lo":${charted.lo},"hi":${charted.hi}"""
 
         for (broken in listOf(
-            """"galaxy":0,"lo":141,"hi":201""",
-            """"galaxy":9,"lo":141,"hi":201""",
-            """"galaxy":3,"lo":0,"hi":201""",
-            """"galaxy":3,"lo":251,"hi":251""",
-            """"galaxy":3,"lo":141,"hi":251""",
-            """"galaxy":3,"lo":1,"hi":0""",
+            """"galaxy":0,"lo":${charted.lo},"hi":${charted.hi}""",
+            """"galaxy":${GalaxyBalance.GALAXIES + 1},"lo":${charted.lo},"hi":${charted.hi}""",
+            """"galaxy":${charted.galaxy},"lo":0,"hi":${charted.hi}""",
+            """"galaxy":${charted.galaxy},"lo":251,"hi":251""",
+            """"galaxy":${charted.galaxy},"lo":${charted.lo},"hi":251""",
+            """"galaxy":${charted.galaxy},"lo":1,"hi":0""",
         )) {
             assertIs<DecodeResult.Failure>(GameSave.decode(genesis.replace(span, broken)), broken)
         }
@@ -1774,9 +1787,11 @@ class GameSaveTest {
         // The uniqueness `GalaxyState.init` keeps, met the only way it can be broken: by hand. Two
         // spans for one galaxy is a map with two frontiers and no rule for which is the light.
         val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        val span = genesisSpan()
+        val one = """{"galaxy":${span.galaxy},"lo":${span.lo},"hi":${span.hi}}"""
         val doubled = genesis.replace(
-            """"charted":[{"galaxy":3,"lo":141,"hi":201}]""",
-            """"charted":[{"galaxy":3,"lo":141,"hi":201},{"galaxy":3,"lo":10,"hi":20}]""",
+            """"charted":[$one]""",
+            """"charted":[$one,{"galaxy":${span.galaxy},"lo":10,"hi":20}]""",
         )
 
         assertIs<DecodeResult.Failure>(GameSave.decode(doubled))

@@ -40,17 +40,16 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // exists — and since 0.8.0 the list is complete: five destinations, five parameters, and nothing
 // left that the frame has to apologise for. `resources` is the exception that proves it: the rail is
 // chrome rather than a feature, framing every destination exactly as the tab bar does.
-// `galaxy` takes a parameter the other two do not: the way to the Research tab. A blocked world
-// names the ladder that would land it, and since 0.0.18 that string is a tap target — but which
-// destination is showing is the scaffold's state, so the galaxy cannot select a tab and must be
-// handed the ability to ask. It stays a lambda rather than becoming a hoisted `selected` because
-// the feature has no opinion about tabs beyond "take me to that one".
 // Each destination takes the `ScrollState` it must scroll with rather than remembering one of its
 // own, and that is the Sky pass's one structural change to this file. The starfield behind the
 // destinations is the scaffold's, and it shifts with the list in front of it — so the scaffold has
 // to be able to read how far that list has got. Hoisting the state is the only way to say it out
 // loud; the alternative is a screen writing its offset into somewhere the frame happens to read,
 // which is the same coupling with none of it visible in a signature.
+// **`galaxy` is the one destination that takes nothing**, since One Sky. It has no list: the sky is
+// the scroll, a pinch and a pan move it, and it paints its own ground over the starfield. And it no
+// longer asks for the way to Research — the ledger row that named a blocked world's remedy went with
+// the ledger, and the caption on a world says what it is rather than where to fix it.
 //
 // One state per destination rather than one shared, because they are three different lists: coming
 // back to Colony from Research should find Colony where it was left, and a single hoisted state
@@ -66,11 +65,11 @@ internal fun MainScaffold(
     resources: ResourceRailUiState,
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
-    galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
-    // Takes the mode and the way to change it, for the reason `galaxy` takes `onOpenResearch`: the
-    // scaffold is what survives a switch away and back, so the chip Ships was showing has to be
-    // hoisted here rather than remembered inside a composable `AnimatedContent` tears down the
-    // moment another destination is selected. See `shipsMode` below.
+    galaxy: @Composable () -> Unit,
+    // Takes the mode and the way to change it, because the scaffold is what survives a switch away
+    // and back: the chip Ships was showing has to be hoisted here rather than remembered inside a
+    // composable `AnimatedContent` tears down the moment another destination is selected. See
+    // `shipsMode` below.
     ships: @Composable (ScrollState, ShipsMode, onSelectShipsMode: (ShipsMode) -> Unit) -> Unit,
     alliance: @Composable (ScrollState) -> Unit,
     // The second thing the field behind the destinations moves on, after the scroll above. A lambda
@@ -105,7 +104,6 @@ internal fun MainScaffold(
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
     val colonyScroll = rememberScrollState()
     val researchScroll = rememberScrollState()
-    val galaxyScroll = rememberScrollState()
     val shipsScroll = rememberScrollState()
     val allianceScroll = rememberScrollState()
     // Which of Ships' two chips is showing, hoisted for the same reason `selected` is: a value
@@ -136,11 +134,9 @@ internal fun MainScaffold(
                 alliance = alliance,
                 colonyScroll = colonyScroll,
                 researchScroll = researchScroll,
-                galaxyScroll = galaxyScroll,
                 shipsScroll = shipsScroll,
                 allianceScroll = allianceScroll,
                 tilt = tilt,
-                onOpenResearch = { selected = OltreTab.RESEARCH },
                 shipsMode = shipsMode,
                 onSelectShipsMode = { shipsMode = it },
             )
@@ -154,29 +150,27 @@ private fun Destination(
     selected: OltreTab,
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
-    galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
+    galaxy: @Composable () -> Unit,
     ships: @Composable (ScrollState, ShipsMode, onSelectShipsMode: (ShipsMode) -> Unit) -> Unit,
     alliance: @Composable (ScrollState) -> Unit,
     colonyScroll: ScrollState,
     researchScroll: ScrollState,
-    galaxyScroll: ScrollState,
     shipsScroll: ScrollState,
     allianceScroll: ScrollState,
     tilt: () -> Tilt,
-    onOpenResearch: () -> Unit,
     shipsMode: ShipsMode,
     onSelectShipsMode: (ShipsMode) -> Unit,
 ) {
-    // Every destination scrolls now, so the field behind every one of them moves. The nullable this
-    // used to be — "the two tabs with no screen have nothing to scroll" — went with the two tabs
-    // that had no screen; a `null` branch kept for a case that cannot occur is a case a reader has
-    // to rule out on every pass.
-    val scroll = when (selected) {
-        OltreTab.COLONY -> colonyScroll
-        OltreTab.RESEARCH -> researchScroll
-        OltreTab.GALAXY -> galaxyScroll
-        OltreTab.SHIPS -> shipsScroll
-        OltreTab.ALLIANCE -> allianceScroll
+    // The field behind a destination moves with the list in front of it, and the galaxy has no list:
+    // the sky is its own ground and covers the field entirely, so the offset behind it is the one
+    // value nothing can see. Zero rather than a nullable — a `null` branch kept for a plane nobody
+    // can look at is a case a reader has to rule out on every pass.
+    val offset: () -> Float = when (selected) {
+        OltreTab.COLONY -> { { colonyScroll.value.toFloat() } }
+        OltreTab.RESEARCH -> { { researchScroll.value.toFloat() } }
+        OltreTab.GALAXY -> { { 0f } }
+        OltreTab.SHIPS -> { { shipsScroll.value.toFloat() } }
+        OltreTab.ALLIANCE -> { { allianceScroll.value.toFloat() } }
     }
     Box(modifier = Modifier.fillMaxSize()) {
         // Inside the destination box and first in it, so it sits under every screen and under none
@@ -192,7 +186,7 @@ private fun Destination(
         //
         // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.
-        Starfield(scrollOffset = { scroll.value.toFloat() }, tilt = tilt)
+        Starfield(scrollOffset = offset, tilt = tilt)
         // **The one place the app navigates, so the one place a navigation can be drawn.** Until
         // 0.13.1 this was a bare `when` and a tab change was a hard cut: five screens swapped between
         // two frames with nothing between them, which is the single thing that made the app read as
@@ -235,7 +229,7 @@ private fun Destination(
             when (destination) {
                 OltreTab.COLONY -> colony(colonyScroll)
                 OltreTab.RESEARCH -> research(researchScroll)
-                OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
+                OltreTab.GALAXY -> galaxy()
                 OltreTab.SHIPS -> ships(shipsScroll, shipsMode, onSelectShipsMode)
                 OltreTab.ALLIANCE -> alliance(allianceScroll)
             }

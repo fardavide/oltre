@@ -270,7 +270,7 @@ kover {
                 // Left in, the screenshot row stops measuring how well the drawings are covered
                 // and starts measuring **what fraction of the repository is not drawable** — the
                 // unit row's defect with the sign flipped. 0.9.1 is where that became load-bearing:
-                // the frames stopped deriving themselves from `toGalaxyUiState`, so the mappers
+                // the frames stopped deriving themselves from the galaxy mapper, so the mappers
                 // left the screenshot pass's reach and the row fell 62.1% -> 47.0% on a change that
                 // deleted no screenshot test, moved no baseline by a byte, and drew nothing less.
                 // Chasing that number back would mean screenshot tests that map a real `GameState`

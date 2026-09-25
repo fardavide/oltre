@@ -73,9 +73,7 @@ object Italian : Translations {
         // are feminine while two are not.
         StringId.DoneAt -> "termina ${args.clock()}"
         StringId.HomeAt -> "rientro ${args.clock()}"
-        StringId.LandsAt -> "arriva ${args.clock()}"
         StringId.LandedAt -> "arrivata ${args.clock()}"
-        StringId.ProbeLandedAt -> "Sonda arrivata ${args.clock()}"
 
         // ── The design system's own words ────────────────────────────────────────────────────
         // `LV` abbreviates *livello* as readily as it abbreviates "level", so the badge is unchanged.
@@ -129,7 +127,6 @@ object Italian : Translations {
         StringId.Build -> "Costruisci"
         StringId.AvailableIn -> "tra ${args.text(0)}"
         StringId.AvailableNever -> "—"
-        StringId.ProbeNeedsScout -> "serve un esploratore"
         StringId.ScoutName -> "Esploratore"
         StringId.ScoutPurpose -> "Nessuna stiva · l'unico scafo che può esplorare"
         StringId.SkiffName -> "Scialuppa"
@@ -203,7 +200,6 @@ object Italian : Translations {
         StringId.DangerNothingAdded -> "non aggiunge nulla"
         StringId.DangerBonus -> "+${args.number(0)}% della stiva"
         StringId.YourOwnSystem -> "il tuo sistema"
-        StringId.YourOwnSystemCapitalised -> "Il tuo sistema"
         StringId.AnotherGalaxy -> "un'altra galassia"
         StringId.UnitsOut -> "${args.text(0)} unità di distanza"
         StringId.BothDepositsEmpty -> "Tutti e due i giacimenti sono vuoti."
@@ -482,12 +478,10 @@ object Italian : Translations {
         StringId.WorldRowSeparator -> "${args.text(0)} · "
 
         // ── The Galaxy tab ───────────────────────────────────────────────────────────────────
-        StringId.GalaxyLabel -> "G${args.number(0)}"
         StringId.GalaxyNamed -> "Galassia ${args.number(0)}"
         StringId.GalaxiesCount -> args.count(0).let { "$it ${it.plural("galassia", "galassie")}" }
         StringId.SystemsCount -> "${args.text(0)} sistemi"
         StringId.SurveyedCount -> "${args.count(0)} rilevati"
-        StringId.PinnedCount -> "${args.count(0)} fissati"
         StringId.ChartedOfSystems -> "${args.text(0)} di ${args.text(1)} mappati"
         StringId.UnchartedWord -> "non mappato"
         StringId.ChartsSystems -> args.count(0).let { "mappa $it ${it.plural("sistema", "sistemi")}" }
@@ -496,40 +490,20 @@ object Italian : Translations {
         StringId.SystemsOut -> args.count(0).let { "a $it ${it.plural("sistema", "sistemi")}" }
         StringId.SystemRange -> "${args.number(0)}–${args.number(1)}"
         StringId.SystemAddressLabel -> "[${args.number(0)}:${args.number(1)}]"
-        StringId.RelayEffect -> "Relè · conteso · +18% di portata mentre lo tieni"
-        StringId.DangerFromHere -> "pericolo ${args.number(0)} da qui"
         StringId.ReachSingle -> "${args.text(0)} andata e ritorno"
-        StringId.ReachRange -> "${args.text(0)}–${args.text(1)} andata e ritorno"
-        // The near end loses its unit because the far end carries one, exactly as it does in English
-        // — and for the same reason, it only works while both ends are minutes.
-        StringId.ReachRangeMinutes -> "${args.number(0)}–${args.text(1)} andata e ritorno"
         StringId.StarClassDim -> "debole"
         StringId.StarClassStandard -> "normale"
         StringId.StarClassBright -> "brillante"
-        StringId.StarDetail -> args.count(1).let { "${args.text(0)} · $it ${it.plural("mondo", "mondi")}" }
-        StringId.StarDetailCompact -> "${args.text(0)} · ${args.count(1)}"
         StringId.WorldCount -> args.count(0).let {
             if (it == 0) "nessun mondo" else "$it ${it.plural("mondo", "mondi")}"
         }
-        StringId.WorldsSurveyedCount ->
-            args.count(0).let { "$it ${it.plural("mondo rilevato", "mondi rilevati")}" }
-        StringId.NoWorlds -> "nessun mondo"
-        StringId.HomeNote -> "casa"
         StringId.ProbeLandsIn -> "la sonda arriva tra ${args.text(0)}"
         StringId.ProbeFlight -> "sonda ${args.text(0)}"
         StringId.ProbeFlightLabel -> "volo ${args.text(0)}"
-        StringId.RunFlight -> "corsa ${args.text(0)}"
-        StringId.NothingToSurvey -> "${args.number(0)} slot vuoti · niente da rilevare"
-        StringId.SurveyedAtGenesis -> "Rilevato alla genesi"
         StringId.DispatchProbe -> "Invia sonda"
-        StringId.DispatchProbeCompact -> "Invia"
-        StringId.FindSettleable -> "${args.count(0)} colonizzabili"
-        StringId.FindNearMiss -> "${args.count(0)} bloccati su un asse"
-        StringId.FindNone -> "nessuno colonizzabile"
         StringId.TemperatureReading -> "${args.text(0)}$UNIT_GAP°C"
         StringId.GravityReading -> "${args.text(0)}${UNIT_GAP}g"
         StringId.PressureReading -> "${args.text(0)}${UNIT_GAP}atm"
-        StringId.FoundAgo -> "trovato ${args.text(0)} fa"
         StringId.AxisTemperature -> "temperatura"
         StringId.AxisGravity -> "gravità"
         StringId.AxisPressure -> "pressione"
@@ -569,36 +543,27 @@ object Italian : Translations {
 
         // Every one of these describes a world, and *mondo* is masculine — which is what makes the
         // participles below safe where the same word next to a hull's name would not be.
-        StringId.NoteHome -> "La tua colonia."
-        StringId.NoteOccupied -> "Occupato da ${args.text(0)}."
-        StringId.NoteSettleable -> "Niente qui blocca una colonia."
+        StringId.NoteHome -> "la tua colonia"
         StringId.NoteBarren -> "Resa ${args.text(0)}, ne vale la pena a ${args.text(1)}"
-        StringId.NoteBarrenDiscovery -> "Passa ogni banda, e non vale la pena prenderlo."
-        StringId.NoteBlocked -> "Bloccato."
-        StringId.NoteWouldLandIt -> "${args.text(0)} ${args.number(1)} lo sbloccherebbe."
-        StringId.NoteSurveyed -> "Rilevato."
-        StringId.WorthItAt -> "ne vale la pena a ${args.text(0)}"
         StringId.DepositFraction -> "${args.text(0)}/${args.text(1)}"
-        StringId.LedgerEmptyHeadline -> "Ogni mondo che una sonda raggiunge finisce qui."
-        StringId.LedgerEmptyDetail -> "Non hai ancora rilevato niente."
-        StringId.LedgerNoMatchHeadline -> "Nessun mondo che conosci si chiama così."
-        StringId.LedgerNoMatchDetail ->
-            "I nomi sono unici in una galassia, quindi un nome completo trova un posto solo."
         StringId.VerdictWordHome -> "Casa"
         StringId.VerdictWordOccupied -> "Occupato"
         StringId.VerdictWordBlocked -> "Bloccato"
         StringId.VerdictWordBarren -> "Arido"
         StringId.VerdictWordSettleable -> "Colonizzabile"
-        StringId.DiscoveriesHeadingOne -> "RILEVATO"
-        StringId.DiscoveriesHeadingMany -> "${args.count(0)} MONDI RILEVATI"
-        StringId.PinnedHeading -> "FISSATI"
-        StringId.RelayLabel -> "RELÈ"
-        StringId.LedgerModeWorlds -> "mondi"
-        StringId.LedgerModeMap -> "mappa"
-        StringId.SearchPlaceholder -> "nome"
         StringId.BlockedAxisLine -> "${args.text(0)} ${args.text(1)}, tolleri ${args.text(2)}"
-        StringId.MiddotStandalone -> "·"
-        StringId.OrbitSlot -> "${args.number(0)}"
+        StringId.UniverseWord -> "universo"
+        StringId.YoursIsGalaxy -> "la tua è la ${args.number(0)}"
+        StringId.YoursWord -> "tua"
+        StringId.OpenWord -> "apri"
+        StringId.RunVerb -> "corsa"
+        StringId.FleetsOut -> args.count(0).let { "$it ${it.plural("flotta", "flotte")} in volo" }
+        StringId.ToItsEdge -> "${args.text(0)} al suo bordo"
+        StringId.VeinsCount -> args.count(0).let { "$it ${it.plural("vena", "vene")}" }
+        StringId.UnsurveyedWord -> "non rilevato"
+        StringId.SlotWord -> "orbita ${args.number(0)}"
+        StringId.GalaxyStep -> "galassia ${args.number(0)}"
+        StringId.YourRun -> "la tua corsa"
 
         // ── The shell ────────────────────────────────────────────────────────────────────────
         StringId.TabColony -> "Colonia"

@@ -145,9 +145,9 @@ internal fun Starfield(
 // version of this arithmetic shipped at 0.4.0 with no wrap at all and emptied the bottom of the sky
 // on any scrolled list — a defect an adversarial review found and a green build did not, because
 // nothing rendered it. The horizontal version is the same shape with the same failure mode, and it
-// is worse off: a screenshot baseline for a leaning field cannot be recorded by a session with no
-// Roborazzi, so **nothing in this repository draws this branch at all.** Pulled out here, the part
-// that could actually be wrong is arithmetic, and `StarfieldTest` walks it.
+// was worse off: desktop reports `Tilt.NONE` forever, so until `starfield_leaning` no baseline
+// drew this branch at all. Pulled out here, the part that could actually be wrong is arithmetic,
+// and `StarfieldTest` walks it; the frame shows the fold.
 //
 // The companion copy is drawn at `x - width` rather than `x + width`, and that is not arbitrary: at
 // `- width` the second copy is off the left edge and clipped away when the lean is zero, where at

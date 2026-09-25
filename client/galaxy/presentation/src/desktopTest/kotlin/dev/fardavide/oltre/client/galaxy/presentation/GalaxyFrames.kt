@@ -1,136 +1,159 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
-import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
+import dev.fardavide.oltre.client.galaxy.ui.SkyGeometry
+import dev.fardavide.oltre.client.galaxy.ui.SkyScene
+import dev.fardavide.oltre.client.galaxy.ui.SkySelection
+import dev.fardavide.oltre.client.galaxy.ui.SkyUiState
+import dev.fardavide.oltre.client.galaxy.ui.SkyView
+import dev.fardavide.oltre.client.galaxy.ui.landing
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertIs
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 // **Every frame the Galaxy tab is photographed in, derived from a real `GameState` through the real
-// mapper.** Until 0.11 these were three thousand lines of Kotlin emitted by a generator and pasted
-// into `:client:galaxy:ui-testing`, and that file's own header named the cost it was accepting:
+// mapper.** Since 0.11 a frame is the same call the app makes, so a mapper that re-words anything
+// moves a baseline — which is what a baseline is for. See the header this file carried before One
+// Sky for the three thousand lines of stated fixtures that rule replaced.
 //
-//   *"the drift the old header warned about is now real again. Nothing recomputes these; a mapper
-//    that re-words a verdict or re-rounds a richness leaves this file asserting the old text, and
-//    the baselines will agree with it."*
-//
-// **The redesign made that unaffordable rather than merely untidy** — every row, every header and
-// the whole body shape changed at once, so a hand-stated copy would have had to be regenerated
-// wholesale anyway. What it is replaced with is the thing the split was thought to forbid: the
-// screenshot tests moved from `:client:galaxy:ui` to this module, which owns the same feature and
-// *can* see a `GameState`. The `screenshot-testing` skill asks for the owning client module's
-// `desktopTest`, and this is one.
-//
-// So a frame is now `state.toGalaxyUiState(nav)` — the same call the app makes — and a mapper that
-// re-words anything moves a baseline, which is what a baseline is for.
+// **A frame is now a picture and an eye.** The old tab had three pages and a frame named one of
+// them; the sky has one drawing and five zooms of it, so a frame carries the `SkyUiState` the mapper
+// built for a selection at a depth *and* the `SkyView` that shows it — the zoom the step bar would
+// fly to, centred where the bar would centre it. The harness holds the eye and the page draws it.
 
-// The colony every frame describes. One seed, so a coordinate means the same thing in all of them.
+internal class SkyFrame(val uiState: SkyUiState, val view: SkyView)
+
+// The colony every frame describes. One seed, so a coordinate means the same thing in all of them:
+// home is 6:137, Teshezon, in Torux Blaze, with the light at genesis running 107…167.
 internal val frameState: GameState = testGameState
 
 internal fun frame(
     state: GameState = frameState,
-    // The map, because that is what the tab lands on since 0.12 — a default that is the screen a
-    // player actually opens on is the one worth having in every frame that does not say otherwise.
-    view: GalaxyView = GalaxyView.MAP,
-    at: SystemSelection = state.homeSelection(),
-    query: String = "",
-    // Where the frame's "what happened while you were away" span begins. Every frame but the
-    // discovery one starts it at the frame's own instant — an empty span, so nothing is new and a
-    // card cannot appear in a baseline that is not about one.
-    seenAt: Instant = FIXTURE_NOW,
+    selection: SkySelection = SkySelection.System(SystemAddress.of(state.galaxy.home)),
+    // The region about home, because that is what the tab lands on: a default that is the screen
+    // a player actually opens on is the one worth having in every frame that does not say otherwise.
+    depth: SkyDepth = SkyDepth.REGION,
+    now: Instant = FIXTURE_NOW,
     dispatch: DispatchSelection? = null,
-): GalaxyUiState = state.toGalaxyUiState(
-    nav = GalaxyNavigation(view = view, at = at, query = query, seenAt = seenAt),
-    now = FIXTURE_NOW,
-    timeZone = TimeZone.UTC,
-    dispatch = dispatch,
-)
-
-internal fun GameState.homeSelection(): SystemSelection =
-    SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system)
+): SkyFrame {
+    val uiState = state.toSkyUiState(
+        selection = selection,
+        depth = depth,
+        now = now,
+        timeZone = TimeZone.UTC,
+        dispatch = dispatch,
+    )
+    // The landing frames the star itself; every other step of the bar frames what the step is
+    // about, which for a region is its middle rather than one star in it.
+    val landing = uiState.landing()
+    val view = if (depth == landing.depth && selection == landing.selection) {
+        landing
+    } else {
+        SkyScene(uiState).flightTo(landing, depth, selection)
+    }
+    return SkyFrame(uiState, view)
+}
 
 // A neighbour nobody has looked at: 249 systems in 250 are in this state on the day the slice
-// ships, so it is the screen rather than a stage before the screen.
-internal fun GameState.neighbourSelection(): SystemSelection =
-    homeSelection().let { it.copy(system = (it.system + 1).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)) }
+// ships, so it is the screen rather than a stage before the screen. One system out, so a genesis
+// colony can afford the probe the caption offers.
+internal fun GameState.neighbour(): SystemAddress = SystemAddress.of(galaxy.home).let {
+    it.copy(system = (it.system + 1).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY))
+}
 
-// That neighbour as a whole page. 249 systems in 250 read exactly like this on the day the slice
-// ships, so it is the screen an unsurveyed row has to be honest on rather than a stage before one.
-internal val unsurveyedSystemUiState: GalaxyUiState =
-    frame(view = GalaxyView.SYSTEM, at = frameState.neighbourSelection())
+// ── the five depths, on the day the slice ships ────────────────────────────────────────────
 
-// A colony a fortnight in: it has surveyed a spread of systems, so the ledger has something to sort
-// and the region index has something to count. Built by surveying rather than by hand-writing a set,
-// so every world in it is one a probe could really have reached.
-internal val wellTravelledState: GameState = frameState.surveying(
-    systems = listOf(-7, -1, 2, 6, 13),
+internal val universeFrame: SkyFrame =
+    frame(selection = SkySelection.Galaxy(frameState.galaxy.home.galaxy), depth = SkyDepth.UNIVERSE)
+
+internal val galaxyFrame: SkyFrame = frame(
+    selection = SkySelection.Region(frameState.galaxy.home.galaxy, SkyGeometry.regionOf(frameState.galaxy.home.system)),
+    depth = SkyDepth.GALAXY,
 )
 
-// The same colony with two worlds pinned, so the ledger's own top section has something in it.
-internal val pinnedState: GameState = wellTravelledState.let { state ->
-    val two = state.galaxy.surveyed
-        .filter { it != state.galaxy.home }
-        .sortedWith(compareBy({ it.system }, { it.slot }))
-        .take(2)
-        .toSet()
-    state.copy(galaxy = state.galaxy.copy(pinned = two))
+// The landing: the region about home, framed on your star.
+internal val regionFrame: SkyFrame = frame()
+
+internal val systemFrame: SkyFrame = frame(depth = SkyDepth.SYSTEM)
+
+internal val worldFrame: SkyFrame = frame(selection = SkySelection.World(frameState.galaxy.home), depth = SkyDepth.WORLD)
+
+// ── the caption's other faces ──────────────────────────────────────────────────────────────
+
+// The neighbour selected from the landing, which is the frame the probe verb ships on.
+internal val unsurveyedStarFrame: SkyFrame = frame(selection = SkySelection.System(frameState.neighbour()))
+
+// A colony rich enough to price the far side of its galaxy. Stated once, because a fixture that
+// needs it needs the same one: forty thousand metal is a fortnight of mines and no more.
+internal val wealthyState: GameState = frameState.copy(resources = Resources.of(metal = 40_000, crystal = 9_000))
+
+// A star past the light: the caption prices the chart the flight would buy rather than the star.
+internal val DARK_STAR: SystemAddress = SystemAddress(galaxy = frameState.galaxy.home.galaxy, system = 240)
+
+internal val darkStarFrame: SkyFrame = frame(state = wealthyState, selection = SkySelection.System(DARK_STAR))
+
+// A probe out to the neighbour, which is the one overlay no other frame carries: the flight path
+// from home and a caption that reads a clock rather than offering a second flight.
+internal val probeInFlightState: GameState = assertIs<StartSurveyResult.Started>(
+    startSurvey(wealthyState, wealthyState.neighbour(), at = FIXTURE_NOW),
+).state
+
+internal val probeInFlightFrame: SkyFrame =
+    frame(state = probeInFlightState, selection = SkySelection.System(probeInFlightState.neighbour()))
+
+// A colony a fortnight in: it has surveyed a spread of systems, so the region has names and veins
+// to count. Built by surveying rather than by hand-writing a set, so every world in it is one a
+// probe could really have reached.
+internal val wellTravelledState: GameState = frameState.surveying(systems = listOf(-7, -1, 2, 6, 13))
+
+internal val wellTravelledFrame: SkyFrame = frame(state = wellTravelledState)
+
+// The same fortnight, pinched in past the region's landing and short of the orbit view: the zoom
+// where the worlds of every surveyed star are strung across its arm as grains. **A pinch and not a
+// step**, so the view is the landing's eye at a zoom no step of the bar flies to; the depth read
+// off it is still the region's, which is what the bar says.
+internal val hoodFrame: SkyFrame = wellTravelledFrame.let { SkyFrame(it.uiState, it.view.copy(ppu = HOOD_PPU)) }
+
+// Past the near edge of the neighbourhood's fade and well short of the orbit view's: the
+// portraits at full strength, and the star's own name and the region's still drawn.
+private const val HOOD_PPU: Float = 20f
+
+// The orbit view of a star past the light: nothing sits about it but the fog's own word, because
+// a socket is a charted fact and this star is not one.
+internal val darkSystemFrame: SkyFrame = frame(state = wealthyState, selection = SkySelection.System(DARK_STAR), depth = SkyDepth.SYSTEM)
+
+// A charted star no probe has been to, at the system depth: the orbit view draws sockets where the
+// worlds would be, and the caption on one prices the probe that would fill it.
+internal val SOCKET_SYSTEM: SystemAddress = SystemAddress(galaxy = frameState.galaxy.home.galaxy, system = 160)
+
+internal val socketFrame: SkyFrame = frame(state = wealthyState, selection = SkySelection.System(SOCKET_SYSTEM), depth = SkyDepth.SYSTEM)
+
+// A world in the home system a run may actually be sent to. Read off the seed rather than written
+// down: a run's legality is `startRun`'s rule and not this file's guess — home is refused and so is
+// a world somebody holds, so it is whichever world is neither.
+internal val RUNNABLE: GalaxyCoordinate = frameState.let { state ->
+    val home = state.galaxy.home
+    (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+        .map { slot -> GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot) }
+        .first { at ->
+            val world = worldAt(state.galaxy.seed, at)
+            world != null && verdictFor(world, state).let { it !is WorldVerdict.Home && it !is WorldVerdict.Occupied }
+        }
 }
 
-// A colony that surveyed something while the player was away. The event is what makes it a
-// discovery — nothing is stored on the world — so the frame is a real log entry rather than a flag.
-// An hour before the frame's instant, so the landing is inside the span the frame is measured from.
-internal val JUST_SURVEYED_SINCE: Instant = FIXTURE_NOW - kotlin.time.Duration.parse("2h")
-
-internal val justSurveyedState: GameState = wellTravelledState.let { state ->
-    val target = SystemAddress(
-        galaxy = state.galaxy.home.galaxy,
-        system = state.galaxy.home.system + 2,
-    )
-    state.copy(
-        eventLog = state.eventLog + Event.SurveyCompleted(
-            target = target,
-            worldsFound = state.worldsOf(SystemSelection(target.galaxy, target.system)).size,
-            // An hour *before* the frame's instant, so the card reads "found 1h 00m ago" rather
-            // than a negative span — a survey cannot land in the future, and the frame is measured
-            // from `FIXTURE_NOW` the way a launch is measured from where it advanced.
-            at = FIXTURE_NOW - kotlin.time.Duration.parse("1h"),
-        ),
-    )
-}
-
-// **The same moment on a system that holds one world**, which is the other half of the discovery
-// card and the half no frame had. Two or more discoveries draw the compact form — the three readings
-// as one line — and a single one draws the full form, three labelled axes in a column keyed to the
-// disc beside it. Both are states a player reaches on an ordinary check-in, and only one of them was
-// photographed.
-//
-// System 62 of the home galaxy holds exactly one world in this seed. Named rather than searched for,
-// like every other coordinate in this file: a frame that hunted for its own subject would photograph
-// a different world the day the generator changed.
-internal val justSurveyedOneWorldState: GameState = wellTravelledState.let { state ->
-    val target = SystemAddress(galaxy = state.galaxy.home.galaxy, system = ONE_WORLD_SYSTEM)
-    val worlds = state.worldsOf(SystemSelection(target.galaxy, target.system))
-    check(worlds.size == 1) { "system $ONE_WORLD_SYSTEM holds ${worlds.size} worlds, not one" }
-    state.copy(
-        galaxy = state.galaxy.copy(surveyed = state.galaxy.surveyed + worlds.map { it.at }),
-        eventLog = state.eventLog + Event.SurveyCompleted(
-            target = target,
-            worldsFound = worlds.size,
-            at = FIXTURE_NOW - kotlin.time.Duration.parse("1h"),
-        ),
-    )
-}
-
-private const val ONE_WORLD_SYSTEM: Int = 62
+// In front of a world you may run to: the one frame whose caption carries the run verb.
+internal val runnableWorldFrame: SkyFrame = frame(selection = SkySelection.World(RUNNABLE), depth = SkyDepth.WORLD)
 
 // Surveys the systems at the given offsets from home, which is what a fortnight of probes buys.
 private fun GameState.surveying(systems: List<Int>): GameState {
@@ -142,39 +165,3 @@ private fun GameState.surveying(systems: List<Int>): GameState {
     }
     return copy(galaxy = galaxy.copy(surveyed = galaxy.surveyed + added))
 }
-
-// The fold with a probe out, which is the one overlay no other map frame carries. It lives here
-// rather than in `ProbeFrames` because it is a frame of the *map* — that file is the orbit page's
-// footer in the two states that are a job rather than an offer, and a baseline belongs beside the
-// screen it photographs.
-internal val probeInFlightMapUiState: GalaxyUiState = frameState
-    .copy(resources = Resources.of(metal = 40_000, crystal = 9_000))
-    .let { wealthy ->
-        val target = wealthy.neighbourSelection()
-            .let { SystemAddress(galaxy = it.galaxy, system = it.system) }
-        val dispatched = assertIs<StartSurveyResult.Started>(
-            startSurvey(wealthy, target, at = FIXTURE_NOW),
-        ).state
-        frame(state = dispatched, view = GalaxyView.MAP, at = dispatched.homeSelection())
-    }
-
-// **The home system while a probe is away, which is the only place the trajectory arc is ever
-// drawn.** `toSystemMapUiState` gives a map its arc when the page is home *and* a survey is out, so
-// every other frame of the orbit page — the target's, the relay's, the unsurveyed neighbour's — is a
-// map with no arc on it.
-//
-// It is here because 0.12 nearly lost it. Until this slice the arc was covered incidentally: the
-// behaviour suite dispatched a probe from the home system's own footer and stayed there to watch the
-// countdown. The map is where a probe is aimed from now, so nobody was standing on that page any
-// more, and thirty-four lines of `SystemMap` stopped being executed by anything at all — which the
-// coverage table caught and no test failure would have.
-internal val probeOutFromHomeUiState: GalaxyUiState = frameState
-    .copy(resources = Resources.of(metal = 40_000, crystal = 9_000))
-    .let { wealthy ->
-        val target = wealthy.neighbourSelection()
-            .let { SystemAddress(galaxy = it.galaxy, system = it.system) }
-        val dispatched = assertIs<StartSurveyResult.Started>(
-            startSurvey(wealthy, target, at = FIXTURE_NOW),
-        ).state
-        frame(state = dispatched, view = GalaxyView.SYSTEM, at = dispatched.homeSelection())
-    }

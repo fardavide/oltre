@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
@@ -23,14 +24,15 @@ import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
-import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
@@ -43,8 +45,8 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 // The one interaction that spans two screens, so it is the one test the shell has to own: neither
-// feature module can see the other, and the seam between them — a blocked world naming a ladder,
-// and the tab that sells it — is exactly what the composition root is for.
+// feature module can see the other, and the seam between them — a world the sky reads as blocked,
+// and the tab that sells what opens it — is exactly what the composition root is for.
 //
 // The clock is the test's rather than the system's. `App` reads `Clock.System`, which a behaviour
 // test cannot wind forward three hours, so this harness is the same wiring with an instant it can
@@ -110,23 +112,14 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 onToggleAdaptationWatch = {},
                             )
                         },
-                        galaxy = { scroll, openResearch ->
+                        galaxy = {
                             GalaxyScreen(
-                                scrollState = scroll,
                                 state = game.state,
                                 now = game.now,
                                 timeZone = TimeZone.UTC,
-                                onOpenResearch = openResearch,
-                                // The worlds list rather than the map, because the journey under
-                                // test starts on a blocked world's row and a row only exists on a
-                                // list. Which of the two the tab lands on is a preference the screen
-                                // is handed, so saying so here is cheaper and clearer than tapping
-                                // the switch on the way past.
-                                landing = GalaxyLanding.WORLDS,
-                                onLandingChange = {},
-                                // This harness is about the adaptation deep link — the Galaxy row
-                                // that reaches Research — so the fourth and fifth verbs are wired to
-                                // nothing and the assertions stay about the one journey under test.
+                                // This harness is about a verdict changing under a ladder, so the
+                                // fourth and fifth verbs are wired to nothing and the assertions
+                                // stay about the one journey under test.
                                 onDispatchProbe = {},
                                 onDispatchRun = { _, _, _, _ -> true },
                                 onToggleAnnounce = {},
@@ -154,9 +147,8 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                         state = game.state,
                                         now = game.now,
                                         timeZone = TimeZone.UTC,
-                                        // This harness is about the adaptation ladder reaching
-                                        // Research from a Galaxy row; Fleets is here to exist, not
-                                        // to be driven.
+                                        // This harness is about a world's verdict under a ladder;
+                                        // Fleets is here to exist, not to be driven.
                                         onDispatchRun = { _, _, _, _ -> true },
                                         onToggleAnnounce = {},
                                     )
@@ -175,9 +167,9 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         // Null: this harness is a colony with signal, which is the ordinary case and
                         // the one every frame that is not about the network wants.
                         offline = null,
-                        // Never tapped: this harness is about the adaptation ladder reaching Research
-                        // from a Galaxy row. `AlertSheetAppBehaviourTest` is where the gear is driven
-                        // and `IdentityAppBehaviourTest` is where the cluster beside it is.
+                        // Never tapped: this harness is about a world's verdict under a ladder.
+                        // `AlertSheetAppBehaviourTest` is where the gear is driven and
+                        // `IdentityAppBehaviourTest` is where the cluster beside it is.
                         onOpenSettings = {},
                         onOpenProfile = {},
                     )
@@ -199,10 +191,26 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
         test.onNodeWithTag(ShellTestTags.tab(tab)).assertIsSelected()
     }
 
-    // The blocked row's remedy, which is a tap target since 0.0.18. Addressed by the string the
-    // player reads, because that string *is* the affordance — an accent word that names a level.
-    fun tapTheRemedy(label: String) = apply {
-        test.onNodeWithText(label).performScrollTo().performClick()
+    // **Down to a world, from where the tab lands.** Since One Sky the Galaxy tab opens at the
+    // region depth with the home star selected, and a tap on what is already selected dives: so the
+    // star, then the world twice — once to select it, once to open it. Each dive is a flight the
+    // test clock runs to its end before the next anchor is looked for.
+    //
+    // By anchor rather than by text: a world's name is drawn on a canvas, and the anchors are the one
+    // thing on it a test can address. They are public for exactly this — see `GalaxyTestTags`.
+    fun openTheWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(GalaxyTestTags.system(at.galaxy, at.system)).performClick()
+        test.waitForIdle()
+        test.onNodeWithTag(GalaxyTestTags.world(at)).performClick()
+        test.waitForIdle()
+        test.onNodeWithTag(GalaxyTestTags.world(at)).performClick()
+        test.waitForIdle()
+    }
+
+    // The line under the step bar, which at the world depth is the world's verdict — the one
+    // sentence the journey under test exists to change.
+    fun assertTheWorldReads(text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.COUNT).assert(hasText(text, substring = true))
     }
 
     // **"The only" stopped being true at 0.9**, when the branch grew a fourth applied row: a colony
@@ -242,10 +250,9 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
         test.onNode(researchButton).assertDoesNotExist()
     }
 
-    // Scrolls first, because both screens are taller than a phone: the galaxy lists a system's
-    // worlds under its map, and six research rows need about 105dp more than a 393x852 window has.
-    // A player scrolls to read the sixth row too, so a test that refused to would be asserting
-    // something no one experiences.
+    // Scrolls first, because Research is taller than a phone: six research rows need about 105dp
+    // more than a 393x852 window has. A player scrolls to read the sixth row too, so a test that
+    // refused to would be asserting something no one experiences.
     //
     // **First rather than only**, since a row became tappable at 0.6.0. A clickable card sets
     // `mergeDescendants`, so a string inside one now satisfies both the card's merged semantics and

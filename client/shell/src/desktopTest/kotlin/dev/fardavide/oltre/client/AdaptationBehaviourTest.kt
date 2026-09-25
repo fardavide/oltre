@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
@@ -16,16 +18,22 @@ import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.adaptationShortlist
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import org.junit.Test
 
-// **The payoff of the whole slice, driven end to end.** A blocked world names a ladder, the ladder
-// is a tap away, the tap lands on a tab that sells it, the project runs, and the world opens up.
-// Until 0.0.17 the sentence on that row ended in a wall; until 0.0.18 it ended in a tab that showed
-// three production technologies and no way to buy what the row had just named.
+// **The payoff of the whole slice, driven end to end.** The sky reads a world as blocked, Research
+// sells the ladder, the project runs, and the same world reads as settleable without a survey or a
+// fleet. Until 0.0.17 the sentence on that world ended in a wall; until 0.0.18 Research showed three
+// production technologies and no way to buy what the wall had named.
+//
+// **Since One Sky the Galaxy tab no longer names the level**, and there is no tap from the verdict
+// to Research: a world at the world depth reads which axes block it, and the ladder is the Research
+// tab's to sell. So the seam this file guards is the verdict — the one sentence both tabs read off
+// the same colony, computed by the one `verdictFor`.
 //
 // Nothing here is stubbed but the clock: `startAdaptation`, `advance` and `verdictFor` are core's.
 @OptIn(ExperimentalTestApi::class)
@@ -33,55 +41,46 @@ class AdaptationBehaviourTest {
 
     @Test
     fun `buying the ladder a blocked world names opens that world up`() {
-        // given a colony one pressure band short of the richest world in its home system
+        // given a colony one pressure band short of a world in its home system
         val game = TestGame(initial = onePressureBandShort(), start = EPOCH)
 
         game(game) {
-            // the world is blocked, and the row says what would land it
+            // the world is blocked, and the sky says on which axis
             open(OltreTab.GALAXY)
-            assertReads(HOME_SYSTEM_BEST)
-            assertReads(REMEDY)
+            openTheWorld(TARGET)
+            assertTheWorldReads(BLOCKED)
+            assertTheWorldReads(ON_PRESSURE)
 
-            // tapping the remedy is what the accent promises: it goes where the thing is sold
-            tapTheRemedy(REMEDY)
-            assertShowing(OltreTab.RESEARCH)
+            // the ladder is sold on Research
+            open(OltreTab.RESEARCH)
 
-            // and the tab that opens is already showing the ladder, with no scrolling to do
             assertReads("ADAPTATION")
             assertReads("one ladder at a time")
-            // The band the empire already holds used to be the thing asserted here; since the
-            // verdict took that line it is the first sentence of the sheet the row opens, which is
-            // a claim about the Research screen and is made there.
-            //
-            // What this file still has to show is that the tap landed on **this empire's**
-            // Atmospheric row rather than on a Research tab that happens to contain the word — and
-            // the verdict is a better witness than the band ever was, because it is the same claim
-            // the Galaxy row made one tap ago, counted rather than described: the ladder the
-            // blocked world named reaches exactly that world, and that world is worth taking.
+            // The row's verdict is the same claim the sky made one tab ago, counted rather than
+            // described: the level the ladder sells reaches the blocked world, and the row says how
+            // many surveyed worlds it reaches in all. **Counted by core and worded by the one
+            // formatter**, since which worlds share the target's band is the seed's business and a
+            // hand-typed "1 world, 1 worth taking" was the number the nine-galaxy universe moved.
             assertReads("Atmospheric")
-            assertReads("Unlocks 1 world, 1 worth taking")
+            assertReads(ATMOSPHERIC_UNLOCKS)
 
             startTheAtmosphericLadder()
 
-            // the ladder still takes real time, so nothing lands early. Atmospheric 3 is 6h 22m at
-            // this colony's Robotics 4 — the sheet's 240 a level, carrying the opening discount
-            // that went to a tenth at 0.2.7 — so ten minutes in it is still running and the world
-            // still reads as blocked.
+            // the ladder still takes real time, so nothing lands early. A low Atmospheric level is
+            // a few hours at this colony's Robotics 4 — the sheet's 240 a level, carrying the
+            // opening discount that went to a tenth at 0.2.7 — so ten minutes in it is still
+            // running and the world still reads as blocked.
             letTimePass(by = 10.minutes)
             open(OltreTab.GALAXY)
-            assertReads(REMEDY)
+            openTheWorld(TARGET)
+            assertTheWorldReads(BLOCKED)
 
-            // then, once it completes, the same world reads differently without a survey or a fleet
+            // then, once it completes, the same world reads differently without a survey or a
+            // fleet — and without leaving it: the sky is still open on that world, and the verdict
+            // under the bar is recomputed off the colony the ladder just changed
             letTimePass(by = 7.hours)
-            assertReads(HOME_SYSTEM_BEST)
-            // **The world's own name rather than its yield, since 0.11.** The point of the
-            // assertion is unchanged — it has to name *which* world moved, because slot 10 is still
-            // blocked on pressure and wants Atmospheric 4, so a system-wide reading would pass on
-            // the wrong world. What changed is that a settleable row no longer prints a yield: its
-            // one note line is "Nothing here blocks a colony", and the thing that identifies the
-            // row is the headline the whole slice exists to give it.
-            assertReads("Nothing here blocks a colony.")
-            assertNothingReads(REMEDY)
+            assertTheWorldReads(SETTLEABLE)
+            assertNothingReads(BLOCKED)
         }
     }
 
@@ -103,7 +102,7 @@ class AdaptationBehaviourTest {
             startTheAtmosphericLadder()
 
             // the ladder's own row carries the countdown
-            assertReads("→ LV 3")
+            assertReads(ATMOSPHERIC_RUNNING)
 
             // and the applied branch is untouched by it — which is the whole ruling, and the thing
             // that would have been false one version ago. Enrichment by name rather than "the first
@@ -113,7 +112,7 @@ class AdaptationBehaviourTest {
 
             // both in flight at once: two rows counting down, and the branch that changes the map
             // cost nothing the colony was already doing
-            assertReads("→ LV 3")
+            assertReads(ATMOSPHERIC_RUNNING)
             assertReads("→ LV 5")
 
             // each branch is still one deep, so with both slots full nothing on either side offers
@@ -122,7 +121,8 @@ class AdaptationBehaviourTest {
             // and both land, on their own clocks, out of one `advance`
             letTimePass(by = 7.hours)
             open(OltreTab.GALAXY)
-            assertNothingReads(REMEDY)
+            openTheWorld(TARGET)
+            assertTheWorldReads(SETTLEABLE)
         }
     }
 
@@ -138,54 +138,90 @@ class AdaptationBehaviourTest {
         resources = Resources.of(metal = 5_000_000, crystal = 5_000_000, deuterium = 5_000_000),
     )
 
-    // Seed 20,260,807's home system, which the galaxy suite already reads. **The levels and the
-    // funding are derived from the target world rather than written out**, because 0.5.1 moved
-    // where genesis starts a colony and this fixture had four hand-typed numbers that all had to
-    // agree with each other and with a world none of them named. Derived, the arrangement states
-    // itself: climb every axis of `TARGET` except pressure, stop one level short of that, and hold
-    // exactly the price of the level that would close it.
-    //
-    // What the arrangement buys is that **precisely one project is affordable**. The last
-    // adaptation level of a ×1.5 ladder is dear enough that the two ladders not being climbed and
-    // all three applied technologies are out of reach at the same stock — Gravitic's next step is
-    // metal-heavy where Atmospheric's is crystal-heavy, which is the cost table's own design doing
-    // the work. That is the sting the sheet asks for, arranged so the test can name it.
-    private fun onePressureBandShort(): GameState {
-        val fresh = GameState.initial(GalaxySeed(20_260_807))
-        val traits = checkNotNull(worldAt(fresh.galaxy.seed, TARGET)) { "the target world must exist" }.traits
-        val pressureLevel = GalaxyBalance.levelThatTolerates(HostilityAxis.PRESSURE, traits.pressure.milliAtm)
-        val price = AdaptationBalance.adaptationCost(AdaptationTechnology.ATMOSPHERIC, TechLevel(pressureLevel))
-        return fresh.copy(
-            resources = Resources.of(metal = price.metal, crystal = price.crystal, deuterium = price.deuterium),
-            buildings = Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(4)),
-            research = Research.initial()
-                .withLevel(Technology.PHOTOVOLTAICS, TechLevel(5))
-                .withLevel(Technology.EXTRACTION, TechLevel(5))
-                .withLevel(Technology.ENRICHMENT, TechLevel(4))
-                .withLevel(
-                    AdaptationTechnology.THERMAL,
-                    TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.TEMPERATURE, traits.temperature.celsius)),
-                )
-                .withLevel(
-                    AdaptationTechnology.GRAVITIC,
-                    TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.GRAVITY, traits.gravity.milliG)),
-                )
-                // One short, which is the whole fixture.
-                .withLevel(AdaptationTechnology.ATMOSPHERIC, TechLevel(pressureLevel - 1)),
-        )
-    }
-
     private companion object {
 
         val EPOCH = Instant.fromEpochMilliseconds(0)
 
-        // The hottest world in the home system, and the richest thing the seed puts within reach:
-        // it fails all three bands at genesis and wants Thermal 7, Gravitic 2 and Atmospheric 3.
-        val TARGET = GalaxyCoordinate(galaxy = 3, system = 171, slot = 1)
+        // **The first world of the home system, other than home, that pressure blocks at all** —
+        // found rather than named, since a slot number is the kind of fact the seed's generation
+        // moves under a fixture. The fixture climbs the other two axes for it, so which world it is
+        // does not matter; that it wants at least one Atmospheric band does.
+        val TARGET: GalaxyCoordinate = run {
+            val fresh = GameState.initial(GalaxySeed(20_260_807))
+            val home = fresh.galaxy.home
+            (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                .map { slot -> GalaxyCoordinate(home.galaxy, home.system, slot) }
+                .first { at ->
+                    val world = worldAt(fresh.galaxy.seed, at)
+                    at != home && world != null &&
+                        GalaxyBalance.levelThatTolerates(HostilityAxis.PRESSURE, world.traits.pressure.milliAtm) >= 1
+                }
+        }
 
-        const val HOME_SYSTEM_BEST = "[3:171:1]"
+        // The verdict line's first word, and the clause that names the one axis the fixture left
+        // short. Neither names a level: since One Sky the sky says *what* blocks, and Research
+        // says what buys it.
+        const val BLOCKED = "Blocked"
+        const val ON_PRESSURE = "pressure"
+        const val SETTLEABLE = "Settleable"
 
-        // Unique on the screen: slot 10 is blocked on pressure too, but wants Atmospheric 4.
-        const val REMEDY = "Atmospheric 3"
+        // The pressure band the target sits in, which is the level the fixture leaves the colony one
+        // short of and so the level the Research row counts down to.
+        val PRESSURE_LEVEL: Int = run {
+            val fresh = GameState.initial(GalaxySeed(20_260_807))
+            val traits = checkNotNull(worldAt(fresh.galaxy.seed, TARGET)).traits
+            GalaxyBalance.levelThatTolerates(HostilityAxis.PRESSURE, traits.pressure.milliAtm)
+        }
+
+        val ATMOSPHERIC_RUNNING = "→ LV $PRESSURE_LEVEL"
+
+        // Seed 20,260,807's home system, which the galaxy suite already reads. **The levels and the
+        // funding are derived from the target world rather than written out**, because 0.5.1 moved
+        // where genesis starts a colony and this fixture had four hand-typed numbers that all had to
+        // agree with each other and with a world none of them named — and the nine-galaxy universe
+        // moved it again. Derived, the arrangement states itself: climb every axis of `TARGET`
+        // except pressure, stop one level short of that, and hold exactly the price of the level
+        // that would close it.
+        //
+        // What the arrangement buys is that **precisely one project is affordable**. The last
+        // adaptation level of a ×1.5 ladder is dear enough that the two ladders not being climbed
+        // and all three applied technologies are out of reach at the same stock — Gravitic's next
+        // step is metal-heavy where Atmospheric's is crystal-heavy, which is the cost table's own
+        // design doing the work. That is the sting the sheet asks for, arranged so the test can
+        // name it.
+        fun onePressureBandShort(): GameState {
+            val fresh = GameState.initial(GalaxySeed(20_260_807))
+            val traits = checkNotNull(worldAt(fresh.galaxy.seed, TARGET)) { "the target world must exist" }.traits
+            val price = AdaptationBalance.adaptationCost(AdaptationTechnology.ATMOSPHERIC, TechLevel(PRESSURE_LEVEL))
+            return fresh.copy(
+                resources = Resources.of(metal = price.metal, crystal = price.crystal, deuterium = price.deuterium),
+                buildings = Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(4)),
+                research = Research.initial()
+                    .withLevel(Technology.PHOTOVOLTAICS, TechLevel(5))
+                    .withLevel(Technology.EXTRACTION, TechLevel(5))
+                    .withLevel(Technology.ENRICHMENT, TechLevel(4))
+                    .withLevel(
+                        AdaptationTechnology.THERMAL,
+                        TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.TEMPERATURE, traits.temperature.celsius)),
+                    )
+                    .withLevel(
+                        AdaptationTechnology.GRAVITIC,
+                        TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.GRAVITY, traits.gravity.milliG)),
+                    )
+                    // One short, which is the whole fixture.
+                    .withLevel(AdaptationTechnology.ATMOSPHERIC, TechLevel(PRESSURE_LEVEL - 1)),
+            )
+        }
+
+        // What the row promises, counted by `adaptationShortlist` over the fixture's own colony and
+        // worded by the formatter the row uses. The one thing asserted by hand is that the target is
+        // among them — otherwise the sentence the row makes and the sentence the sky made would be
+        // about different worlds.
+        val ATMOSPHERIC_UNLOCKS: String = run {
+            val shortlist = adaptationShortlist(onePressureBandShort())
+                .single { it.technology == AdaptationTechnology.ATMOSPHERIC }
+            check(shortlist.unlocks >= 1) { "the fixture's ladder must reach the target world" }
+            English.resolve(Strings.shortlistVerb(unlocks = shortlist.unlocks, worthTaking = shortlist.worthTaking))
+        }
     }
 }

@@ -143,7 +143,7 @@ class MainScaffoldLayoutBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text("colony-under-test") },
                         research = { Text("research-under-test") },
-                        galaxy = { _, _ -> Text("galaxy-under-test") },
+                        galaxy = { Text("galaxy-under-test") },
                         ships = { _, _, _ -> Text("ships-under-test") },
                         alliance = { Text("alliance-under-test") },
                         // Null: the line is chrome the rail's width does not depend on, so a colony

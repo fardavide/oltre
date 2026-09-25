@@ -11,7 +11,8 @@ import dev.fardavide.oltre.client.design.text.TextRes
 //
 // **Every cell is settled** — `lastSeenStock` equals `stock`, so the roll has nowhere to travel and
 // the rail draws its final figures on the first frame. That is what the frame's tests are about; a
-// rail caught mid-roll is a different assertion and belongs to the one baseline that makes it.
+// rail caught mid-roll is a different assertion and belongs to the one baseline that makes it,
+// `resource_rail_arriving`.
 internal val testResourceRailUiState = ResourceRailUiState(
     metal = settled(stock = 15_534, ratePerHour = "+950/h"),
     crystal = settled(stock = 6_286, ratePerHour = "+304/h"),

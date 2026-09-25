@@ -116,26 +116,13 @@ class AppBehaviourTest {
             open(OltreTab.RESEARCH)
             assertReads("TECHNOLOGIES")
             open(OltreTab.GALAXY)
-            // **The tab opens on the map since 0.12**, which puts this assertion back where it was
-            // before 0.11 moved it: the galaxy's own scale is the reading that proves the tab
-            // arrived. It went to `NEAREST FIRST` when the ledger became the landing screen, and
-            // that string does not exist any more — the sort left with the filters.
-            //
-            // And the scale itself moved at 0.20: a bare length was the honest line while the map
-            // was free, and the day it had to be earned the interesting number became how much of it
-            // you have. The word that proves the tab arrived is still on the head's count line.
-            assertReads("OF 250 CHARTED")
-            // **The switch, and it is the one control on this tab that writes to disk.** Davide's
-            // amendment to Claude Design's landing call: the tab opens on the map the first time and
-            // on whichever list you last used after that. The write goes through the composition
-            // root — the file stores the *name* of the landing, because a `data` module may not see
-            // the `presentation` one that owns the enum — so this is the only place it can be driven
-            // end to end.
-            openTheWorldsList()
-            // Asserted as the map's *absence* rather than as the list's presence: the word "worlds"
-            // is on the switch itself either way, so the reading that separates the two screens is
-            // the galaxy's scale line, which only the map has.
-            assertDoesNotRead("250 SYSTEMS")
+            // **The tab opens on your own region since One Sky**, and the line under the step bar
+            // reads the galaxy's count there: how much of it you have looked at. That number moved
+            // in at 0.20 — a bare length was the honest line while the map was free, and the day
+            // it had to be earned the interesting number became how much of it you have — and it is
+            // still the word that proves the tab arrived, now that there is no map or list to switch
+            // between and nothing on the tab writes to disk.
+            assertReads("of 250 charted")
             openShipyard()
             // "Shipyard" was the tab's own label and proved nothing about the screen; Scout is the
             // card the screen itself always draws first, so this is the assertion the merge into
@@ -246,10 +233,10 @@ class AppBehaviourTest {
         // held, which is precisely what a migration produces and what a player on a train sees.
         app(saved = null, legacy = legacy, api = FakeOltreApi().apply { offline = true }) {
             open(OltreTab.GALAXY)
-            // Home is 171 and the colony reached 200, so the light runs 141…230 — ninety systems,
-            // and none of it handed back. A colony that woke up charted around home alone would
-            // read 61 here, which is the failure this exists to catch.
-            assertReads("90 OF 250 CHARTED")
+            // Home is 137 and the colony reached 200, so the light runs 107…230 — a hundred and
+            // twenty-four systems, and none of it handed back. A colony that woke up charted around
+            // home alone would read 61 here, which is the failure this exists to catch.
+            assertReads("124 of 250 charted")
         }
     }
 

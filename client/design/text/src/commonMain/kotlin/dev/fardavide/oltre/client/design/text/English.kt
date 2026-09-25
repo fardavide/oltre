@@ -34,9 +34,7 @@ object English : Translations {
         // ── Wall-clock instants ──────────────────────────────────────────────────────────────
         StringId.DoneAt -> "done ${args.clock()}"
         StringId.HomeAt -> "home ${args.clock()}"
-        StringId.LandsAt -> "lands ${args.clock()}"
         StringId.LandedAt -> "landed ${args.clock()}"
-        StringId.ProbeLandedAt -> "Probe landed ${args.clock()}"
 
         // ── The design system's own words ────────────────────────────────────────────────────
         StringId.LevelBadge -> "LV ${args.number(0)}"
@@ -74,10 +72,6 @@ object English : Translations {
         StringId.Build -> "Build"
         StringId.AvailableIn -> "in ${args.text(0)}"
         StringId.AvailableNever -> "—"
-        // The probe footer's answer when the fleet rather than the bank is what is short. It
-        // names the shop rather than a wait, because unlike every other unaffordable state in
-        // the game this one is not answered by standing still.
-        StringId.ProbeNeedsScout -> "needs a scout"
         StringId.ScoutName -> "Scout"
         StringId.ScoutPurpose -> "No hold · the only hull that can survey"
         StringId.SkiffName -> "Skiff"
@@ -170,7 +164,6 @@ object English : Translations {
         StringId.DangerNothingAdded -> "nothing added"
         StringId.DangerBonus -> "+${args.number(0)}% of the hold"
         StringId.YourOwnSystem -> "your own system"
-        StringId.YourOwnSystemCapitalised -> "Your own system"
         StringId.AnotherGalaxy -> "another galaxy"
         StringId.UnitsOut -> "${args.text(0)} units out"
         StringId.BothDepositsEmpty -> "Both deposits are empty."
@@ -434,52 +427,30 @@ object English : Translations {
         StringId.WorldRowSeparator -> "${args.text(0)} · "
 
         // ── The Galaxy tab ───────────────────────────────────────────────────────────────────
-        StringId.GalaxyLabel -> "G${args.number(0)}"
         StringId.GalaxyNamed -> "Galaxy ${args.number(0)}"
         StringId.GalaxiesCount -> args.count(0).let { "$it ${it.plural("galaxy", "galaxies")}" }
         StringId.SystemsCount -> "${args.text(0)} systems"
         StringId.SurveyedCount -> "${args.count(0)} surveyed"
-        StringId.PinnedCount -> "${args.count(0)} pinned"
         StringId.ChartedOfSystems -> "${args.text(0)} of ${args.text(1)} charted"
         StringId.UnchartedWord -> "uncharted"
         StringId.ChartsSystems -> args.count(0).let { "charts $it ${it.plural("system", "systems")}" }
         StringId.SystemsOut -> args.count(0).let { "$it ${it.plural("system", "systems")} out" }
         StringId.SystemRange -> "${args.number(0)}–${args.number(1)}"
         StringId.SystemAddressLabel -> "[${args.number(0)}:${args.number(1)}]"
-        StringId.RelayEffect -> "Relay · contested · +18% range while held"
-        StringId.DangerFromHere -> "danger ${args.number(0)} from here"
         StringId.ReachSingle -> "${args.text(0)} out and back"
-        StringId.ReachRange -> "${args.text(0)}–${args.text(1)} out and back"
-        // "20–26m" rather than "20m–26m": the near end loses its unit because the far end carries
-        // one, which only works while both ends are minutes.
-        StringId.ReachRangeMinutes -> "${args.number(0)}–${args.text(1)} out and back"
         StringId.StarClassDim -> "dim"
         StringId.StarClassStandard -> "standard"
         StringId.StarClassBright -> "bright"
-        StringId.StarDetail -> args.count(1).let { "${args.text(0)} · $it ${it.plural("world", "worlds")}" }
-        StringId.StarDetailCompact -> "${args.text(0)} · ${args.count(1)}"
         StringId.WorldCount -> args.count(0).let {
             if (it == 0) "no worlds" else "$it ${it.plural("world", "worlds")}"
         }
-        StringId.WorldsSurveyedCount ->
-            args.count(0).let { "$it ${it.plural("world", "worlds")} surveyed" }
-        StringId.NoWorlds -> "no worlds"
-        StringId.HomeNote -> "home"
         StringId.ProbeLandsIn -> "probe lands in ${args.text(0)}"
         StringId.ProbeFlight -> "probe ${args.text(0)}"
         StringId.ProbeFlightLabel -> "flight ${args.text(0)}"
-        StringId.RunFlight -> "run ${args.text(0)}"
-        StringId.NothingToSurvey -> "${args.number(0)} empty slots · nothing to survey"
-        StringId.SurveyedAtGenesis -> "Surveyed at genesis"
         StringId.DispatchProbe -> "Dispatch probe"
-        StringId.DispatchProbeCompact -> "Dispatch"
-        StringId.FindSettleable -> "${args.count(0)} settleable"
-        StringId.FindNearMiss -> "${args.count(0)} blocked at one axis"
-        StringId.FindNone -> "none settleable"
         StringId.TemperatureReading -> "${args.text(0)}$UNIT_GAP°C"
         StringId.GravityReading -> "${args.text(0)}${UNIT_GAP}g"
         StringId.PressureReading -> "${args.text(0)}${UNIT_GAP}atm"
-        StringId.FoundAgo -> "found ${args.text(0)} ago"
         StringId.AxisTemperature -> "temperature"
         StringId.AxisGravity -> "gravity"
         StringId.AxisPressure -> "pressure"
@@ -506,35 +477,29 @@ object English : Translations {
         StringId.EpithetAdjectiveBare -> "bare"
         StringId.EpithetAdjectiveTemperate -> "temperate"
 
-        StringId.NoteHome -> "Your colony."
-        StringId.NoteOccupied -> "Held by ${args.text(0)}."
-        StringId.NoteSettleable -> "Nothing here blocks a colony."
+        // A caption detail since One Sky rather than a ledger note, so it reads like the line it sits
+        // on — "probe 1h 39m", "metal full" — and not like a sentence.
+        StringId.NoteHome -> "your colony"
         StringId.NoteBarren -> "Yield ${args.text(0)}, worth it at ${args.text(1)}"
-        StringId.NoteBarrenDiscovery -> "Passes every band, and not worth taking."
-        StringId.NoteBlocked -> "Blocked."
-        StringId.NoteWouldLandIt -> "${args.text(0)} ${args.number(1)} would land it."
-        StringId.NoteSurveyed -> "Surveyed."
-        StringId.WorthItAt -> "worth it at ${args.text(0)}"
         StringId.DepositFraction -> "${args.text(0)}/${args.text(1)}"
-        StringId.LedgerEmptyHeadline -> "Every world a probe reaches lands here."
-        StringId.LedgerEmptyDetail -> "You have surveyed nothing yet."
-        StringId.LedgerNoMatchHeadline -> "No world you know is called that."
-        StringId.LedgerNoMatchDetail -> "Names are unique in a galaxy, so a full name finds one place."
         StringId.VerdictWordHome -> "Home"
         StringId.VerdictWordOccupied -> "Occupied"
         StringId.VerdictWordBlocked -> "Blocked"
         StringId.VerdictWordBarren -> "Barren"
         StringId.VerdictWordSettleable -> "Settleable"
-        StringId.DiscoveriesHeadingOne -> "SURVEYED"
-        StringId.DiscoveriesHeadingMany -> "${args.count(0)} WORLDS SURVEYED"
-        StringId.PinnedHeading -> "PINNED"
-        StringId.RelayLabel -> "RELAY"
-        StringId.LedgerModeWorlds -> "worlds"
-        StringId.LedgerModeMap -> "map"
-        StringId.SearchPlaceholder -> "name"
         StringId.BlockedAxisLine -> "${args.text(0)} ${args.text(1)}, you tolerate ${args.text(2)}"
-        StringId.MiddotStandalone -> "·"
-        StringId.OrbitSlot -> "${args.number(0)}"
+        StringId.UniverseWord -> "universe"
+        StringId.YoursIsGalaxy -> "yours is ${args.number(0)}"
+        StringId.YoursWord -> "yours"
+        StringId.OpenWord -> "open"
+        StringId.RunVerb -> "run"
+        StringId.FleetsOut -> args.count(0).let { "$it ${it.plural("fleet", "fleets")} out" }
+        StringId.ToItsEdge -> "${args.text(0)} to its edge"
+        StringId.VeinsCount -> args.count(0).let { "$it ${it.plural("vein", "veins")}" }
+        StringId.UnsurveyedWord -> "unsurveyed"
+        StringId.SlotWord -> "slot ${args.number(0)}"
+        StringId.GalaxyStep -> "galaxy ${args.number(0)}"
+        StringId.YourRun -> "your run"
 
         // ── The shell ────────────────────────────────────────────────────────────────────────
         StringId.TabColony -> "Colony"

@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.0", "2026-09-25", "One sky",
+            "The Galaxy tab is one drawing now: pinch from nine galaxies down to a single world.",
+            "Tap a thing to select it, tap it again to dive; the bar at the top spells where you are.",
+            "Nine galaxies, and everyone shares them. A probe can fly as far as you like.",
+        ),
+        release(
             "0.28.1", "2026-09-19", "Found it tells you when it fails",
             "A refusal that was not a taken name or tag used to do nothing at all. Now it speaks.",
             "It says which of four things happened, because each one is a different thing to do.",

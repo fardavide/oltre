@@ -78,6 +78,7 @@ internal fun alertSheetUiState(
     timing = timing.takeIf { delivery != AlertDelivery.EACH },
     // **No Account section on any frame built from a fixture**, deliberately: who is signed in is the
     // composition root's to know, and the sheet's own baselines are about the two controls. The
-    // section has a frame of its own in `:client:shell`, where an account exists.
+    // section has a frame of its own in `:client:shell` — `settings_face_account`, in
+    // `SettingsSheetScreenshotTest` — where an account exists.
     account = null,
 )

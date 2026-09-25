@@ -1,11 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRobot
-import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
+import dev.fardavide.oltre.client.galaxy.ui.galaxyContent
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -22,18 +19,16 @@ import kotlinx.datetime.TimeZone
 // `:client:galaxy:ui-testing`: a ui-layer module may not depend on a presentation one, and
 // `GalaxyScreen` is here. The assertions are shared — `GalaxyRobot` itself is that module's — and
 // what this adds is the second way of putting the screen on the glass.
-// The stateful screen, which is a different subject from the page above rather than a fuller
-// version of it: *which* world has its sheet up is this feature's own state — a `remember` keyed on
-// the seed and the system — so a tap that raises a sheet, and a dispatch that puts it away again,
-// can only be asserted from here. Everything else hands `GalaxyPage` a frame that already has one.
+//
+// **The stateful screen is a different subject from the page**, rather than a fuller version of it.
+// Since One Sky it holds two things of its own: where the eye is — a `SkyViewState` the screen
+// builds on its landing and the robot cannot reach — and which world has its sheet up. So a tap that
+// re-derives the caption from the save, a dive that changes the count line, a sheet that goes up on
+// the caption's verb and comes down on a dispatch, can only be asserted from here. Everything else
+// hands `GalaxyPage` a frame that already has one, through `galaxyPage`.
 @OptIn(ExperimentalTestApi::class)
 fun galaxyScreen(
     state: GameState,
-    // The tab lands on the map unless a preferences file says otherwise, and a test that wants the
-    // worlds list may either say so here or tap the switch — which is the same choice a player has.
-    landing: GalaxyLanding = GalaxyLanding.MAP,
-    onLandingChange: (GalaxyLanding) -> Unit = {},
-    onOpenResearch: () -> Unit = {},
     onDispatchProbe: (SystemAddress) -> Unit = {},
     // `true` — the tap was kept, which is what a colony with signal always answers and is the frame
     // every test here is about. A harness that wants a refused run says `false` and gets a sheet that
@@ -42,36 +37,30 @@ fun galaxyScreen(
     onToggleAnnounce: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
-    runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
-        setContent {
-            OltreTheme {
-                Surface {
-                    GalaxyScreen(
-                        state = state,
-                        now = FIXTURE_NOW,
-                        timeZone = TimeZone.UTC,
-                        landing = landing,
-                        onLandingChange = onLandingChange,
-                        onOpenResearch = onOpenResearch,
-                        onDispatchProbe = onDispatchProbe,
-                        onDispatchRun = onDispatchRun,
-                        onToggleAnnounce = onToggleAnnounce,
-                    )
-                }
-            }
-        }
-        GalaxyRobot(this).block()
+    galaxyContent(height = SCREEN_HEIGHT, block = block) {
+        GalaxyScreen(
+            state = state,
+            now = FIXTURE_NOW,
+            timeZone = TimeZone.UTC,
+            onDispatchProbe = onDispatchProbe,
+            onDispatchRun = onDispatchRun,
+            onToggleAnnounce = onToggleAnnounce,
+        )
     }
 }
 
-// Frozen, because the footer runs a countdown and a state read against a wall clock would differ
+// A whole phone rather than a destination, because the sheet is a popup over the window and the
+// tests here are the ones that raise it.
+private const val SCREEN_HEIGHT: Int = 852
+
+// Frozen, because the caption runs a countdown and a state read against a wall clock would differ
 // from itself every second. Epoch in UTC, so a landing time is arithmetic rather than a fact about
 // the machine that ran the test.
 internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 
-// The colony every frame in `TestGalaxyUiState` describes, for the tests that drive the stateful
-// screen rather than a mapped frame: which world has its sheet up is `GalaxyScreen`'s own state, so
-// a tap that raises one is only a tap that raises one from here.
+// The colony every frame in `GalaxyFrames` describes, for the tests that drive the stateful screen
+// rather than a mapped frame. Seed 20_260_807 puts home at 6:137 — Teshezon, in Torux Blaze, five
+// worlds — with the light at genesis running 107…167; see the pin in core's `GameSaveTest`.
 //
 // **The skiff is put here rather than inherited, since 0.11.3.** Genesis used to grant one and this
 // was `GameState.initial` alone; a colony now buys its first hull, and a fixture with an empty pool
@@ -81,7 +70,7 @@ internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 // it, and no baseline moves.
 //
 // **The scout joins it for exactly the same reason at 0.15**, one version later in the same story: a
-// probe flies a hull now, so a fixture with no `SCOUT` would draw every probe footer on this tab in
+// probe flies a hull now, so a fixture with no `SCOUT` would draw every probe caption on this tab in
 // its *"needs a scout"* state. These frames have always described a colony that can send a probe —
 // several of them are of a probe already in the air — so the pool has to say so.
 //

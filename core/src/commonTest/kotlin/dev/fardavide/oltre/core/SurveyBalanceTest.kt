@@ -56,12 +56,26 @@ class SurveyBalanceTest {
     }
 
     @Test
-    fun `the longest flight covers a night and the shortest does not overshoot a day`() {
-        // Both ends matter. Too short and the verb cannot cover the overnight gap it exists for;
-        // too long and a player is choosing a target they will not see the result of.
+    fun `the next galaxy covers a night and the far side of the universe is allowed to outlast a day`() {
+        // **The day ceiling was a four-galaxy rule and it is gone** — Davide, 2026-09-25, on the One
+        // Sky pass widening the space to nine: *"Let's revisit the rules. I'm fine to extend the
+        // probe time."*
+        //
+        // What survives is the half that was ever load-bearing. The verb exists to cover the gap
+        // between check-ins, and round 8 measured that gap at four to nine hours — so the claim is
+        // about the target a player would actually pick, which is somewhere in the neighbourhood
+        // rather than the opposite corner of the universe. The far corner of the galaxy next door is
+        // that target, and it lands at 8h 49m.
+        val nextGalaxy = SurveyBalance.duration(at(1, 1), at(2, GalaxyBalance.SYSTEMS_PER_GALAXY))
+        assertTrue(nextGalaxy >= 8.hours, "the next galaxy's far corner must cover a night, was $nextGalaxy")
+        assertTrue(nextGalaxy <= 24.hours, "the next galaxy must stay inside a day, was $nextGalaxy")
+
+        // **And the far corner is allowed to be far**, which is the part the old ceiling could not
+        // say. Eight hops plus a galaxy's width is a day and a half of flight, and that is the map
+        // being honest about distance rather than the verb misbehaving: nothing makes the ninth
+        // galaxy worth probing from the first, and the caption prices it before the tap.
         val corner = SurveyBalance.duration(at(1, 1), at(GalaxyBalance.GALAXIES, GalaxyBalance.SYSTEMS_PER_GALAXY))
-        assertTrue(corner >= 8.hours, "the far corner must be able to cover a night, was $corner")
-        assertTrue(corner <= 24.hours, "no dispatch should outlast a day, was $corner")
+        assertEquals((30 + 250 * (GalaxyBalance.GALAXIES - 1) + 249).minutes, corner)
     }
 
     @Test
