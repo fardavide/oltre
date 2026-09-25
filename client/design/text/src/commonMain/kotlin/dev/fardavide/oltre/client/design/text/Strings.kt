@@ -81,15 +81,8 @@ object Strings {
     // "home 14:05" — a run's return.
     fun homeAt(hour: Int, minute: Int): TextRes = clock(StringId.HomeAt, hour, minute)
 
-    // "lands 14:05" — a probe still in flight.
-    fun landsAt(hour: Int, minute: Int): TextRes = clock(StringId.LandsAt, hour, minute)
-
     // "landed 14:05" — a run that has already arrived.
     fun landedAt(hour: Int, minute: Int): TextRes = clock(StringId.LandedAt, hour, minute)
-
-    // "Probe landed 14:05" — the survey footer, which names the craft because the card it sits on
-    // is about the world rather than about the probe.
-    fun probeLandedAt(hour: Int, minute: Int): TextRes = clock(StringId.ProbeLandedAt, hour, minute)
 
     private fun clock(id: StringId, hour: Int, minute: Int): TextRes =
         message(id, Arg.Number(hour.toLong()), Arg.Number(minute.toLong()))
@@ -196,9 +189,6 @@ object Strings {
     // "—", for a binding resource with no production at all: "in 2,000,000h" is a worse lie than
     // nothing.
     fun availableNever(): TextRes = message(StringId.AvailableNever)
-
-    // "needs a scout" — the probe footer, when the hull rather than the metal is what is short.
-    fun probeNeedsScout(): TextRes = message(StringId.ProbeNeedsScout)
 
     // PLACEHOLDER copy, like every string the app says: content is Davide's.
     fun scoutName(): TextRes = message(StringId.ScoutName)
@@ -915,9 +905,6 @@ object Strings {
     // "no worlds" at zero, which is a different sentence rather than a zero.
     fun worldCount(count: Int): TextRes = message(StringId.WorldCount, Arg.Count(count))
 
-    fun worldsSurveyedCount(count: Int): TextRes =
-        message(StringId.WorldsSurveyedCount, Arg.Count(count))
-
     fun probeLandsIn(wait: TextRes): TextRes = message(StringId.ProbeLandsIn, Arg.Text(wait))
 
     // "probe 4h 40m" — the caption's trailing control.
@@ -928,20 +915,7 @@ object Strings {
     fun probeFlightLabel(duration: TextRes): TextRes =
         message(StringId.ProbeFlightLabel, Arg.Text(duration))
 
-    fun nothingToSurvey(slots: Int): TextRes =
-        message(StringId.NothingToSurvey, Arg.Number(slots.toLong()))
-
-    fun surveyedAtGenesis(): TextRes = message(StringId.SurveyedAtGenesis)
-
     fun dispatchProbe(): TextRes = message(StringId.DispatchProbe)
-
-    fun dispatchProbeCompact(): TextRes = message(StringId.DispatchProbeCompact)
-
-    fun findSettleable(count: Int): TextRes = message(StringId.FindSettleable, Arg.Count(count))
-
-    fun findNearMiss(count: Int): TextRes = message(StringId.FindNearMiss, Arg.Count(count))
-
-    fun findNone(): TextRes = message(StringId.FindNone)
 
     // "+18 °C", "1.45 g", "0.92 atm" — **the space before each unit is U+00A0**, so a line that has
     // to wrap never leaves "atm" alone on one. That is English's typography and it lives in the

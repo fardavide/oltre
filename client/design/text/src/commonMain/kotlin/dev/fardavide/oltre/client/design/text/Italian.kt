@@ -73,9 +73,7 @@ object Italian : Translations {
         // are feminine while two are not.
         StringId.DoneAt -> "termina ${args.clock()}"
         StringId.HomeAt -> "rientro ${args.clock()}"
-        StringId.LandsAt -> "arriva ${args.clock()}"
         StringId.LandedAt -> "arrivata ${args.clock()}"
-        StringId.ProbeLandedAt -> "Sonda arrivata ${args.clock()}"
 
         // ── The design system's own words ────────────────────────────────────────────────────
         // `LV` abbreviates *livello* as readily as it abbreviates "level", so the badge is unchanged.
@@ -129,7 +127,6 @@ object Italian : Translations {
         StringId.Build -> "Costruisci"
         StringId.AvailableIn -> "tra ${args.text(0)}"
         StringId.AvailableNever -> "—"
-        StringId.ProbeNeedsScout -> "serve un esploratore"
         StringId.ScoutName -> "Esploratore"
         StringId.ScoutPurpose -> "Nessuna stiva · l'unico scafo che può esplorare"
         StringId.SkiffName -> "Scialuppa"
@@ -500,18 +497,10 @@ object Italian : Translations {
         StringId.WorldCount -> args.count(0).let {
             if (it == 0) "nessun mondo" else "$it ${it.plural("mondo", "mondi")}"
         }
-        StringId.WorldsSurveyedCount ->
-            args.count(0).let { "$it ${it.plural("mondo rilevato", "mondi rilevati")}" }
         StringId.ProbeLandsIn -> "la sonda arriva tra ${args.text(0)}"
         StringId.ProbeFlight -> "sonda ${args.text(0)}"
         StringId.ProbeFlightLabel -> "volo ${args.text(0)}"
-        StringId.NothingToSurvey -> "${args.number(0)} slot vuoti · niente da rilevare"
-        StringId.SurveyedAtGenesis -> "Rilevato alla genesi"
         StringId.DispatchProbe -> "Invia sonda"
-        StringId.DispatchProbeCompact -> "Invia"
-        StringId.FindSettleable -> "${args.count(0)} colonizzabili"
-        StringId.FindNearMiss -> "${args.count(0)} bloccati su un asse"
-        StringId.FindNone -> "nessuno colonizzabile"
         StringId.TemperatureReading -> "${args.text(0)}$UNIT_GAP°C"
         StringId.GravityReading -> "${args.text(0)}${UNIT_GAP}g"
         StringId.PressureReading -> "${args.text(0)}${UNIT_GAP}atm"

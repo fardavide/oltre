@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
@@ -12,25 +13,34 @@ import dev.fardavide.oltre.client.galaxy.ui.SkySelection
 import dev.fardavide.oltre.client.galaxy.ui.SkyStarInk
 import dev.fardavide.oltre.client.galaxy.ui.SkyUiState
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
+import dev.fardavide.oltre.core.EmpireId
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.WorldOwnership
+import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.epithetFor
+import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -163,6 +173,18 @@ class SkyUiStateTest {
     }
 
     @Test
+    fun `a probe into the next galaxy is that galaxy's fleet out and not yours`() {
+        val hop = SystemAddress(galaxy = 7, system = HOME.system)
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(wealthy(), hop, at = EPOCH)).state
+
+        // The count and the amber path both belong to the galaxy the probe is bound for: the home
+        // galaxy's line stays as it was, and its arm carries no flight.
+        assertEquals("0 of 250 charted · 0 surveyed · 1 fleet out", English.resolve(out.sky(SkySelection.System(hop), SkyDepth.REGION).count))
+        assertEquals("61 of 250 charted · 1 surveyed", English.resolve(out.sky(SkySelection.Region(HOME_GALAXY, 6), SkyDepth.REGION).count))
+        assertEquals(emptyList(), out.sky(SkySelection.System(hop), SkyDepth.REGION).galaxies[HOME_GALAXY - 1].flights)
+    }
+
+    @Test
     fun `the count line at the system depth names the system and prices the trip`() {
         val state = fresh()
 
@@ -184,6 +206,72 @@ class SkyUiStateTest {
         assertEquals(
             "Home · ${English.resolve(Strings.worldEpithet(epithetFor(traits)))} · ${English.resolve(Strings.hazards(traits.hazards.size))}",
             English.resolve(fresh().sky(SkySelection.World(HOME), SkyDepth.WORLD).count),
+        )
+    }
+
+    @Test
+    fun `the count line on a socket is unsurveyed and prices the probe that would fill it`() {
+        // Twenty-three systems out, plus the flat half hour: a socket's verdict is the flight, since
+        // nothing else about the world is known.
+        val at = SystemAddress(galaxy = HOME_GALAXY, system = 160)
+        val socket = fresh().sky(SkySelection.System(at), SkyDepth.SYSTEM).galaxies[HOME_GALAXY - 1].stars[159].worlds.first()
+
+        assertEquals(
+            "unsurveyed · slot ${socket.slot} · probe 53m",
+            English.resolve(fresh().sky(SkySelection.World(GalaxyCoordinate(HOME_GALAXY, 160, socket.slot)), SkyDepth.WORLD).count),
+        )
+    }
+
+    @Test
+    fun `the count line on a world somebody else holds is occupied and its epithet`() {
+        val fresh = fresh()
+        val taken = fresh.aNeighbourOfHome()
+        val held = fresh.copy(
+            galaxy = fresh.galaxy.copy(ownership = fresh.galaxy.ownership + WorldOwnership(taken, EmpireId("kepler"))),
+        )
+        val traits = requireNotNull(worldAt(fresh.galaxy.seed, taken)).traits
+
+        // No hazard count: a world you cannot run to has no danger worth pricing.
+        assertEquals(
+            "Occupied · ${English.resolve(Strings.worldEpithet(epithetFor(traits)))}",
+            English.resolve(held.sky(SkySelection.World(taken), SkyDepth.WORLD).count),
+        )
+    }
+
+    @Test
+    fun `the count line on a blocked world names the axis the reading and the bound`() {
+        val (blocked, at) = firstSurveyedWorldWhere { it is WorldVerdict.Blocked }
+        val traits = requireNotNull(worldAt(blocked.galaxy.seed, at)).traits
+
+        val count = English.resolve(blocked.sky(SkySelection.World(at), SkyDepth.WORLD).count)
+
+        // The requirement *is* the reason, so the line carries the figures rather than an epithet.
+        assertTrue(count.startsWith("Blocked · "), count)
+        assertTrue(", you tolerate " in count, count)
+        assertTrue(count.endsWith(" · ${English.resolve(Strings.hazards(traits.hazards.size))}"), count)
+    }
+
+    @Test
+    fun `the count line on a barren world reads its yield against the bar`() {
+        val (barren, at) = firstSurveyedWorldWhere { it == WorldVerdict.Barren }
+        val traits = requireNotNull(worldAt(barren.galaxy.seed, at)).traits
+
+        val count = English.resolve(barren.sky(SkySelection.World(at), SkyDepth.WORLD).count)
+
+        // Barren fails the bar and no band, so the line is the yield and the bar it fell under.
+        assertTrue(count.startsWith("Barren · Yield "), count)
+        assertTrue(", worth it at " in count, count)
+        assertTrue(count.endsWith(" · ${English.resolve(Strings.hazards(traits.hazards.size))}"), count)
+    }
+
+    @Test
+    fun `the count line on a settleable world is the word the epithet and the danger`() {
+        val (settleable, at) = firstSurveyedWorldWhere { it is WorldVerdict.Settleable }
+        val traits = requireNotNull(worldAt(settleable.galaxy.seed, at)).traits
+
+        assertEquals(
+            "Settleable · ${English.resolve(Strings.worldEpithet(epithetFor(traits)))} · ${English.resolve(Strings.hazards(traits.hazards.size))}",
+            English.resolve(settleable.sky(SkySelection.World(at), SkyDepth.WORLD).count),
         )
     }
 
@@ -224,6 +312,25 @@ class SkyUiStateTest {
         val dark = fresh().sky(SkySelection.Region(HOME_GALAXY, 10), SkyDepth.GALAXY).caption
         assertEquals("226–250", English.resolve(dark.system))
         assertEquals("25 systems · uncharted · 2h 23m to its edge", English.resolve(dark.meta))
+    }
+
+    @Test
+    fun `a dark region prices the edge farther from home`() {
+        // Region 1 runs 1–25 and home is 137: the far edge is system 1, 136 systems out, which with
+        // the half hour reads 2h 46m — the longest probe the region can ask for.
+        val caption = fresh().sky(SkySelection.Region(HOME_GALAXY, 1), SkyDepth.GALAXY).caption
+
+        assertEquals("25 systems · uncharted · 2h 46m to its edge", English.resolve(caption.meta))
+    }
+
+    @Test
+    fun `a region one galaxy over is never yours whatever its range`() {
+        // Region 6 of galaxy 7 spans the same 126–150 that holds home in galaxy 6.
+        val caption = fresh().sky(SkySelection.Region(7, 6), SkyDepth.GALAXY).caption
+
+        assertEquals("galaxy 7 · 126–150", English.resolve(caption.coordinate))
+        assertTrue(English.resolve(caption.meta).startsWith("25 systems · uncharted · "), English.resolve(caption.meta))
+        assertFalse(caption.own)
     }
 
     @Test
@@ -276,6 +383,21 @@ class SkyUiStateTest {
     }
 
     @Test
+    fun `the caption on a charted star with nothing about it offers neither verb`() {
+        // A probe sent there would come back with the same answer, so the caption prices the trip
+        // and stops: no clock, no probe, no dive.
+        val state = wealthy()
+        val empty = firstWorldlessSystem(state.galaxy.seed)
+        val charted = state.copy(galaxy = state.galaxy.withCharted(empty))
+
+        val caption = charted.sky(SkySelection.System(empty), SkyDepth.REGION).caption
+
+        assertTrue(" · no worlds · " in English.resolve(caption.meta), English.resolve(caption.meta))
+        assertNull(caption.detail)
+        assertNull(caption.trailing)
+    }
+
+    @Test
     fun `the caption on a socket prices the probe that would fill it`() {
         val at = SystemAddress(galaxy = HOME_GALAXY, system = 160)
         val socket = wealthy().sky(SkySelection.System(at), SkyDepth.SYSTEM).galaxies[HOME_GALAXY - 1].stars[159].worlds.first()
@@ -285,6 +407,31 @@ class SkyUiStateTest {
         assertEquals("[6:160:${socket.slot}]", English.resolve(caption.coordinate))
         assertTrue(English.resolve(caption.meta).startsWith("unsurveyed · slot ${socket.slot}"), English.resolve(caption.meta))
         assertIs<MapCaptionTrailingUiState.Dispatch>(caption.trailing)
+    }
+
+    @Test
+    fun `a socket under a probe in flight reads the probe's clock and offers nothing`() {
+        val at = SystemAddress(galaxy = HOME_GALAXY, system = 160)
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(wealthy(), at, at = EPOCH)).state
+        val socket = out.sky(SkySelection.System(at), SkyDepth.SYSTEM).galaxies[HOME_GALAXY - 1].stars[159].worlds.first()
+
+        val caption = out.sky(SkySelection.World(GalaxyCoordinate(HOME_GALAXY, 160, socket.slot)), SkyDepth.SYSTEM).caption
+
+        assertNull(caption.trailing)
+        assertEquals("probe lands in 53m", English.resolve(requireNotNull(caption.detail)))
+    }
+
+    @Test
+    fun `a socket offers no probe without a hull to fly it`() {
+        val at = SystemAddress(galaxy = HOME_GALAXY, system = 160)
+        val grounded = wealthy().copy(ships = Ships.NONE)
+        val socket = grounded.sky(SkySelection.System(at), SkyDepth.SYSTEM).galaxies[HOME_GALAXY - 1].stars[159].worlds.first()
+
+        val caption = grounded.sky(SkySelection.World(GalaxyCoordinate(HOME_GALAXY, 160, socket.slot)), SkyDepth.SYSTEM).caption
+
+        assertNull(caption.trailing)
+        // The flight is still printed, so nothing is hidden — only the verb is withheld.
+        assertEquals("probe 53m", English.resolve(requireNotNull(caption.detail)))
     }
 
     @Test
@@ -311,6 +458,47 @@ class SkyUiStateTest {
         assertEquals("your colony", English.resolve(requireNotNull(caption.detail)))
         assertNull(caption.trailing)
         assertTrue(caption.own)
+    }
+
+    @Test
+    fun `the caption on a world your fleet is bound for says when it is home`() {
+        val landed = surveyed(TARGET).copy(ships = Ships.of(ShipType.SKIFF, 1))
+        val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
+        val out = assertIs<StartRunResult.Started>(
+            startRun(landed, world, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 12.hours, at = LANDED),
+        ).state
+
+        val caption = out.sky(SkySelection.World(world), SkyDepth.WORLD, now = LANDED).caption
+
+        // The one figure that matters while the fleet is out is when it is back — in the clock the
+        // colony keeps, which here is UTC two days after the epoch.
+        assertEquals("your run · home 12:00", English.resolve(requireNotNull(caption.detail)))
+    }
+
+    @Test
+    fun `the caption on a worked world reads what is left of the deposit as a fraction`() {
+        val landed = surveyed(TARGET)
+        val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
+        val cap = requireNotNull(landed.galaxy.depositCap(world, ResourceKind.METAL))
+        val worked = landed.copy(
+            galaxy = landed.galaxy.withTaken(target = world, gathering = ResourceKind.METAL, taken = 1, at = LANDED),
+        )
+
+        val detail = English.resolve(requireNotNull(worked.sky(SkySelection.World(world), SkyDepth.WORLD, now = LANDED).caption.detail))
+
+        // A fraction between the two words, because 120 of 600 and 120 of 2,400 are not the same
+        // target; the crystal side was never touched and still reads as the word.
+        val fraction = English.resolve(Strings.depositFraction((cap - 1).groupedByThousands(), cap.groupedByThousands()))
+        assertTrue(detail.startsWith("metal $fraction · crystal full"), detail)
+    }
+
+    @Test
+    fun `the caption on a star in another galaxy measures the way in units`() {
+        // Units rather than systems, because a hop is a flight cost and not a count: the same system
+        // number one galaxy over is the hop and nothing else.
+        val caption = fresh().sky(SkySelection.System(SystemAddress(galaxy = 7, system = HOME.system)), SkyDepth.REGION).caption
+
+        assertEquals("250 units out", English.resolve(caption.coordinate))
     }
 
     @Test
@@ -357,6 +545,40 @@ class SkyUiStateTest {
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────
+
+    // The nearest thing to home the player already has a reading on. Derived rather than named,
+    // because which slots a system fills is the seed's business and a hardcoded one would go quietly
+    // vacuous the day genesis moves — which it did at 0.5.1 and again at 0.29.0.
+    private fun GameState.aNeighbourOfHome(): GalaxyCoordinate =
+        galaxy.surveyed.filter { it != galaxy.home }.minBy { it.slot }
+
+    // Nothing outside the home system is surveyed at genesis and no fleet in a unit test flies, so a
+    // surveyed world of a wanted verdict is injected the same way ownership is. Scans the home galaxy
+    // in coordinate order, so it picks the same world every run.
+    private fun firstSurveyedWorldWhere(match: (WorldVerdict) -> Boolean): Pair<GameState, GalaxyCoordinate> {
+        val base = fresh()
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
+                val at = GalaxyCoordinate(galaxy = HOME_GALAXY, system = system, slot = slot)
+                val world = worldAt(base.galaxy.seed, at) ?: continue
+                val surveyed = base.copy(galaxy = base.galaxy.copy(surveyed = base.galaxy.surveyed + at))
+                if (match(verdictFor(world, surveyed))) return surveyed to at
+            }
+        }
+        error("the home galaxy held no world matching the wanted verdict")
+    }
+
+    // Roughly one system in 390 has nothing about its star — `ProbeOfferTest` has the arithmetic —
+    // so the scan runs the whole universe rather than the home galaxy.
+    private fun firstWorldlessSystem(seed: GalaxySeed): SystemAddress {
+        for (galaxy in 1..GalaxyBalance.GALAXIES) {
+            for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+                val address = SystemAddress(galaxy = galaxy, system = system)
+                if (worldsIn(seed, address) == 0) return address
+            }
+        }
+        error("seed $seed generated no empty system at all")
+    }
 
     private fun GameState.sky(
         selection: SkySelection,

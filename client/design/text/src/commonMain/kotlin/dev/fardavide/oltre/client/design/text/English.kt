@@ -34,9 +34,7 @@ object English : Translations {
         // ── Wall-clock instants ──────────────────────────────────────────────────────────────
         StringId.DoneAt -> "done ${args.clock()}"
         StringId.HomeAt -> "home ${args.clock()}"
-        StringId.LandsAt -> "lands ${args.clock()}"
         StringId.LandedAt -> "landed ${args.clock()}"
-        StringId.ProbeLandedAt -> "Probe landed ${args.clock()}"
 
         // ── The design system's own words ────────────────────────────────────────────────────
         StringId.LevelBadge -> "LV ${args.number(0)}"
@@ -74,10 +72,6 @@ object English : Translations {
         StringId.Build -> "Build"
         StringId.AvailableIn -> "in ${args.text(0)}"
         StringId.AvailableNever -> "—"
-        // The probe footer's answer when the fleet rather than the bank is what is short. It
-        // names the shop rather than a wait, because unlike every other unaffordable state in
-        // the game this one is not answered by standing still.
-        StringId.ProbeNeedsScout -> "needs a scout"
         StringId.ScoutName -> "Scout"
         StringId.ScoutPurpose -> "No hold · the only hull that can survey"
         StringId.SkiffName -> "Skiff"
@@ -450,18 +444,10 @@ object English : Translations {
         StringId.WorldCount -> args.count(0).let {
             if (it == 0) "no worlds" else "$it ${it.plural("world", "worlds")}"
         }
-        StringId.WorldsSurveyedCount ->
-            args.count(0).let { "$it ${it.plural("world", "worlds")} surveyed" }
         StringId.ProbeLandsIn -> "probe lands in ${args.text(0)}"
         StringId.ProbeFlight -> "probe ${args.text(0)}"
         StringId.ProbeFlightLabel -> "flight ${args.text(0)}"
-        StringId.NothingToSurvey -> "${args.number(0)} empty slots · nothing to survey"
-        StringId.SurveyedAtGenesis -> "Surveyed at genesis"
         StringId.DispatchProbe -> "Dispatch probe"
-        StringId.DispatchProbeCompact -> "Dispatch"
-        StringId.FindSettleable -> "${args.count(0)} settleable"
-        StringId.FindNearMiss -> "${args.count(0)} blocked at one axis"
-        StringId.FindNone -> "none settleable"
         StringId.TemperatureReading -> "${args.text(0)}$UNIT_GAP°C"
         StringId.GravityReading -> "${args.text(0)}${UNIT_GAP}g"
         StringId.PressureReading -> "${args.text(0)}${UNIT_GAP}atm"

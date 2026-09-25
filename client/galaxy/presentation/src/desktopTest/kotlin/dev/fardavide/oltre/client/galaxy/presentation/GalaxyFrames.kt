@@ -119,6 +119,20 @@ internal val wellTravelledState: GameState = frameState.surveying(systems = list
 
 internal val wellTravelledFrame: SkyFrame = frame(state = wellTravelledState)
 
+// The same fortnight, pinched in past the region's landing and short of the orbit view: the zoom
+// where the worlds of every surveyed star are strung across its arm as grains. **A pinch and not a
+// step**, so the view is the landing's eye at a zoom no step of the bar flies to; the depth read
+// off it is still the region's, which is what the bar says.
+internal val hoodFrame: SkyFrame = wellTravelledFrame.let { SkyFrame(it.uiState, it.view.copy(ppu = HOOD_PPU)) }
+
+// Past the near edge of the neighbourhood's fade and well short of the orbit view's: the
+// portraits at full strength, and the star's own name and the region's still drawn.
+private const val HOOD_PPU: Float = 20f
+
+// The orbit view of a star past the light: nothing sits about it but the fog's own word, because
+// a socket is a charted fact and this star is not one.
+internal val darkSystemFrame: SkyFrame = frame(state = wealthyState, selection = SkySelection.System(DARK_STAR), depth = SkyDepth.SYSTEM)
+
 // A charted star no probe has been to, at the system depth: the orbit view draws sockets where the
 // worlds would be, and the caption on one prices the probe that would fill it.
 internal val SOCKET_SYSTEM: SystemAddress = SystemAddress(galaxy = frameState.galaxy.home.galaxy, system = 160)

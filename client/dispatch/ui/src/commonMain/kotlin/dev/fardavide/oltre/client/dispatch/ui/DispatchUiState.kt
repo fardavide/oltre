@@ -201,9 +201,8 @@ sealed interface DispatchUiState {
         val compactDanger: TextRes,
     ) : DispatchUiState
 
-    // The sheet refuses the sale and says why, in the words of the thing that refused it — the same
-    // shape `ProbeActionUiState.NothingToSurvey` already has. Both refusals are reachable on a first
-    // check-in, and neither is an error state.
+    // The sheet refuses the sale and says why, in the words of the thing that refused it. Both
+    // refusals are reachable on a first check-in, and neither is an error state.
     data class Refuse(
         override val name: TextRes,
         override val head: TextRes,

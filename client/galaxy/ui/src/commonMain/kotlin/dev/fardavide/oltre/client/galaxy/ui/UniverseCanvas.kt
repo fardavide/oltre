@@ -695,15 +695,21 @@ class SkyPaint(
         }
     }
 
-    // A name beside every star that has one, placed in the first of four spots that is clear of
-    // the light and of everything already written. Home first, because home is the name you look
-    // for; the selection next.
+    // A name beside every star that has one, placed in the first of five spots that is clear of
+    // everything already written. Home first, because home is the name you look for; the selection
+    // next — and those two are written across the core's light as well, because a home sixteen
+    // units from the bar is *in* the light, and a rule that kept names off it kept home's off the
+    // sky altogether. Every other name stays clear of it.
+    //
+    // The light itself goes out with the hood — the glyph is drawn at 15% once the neighbourhood is
+    // in — so the patch the names keep clear of shrinks with it: at the hood's zoom the whole
+    // viewport would otherwise be *core*, and no neighbour would ever be named.
     private fun DrawScope.drawNames(frame: Frame, placed: Placed, state: SkyGalaxyUiState, boxes: MutableList<Rect>) {
         val a = frame.sector * (1f - frame.system)
         val home = SystemAddress.of(scene.home)
         val selected = frame.selectedSystem
-        val bulge = scene.sky.shapeOf(placed.galaxy).scale * 1.5f * placed.k
-        boxes += Rect(placed.cq.x - bulge, placed.cq.y - bulge * scene.sky.shapeOf(placed.galaxy).tilt, placed.cq.x + bulge, placed.cq.y + bulge * scene.sky.shapeOf(placed.galaxy).tilt)
+        val bulge = scene.sky.shapeOf(placed.galaxy).scale * 1.5f * placed.k * (1f - frame.hood)
+        val core = Rect(placed.cq.x - bulge, placed.cq.y - bulge * scene.sky.shapeOf(placed.galaxy).tilt, placed.cq.x + bulge, placed.cq.y + bulge * scene.sky.shapeOf(placed.galaxy).tilt)
         val named = state.stars.filter { it.name != null }.sortedBy { star ->
             when (SystemAddress(placed.galaxy, star.system)) {
                 home -> 0
@@ -731,7 +737,9 @@ class SkyPaint(
             )
             val spot = spots.firstOrNull { s ->
                 val box = Rect(s.x - 3f, s.y - 2f, s.x + w + 3f, s.y + h + 2f)
-                box.left >= 0f && box.right <= frame.viewport.width && boxes.none { it.overlaps(box) }
+                box.left >= 0f && box.right <= frame.viewport.width &&
+                    boxes.none { it.overlaps(box) } &&
+                    (isHome || isSelected || !core.overlaps(box))
             } ?: continue
             boxes += Rect(spot.x - 3f, spot.y - 2f, spot.x + w + 3f, spot.y + h + 2f)
             drawText(text, color = if (isSelected) OltreColors.accent else OltreColors.text, topLeft = spot, alpha = (if (isHome || isSelected) 1f else 0.6f) * a)

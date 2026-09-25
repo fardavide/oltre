@@ -53,7 +53,7 @@ kotlin {
 
 // **The mapper's tests are in `:client:galaxy:presentation`, and that is not an omission.**
 // `DispatchUiStateTest`'s own subject is the pairing this file's `probe` parameter exists for: the
-// unsurveyed refusal offers a flight *only when the map card above it would honour one*, and the
-// thing that decides that is `toProbeActionUiState`, which is Galaxy's. A copy of it here would be a
+// unsurveyed refusal offers a flight *only when the verb would honour one*, and the thing that
+// decides that is `probeOfferFor`, which is Galaxy's. A copy of it here would be a
 // second copy of exactly the decision the pairing keeps single. Kover aggregates by class rather
 // than by module, so this module's coverage is measured wherever its tests happen to live.

@@ -13,7 +13,6 @@ import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapCaptionTrailingUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapCaptionUiState
-import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.SkyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
 import dev.fardavide.oltre.client.galaxy.ui.SkyFlightUiState
@@ -104,13 +103,7 @@ internal fun GameState.toSkyUiState(
             // sent, and a second copy of that decision inside the sheet is a second place for the
             // two to disagree about one flight. The sheet's own module cannot price a survey and
             // must not learn to — see `DispatchProbeOffer`.
-            probe = probeActionFor(
-                at = SystemAddress.of(selected.at),
-                now = now,
-                timeZone = timeZone,
-                held = held,
-                refusal = refusal,
-            ).asDispatchProbeOffer(),
+            probe = probeOfferFor(SystemAddress.of(selected.at)),
             now = now,
             held = held,
             refusal = refusal,
@@ -730,33 +723,25 @@ private fun GameState.canSendAProbe(): Boolean =
 
 // ── The probe, for the dispatch sheet ───────────────────────────────────────────────────────
 
-// **The orbit page obeyed the third tier or the third tier did not exist**, and the sheet's refusal
-// still does: an uncharted system is handed no worlds because it is not allowed to know its own, so
-// the probe is offered for what the light has reached and refused for nothing it has not.
-internal fun GameState.probeActionFor(
-    at: SystemAddress,
-    now: Instant,
-    timeZone: TimeZone,
-    held: HeldActions,
-    refusal: RefusalUiState?,
-): ProbeActionUiState = toProbeActionUiState(
-    at = at,
-    worlds = if (galaxy.hasCharted(at)) worldsOf(at) else emptyList(),
-    now = now,
-    timeZone = timeZone,
-    held = held,
-    refusal = refusal,
-)
-
-// **The one place the probe's states and the dispatch sheet meet**, and it is a projection rather
-// than a decision: `toProbeActionUiState` has already worked out whether a flight would be honoured,
-// and this hands the three strings the sheet's refusal needs to say so. The five states that are
-// not an offer — unaffordable, in flight, landed, charted, nothing to survey — all become null, which
-// is the sheet showing a refusal with no verb under it.
-internal fun ProbeActionUiState.asDispatchProbeOffer(): DispatchProbeOffer? =
-    (this as? ProbeActionUiState.Dispatch)?.let {
-        DispatchProbeOffer(label = it.label, cost = it.offer.cost.amount, flight = it.offer.flight)
-    }
+// **The verb the sheet's refusal carries, present exactly where `startSurvey` would accept it.**
+// Null for the same three reasons the verb refuses — a probe already bound there, a system whose
+// worlds are all known, a colony short of the hull or the metal — and null is the sheet showing a
+// refusal with no verb under it. The system page's six-state footer that once said *why* is gone
+// with One Sky; the caption prices the flight before the tap and that is the whole of the telling.
+//
+// **The second clause obeys the third tier the way the verb does**: `hasSurveyed` is vacuously true
+// of a system with no worlds, so on its own it would refuse the one flight that finds out a star is
+// empty. Guarded by the light, an uncharted worldless star is offered and a charted one is not.
+internal fun GameState.probeOfferFor(at: SystemAddress): DispatchProbeOffer? = when {
+    surveys.any { it.target == at } -> null
+    galaxy.hasCharted(at) && galaxy.hasSurveyed(at) -> null
+    !canSendAProbe() -> null
+    else -> DispatchProbeOffer(
+        label = Strings.dispatchProbe(),
+        cost = SurveyBalance.cost().metal.groupedByThousands(),
+        flight = Strings.probeFlightLabel(probeTo(at).toChipLabel()),
+    )
+}
 
 // ── The generator, asked once per system ────────────────────────────────────────────────────
 

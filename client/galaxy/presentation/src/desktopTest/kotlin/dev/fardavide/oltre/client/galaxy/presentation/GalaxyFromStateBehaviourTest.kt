@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.systemNameAt
+import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -148,6 +149,23 @@ class GalaxyFromStateBehaviourTest {
             assertTheCaptionReads("unsurveyed · slot ${socket.slot}")
             assertTheCaptionOffers("probe")
             assertTheCaptionDoesNotRead("run")
+        }
+    }
+
+    @Test
+    fun `in front of a socket the count line says what the caption said`() {
+        // The count follows the depth: at the world depth it is the world's own sentence, and a
+        // socket's sentence is the slot and the probe's price rather than a verdict — there is no
+        // world under it to judge. The same words as the caption's, because a socket has no others.
+        val socket = wealthyState.worldsOf(SOCKET_SYSTEM).first().at
+
+        galaxyScreen(state = wealthyState) {
+            walkTo(SOCKET_SYSTEM)
+            tapStar(SOCKET_SYSTEM)
+            tapWorld(socket)
+            tapWorld(socket)
+            assertTheBarReads(SkyDepth.WORLD, worldNameAt(wealthyState.galaxy.seed, socket))
+            assertTheCountReads("unsurveyed · slot ${socket.slot} · probe")
         }
     }
 

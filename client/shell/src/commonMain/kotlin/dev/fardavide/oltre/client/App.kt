@@ -2559,7 +2559,9 @@ private class AccountWork {
 // settings sheet that is not about the colony: who is signed in is the composition root's to know,
 // and `:client:settings:presentation` may not learn it — a `GameState` has never carried an account
 // and putting one in it would be the wire reaching into the simulation.
-private fun accountSection(
+// `internal` rather than private for one reader: `SettingsSheetScreenshotTest`, which photographs the
+// section this builds and wants it built by the same hand the app uses.
+internal fun accountSection(
     provider: AuthProvider,
     // **Handed in rather than read, and it is the strip's own.** This row and the strip are two
     // drawings of one account, so the name arrives from the one mapper that decides what an account

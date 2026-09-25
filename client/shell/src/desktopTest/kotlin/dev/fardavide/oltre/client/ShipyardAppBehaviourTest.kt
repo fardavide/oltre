@@ -134,7 +134,7 @@ class ShipyardAppBehaviourTest {
     // **The day-one loop, end to end, and the one this slice exists for.** A colony owns no hulls;
     // a probe flies a `SCOUT`; so the first thing a new player must be able to do is buy one and
     // survey with it. Every half of that is tested somewhere — `BuildShipsTest` for the purchase,
-    // `StartSurveyTest` for the consumption, `ProbeActionUiState` for the footer — and none of them
+    // `StartSurveyTest` for the consumption, `ProbeOfferTest` for the offer — and none of them
     // can see the wiring, which is exactly where 0.15 broke: `FleetBalance` sold the scout and the
     // Shipyard drew no card for it, so the loop was unreachable with every other test green.
     @Test

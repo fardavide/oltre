@@ -7,7 +7,6 @@ import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
@@ -15,7 +14,6 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
-import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
@@ -34,7 +32,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
-import kotlinx.datetime.TimeZone
 
 // The arithmetic the sheet renders, with no sheet in front of it. Every claim here was reachable
 // only through a Compose test until 0.7.1 — so the mapper that resolves three defaults, clamps the
@@ -1020,9 +1017,6 @@ class DispatchUiStateTest {
         announced = false,
     )
 
-    private fun worldsIn(at: SystemAddress): List<World> = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
-        .mapNotNull { worldAt(seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it)) }
-
     private fun dispatchAt(
         target: GalaxyCoordinate,
         state: GameState = withSkiffs(1),
@@ -1034,21 +1028,12 @@ class DispatchUiStateTest {
         return state.toDispatchUiState(
             selection = selection,
             // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only
-            // when the card above it would honour one, and a hand-made state here would be a second
+            // when the verb would honour one, and a hand-made offer here would be a second
             // copy of exactly the decision that pairing exists to keep single. **That pairing is why
             // this test stayed in this module when the mapper left it** — `:client:dispatch` cannot
-            // see `toProbeActionUiState` and should not, because a sheet raised from a landing has no
-            // probe footer above it at all.
-            probe = state.toProbeActionUiState(
-                at = its,
-                worlds = worldsIn(its),
-                now = EPOCH,
-                timeZone = TimeZone.UTC,
-                // A colony with signal, which is what every assertion in this file is about: the
-                // queue's effect on the sheet has tests of its own.
-                held = HeldActions.NONE,
-                refusal = null,
-            ).asDispatchProbeOffer(),
+            // see `probeOfferFor` and should not, because a sheet raised from a landing has no probe
+            // to offer at all.
+            probe = state.probeOfferFor(its),
             now = EPOCH,
         )
     }

@@ -90,6 +90,19 @@ class GalaxyScreenshotTest {
         capture(frame = wellTravelledFrame, name = "galaxy_region_travelled")
     }
 
+    // The same fortnight pinched in: the worlds of every surveyed star strung across its arm, the
+    // one drawing no step of the bar flies to.
+    @Test
+    fun `the region pinched in to the neighbourhood`() {
+        capture(frame = hoodFrame, name = "galaxy_region_hood")
+    }
+
+    // The orbit view of a star past the light: the fog's word where the orbits would be.
+    @Test
+    fun `the system of a star past the light`() {
+        capture(frame = darkSystemFrame, name = "galaxy_system_uncharted")
+    }
+
     // The orbit view of a charted star nobody has been to: sockets where the worlds would be.
     @Test
     fun `the system of a charted star with nothing surveyed`() {

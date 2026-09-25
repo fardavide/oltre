@@ -18,9 +18,13 @@ import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.player.presentation.toIdentityFaceUiState
 import dev.fardavide.oltre.client.player.presentation.toMarkComposeFaceUiState
+import dev.fardavide.oltre.client.player.presentation.spokenName
 import dev.fardavide.oltre.client.settings.presentation.toAlertSheetUiState
+import dev.fardavide.oltre.client.settings.ui.AccountUiState
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.protocol.AuthProvider
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.PlayerProfile
 import io.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.datetime.TimeZone
@@ -80,6 +84,26 @@ class SettingsSheetScreenshotTest {
         )
     }
 
+    // **The account section in its place**, under Delivery and above the build row, which no other
+    // frame shows: the four settings baselines in `:client:settings:ui` are recorded without an
+    // account, and `DeleteFaceScreenshotTest` photographs the face the section's second row *opens*,
+    // not the row. Built through `accountSection` rather than by hand so the frame carries the words
+    // the app puts on it — a fixture assembled here would keep compiling on the day the mapping broke.
+    @Test
+    fun `the settings face of a signed-in account`() {
+        capture(
+            name = "settings_face_account",
+            face = SheetFace.SETTINGS,
+            height = 920,
+            account = accountSection(
+                provider = AuthProvider.APPLE,
+                name = SIGNED_IN.spokenName(),
+                state = GameState.initial(GalaxySeed(SEED)),
+                timeZone = TimeZone.UTC,
+            ),
+        )
+    }
+
     private fun capture(
         name: String,
         face: SheetFace,
@@ -88,6 +112,9 @@ class SettingsSheetScreenshotTest {
         // When set, the frame is taken mid-transition rather than settled: the face is switched on
         // the first composition and the clock is wound to the middle of the 210ms.
         swapTo: SheetFace? = null,
+        // The account section is drawn only when there is one; every frame but the signed-in one
+        // leaves it out so the settings frames keep photographing the controls they were recorded for.
+        account: AccountUiState? = null,
     ) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
@@ -103,6 +130,7 @@ class SettingsSheetScreenshotTest {
                             alerts = GameState.initial(GalaxySeed(SEED)).toAlertSheetUiState(
                                 now = TEST_NOW,
                                 timeZone = TimeZone.UTC,
+                                account = account,
                             ),
                             changelog = EnglishChangelog.toChangelogUiState(),
                             // **A fixture rather than the head of the catalogue**, so this baseline
@@ -120,10 +148,9 @@ class SettingsSheetScreenshotTest {
                             onSelectMode = {},
                             onToggleCategory = {},
                             onSelectDelivery = {},
-                            // **No account on these frames and none of the three callbacks reachable
-                            // from them.** The two faces the account opens are their own baselines —
-                            // see `DeleteFaceScreenshotTest` — and folding them in here would make
-                            // four settings frames carry a section the sheet is not about.
+                            // **None of the three account callbacks is reachable from a frame**, and
+                            // the two faces the section opens are their own baselines — see
+                            // `DeleteFaceScreenshotTest`.
                             delete = null,
                             onOpenDelete = {},
                             onKeepAccount = {},
@@ -162,6 +189,9 @@ class SettingsSheetScreenshotTest {
         // An account that has chosen neither a name nor a mark: the two faces it builds are never
         // photographed from this file, so what it has to be is constructible rather than interesting.
         val UNCHOSEN = PlayerProfile(name = null, mark = null)
+
+        // An account with a name, for the one frame that prints it under the provider row.
+        val SIGNED_IN = PlayerProfile(name = CommanderName("Davide"), mark = null)
 
         const val PHONE_WIDTH = 393
         const val SLIDE_OVER_WIDTH = 320
