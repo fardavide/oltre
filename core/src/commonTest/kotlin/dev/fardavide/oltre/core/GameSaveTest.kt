@@ -1474,10 +1474,11 @@ class GameSaveTest {
         // what makes this a test of the field rather than of the flag: one list, two answers.
         val quiet = flying().let { it.copy(runs = it.runs.map { run -> run.copy(announced = false) }) }
         val asked = toggleFlightAlerts(quiet)
+        val target = asked.galaxy.surveyed.first { it != asked.galaxy.home }
         val sent = assertIs<StartRunResult.Started>(
             startRun(
-                state = asked,
-                target = asked.galaxy.surveyed.first { it != asked.galaxy.home },
+                state = asked.adaptedForHarvesting(target),
+                target = target,
                 gathering = ResourceKind.CRYSTAL,
                 ships = Ships.of(ShipType.SKIFF, 1),
                 window = 3.hours,

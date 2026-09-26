@@ -1,5 +1,18 @@
 # Adaptation decision sheet — 0.3
 
+## Harvesting requires adaptation (Davide, 2026-09-26)
+
+A planet's thermal, gravitic and atmospheric requirements gate harvesting as well as
+colonisation. Every required axis must be satisfied; meeting one does not bypass another.
+Planets requiring no adaptation remain harvestable without adaptation research. Runs already
+dispatched in an older save finish normally, including their cargo and returning ships.
+
+Davide clarified: "In order to get resources from this planet, I have to level up my adaptation".
+The old harvesting exception was present in both 0.28 and 0.29 despite the blocked verdict shown
+in the galaxy. This clarification supersedes earlier text describing adaptation as settlement-only.
+Enforcement belongs in `core.startRun`, with matching galaxy and dispatch presentation.
+Resource progression and probe duration are a separate balance round.
+
 Written by the build, 2026-08-07, to close the one open call that stands between the galaxy screen
 and the player: *"the adaptation technologies themselves"*, which
 [`galaxy-sheet.md`](galaxy-sheet.md) named, specified the effect of, and deliberately left to the

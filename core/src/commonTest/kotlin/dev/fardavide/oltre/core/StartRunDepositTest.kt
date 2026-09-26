@@ -191,6 +191,7 @@ class StartRunDepositTest {
 
     private fun fleetOf(hulls: Int): GameState =
         GameState.initial().let { it.copy(ships = Ships.of(ShipType.SKIFF, hulls)) }
+            .let { it.adaptedForHarvesting(neighbourOfHome(it)) }
 
     private fun dispatch(
         state: GameState,

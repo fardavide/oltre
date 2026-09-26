@@ -34,10 +34,7 @@ import org.junit.Test
 class DispatchSheetBehaviourTest {
 
     @Test
-    fun `a world you cannot live on offers the run that can send a ship there`() {
-        // The whole point of the mechanic in one assertion. Hostility gates *settling* and never
-        // gathering, so the commonest verdict on the sky — a world a colonist is locked out of — is
-        // an ordinary target for a hold. That is what stops 98% of the galaxy being a wall.
+    fun `a world whose adaptation requirements are met offers a harvesting run`() {
         var asked = 0
 
         galaxyPage(uiState = runnableWorldFrame.uiState, view = runnableWorldFrame.view, onRun = { asked++ }) {
@@ -537,7 +534,7 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `the caption's verb raises the sheet on the screen itself`() {
-        galaxyScreen(state = testGameState) {
+        galaxyScreen(state = testGameState.adaptedTo(RUNNABLE)) {
             assertNoSheet()
 
             raiseTheSheetOn(RUNNABLE)
@@ -554,7 +551,7 @@ class DispatchSheetBehaviourTest {
         val sent = mutableListOf<Quadruple>()
 
         galaxyScreen(
-            state = testGameState,
+            state = testGameState.adaptedTo(RUNNABLE),
             onDispatchRun = { at, gathering, ships, window ->
                 sent += Quadruple(at, gathering, ships, window)
                 // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
@@ -592,7 +589,7 @@ class DispatchSheetBehaviourTest {
         val sent = mutableListOf<Quadruple>()
 
         galaxyScreen(
-            state = wellTravelledState,
+            state = wellTravelledState.adaptedTo(elsewhere),
             onDispatchRun = { at, gathering, ships, window ->
                 sent += Quadruple(at, gathering, ships, window)
                 // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
@@ -742,7 +739,7 @@ class DispatchSheetBehaviourTest {
 
         // Big enough that the vein is what stops the run, which is the state the default was wrong
         // in: 55 idle hulls at a world three of them can empty.
-        val bigFleetState: GameState = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 55))
+        val bigFleetState: GameState = testGameState.adaptedTo(RUNNABLE).copy(ships = Ships.of(ShipType.SKIFF, 55))
 
         // What the mapper would suggest, read off the mapper rather than written down — the number
         // is `FleetBalance.hullsToLift` to the hull, and a figure typed here would be this test

@@ -65,6 +65,7 @@ class ExperienceTest {
         check("the probe landing and the project finishing")
 
         val world = state.galaxy.surveyed.first { it != state.galaxy.home }
+        state = state.adaptedForHarvesting(world)
         state = assertIs<BuildShipsResult.Started>(buildShips(state, Ships.of(ShipType.SKIFF, 1), now)).state
         now += 1.days
         state = advance(state, from = now - 1.days, to = now)

@@ -1,20 +1,31 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRobot
 import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
 import dev.fardavide.oltre.client.galaxy.ui.SkyGeometry
+import dev.fardavide.oltre.core.FleetBalance
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.assertEquals
@@ -30,6 +41,115 @@ import org.junit.Test
 // Driven through the Robot, never through a raw node query — the shape `ResearchRobot` set.
 @OptIn(ExperimentalTestApi::class)
 class GalaxyFromStateBehaviourTest {
+
+    @Test
+    fun `a barren world within tolerance can still be harvested without adaptation`() {
+        val target = (1..GalaxyBalance.SYSTEMS_PER_GALAXY).asSequence()
+            .flatMap { system ->
+                (1..GalaxyBalance.SLOTS_PER_SYSTEM).asSequence().map { slot ->
+                    GalaxyCoordinate(testGameState.galaxy.home.galaxy, system, slot)
+                }
+            }
+            .first { at ->
+                val world = worldAt(testGameState.galaxy.seed, at)
+                val surveyed = testGameState.copy(galaxy = testGameState.galaxy.copy(
+                    surveyed = testGameState.galaxy.surveyed + at,
+                ))
+                world != null && verdictFor(world, surveyed) == WorldVerdict.Barren
+            }
+        val state = testGameState.copy(galaxy = testGameState.galaxy.copy(
+            surveyed = testGameState.galaxy.surveyed + target,
+        ))
+        assertEquals(Research.initial(), state.research)
+        val dispatched = mutableListOf<StartRunResult>()
+
+        galaxyScreen(
+            state = state,
+            onDispatchRun = { at, resource, ships, window ->
+                val result = startRun(state, at, resource, ships, window, FIXTURE_NOW)
+                dispatched += result
+                result is StartRunResult.Started
+            },
+        ) {
+            walkTo(SystemAddress.of(target))
+            tapStar(SystemAddress.of(target))
+            tapWorld(target)
+            tapWorld(target)
+            assertTheCountReads("Barren · Yield")
+            assertTheCaptionOffers("run")
+            takeTheCaptionsVerb()
+            bringBack(ResourceKind.METAL)
+            send()
+            assertNoSheet()
+        }
+
+        val run = assertIs<StartRunResult.Started>(dispatched.single()).state.runs.single()
+        assertEquals(target, run.target)
+        assertEquals(ResourceKind.METAL, run.gathering)
+        assertTrue(run.cargo.metal > 0)
+    }
+
+    @Test
+    fun `an adapted world beyond fleet range explains the propulsion requirement`() {
+        val home = testGameState.galaxy.home
+        val farGalaxy = (1..GalaxyBalance.GALAXIES).maxBy { galaxy ->
+            FleetBalance.distanceUnits(home, GalaxyCoordinate(galaxy, 1, 1))
+        }
+        val target = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+            .map { slot -> GalaxyCoordinate(farGalaxy, 1, slot) }
+            .first { worldAt(testGameState.galaxy.seed, it) != null }
+        val state = testGameState.copy(galaxy = testGameState.galaxy.copy(
+            surveyed = testGameState.galaxy.surveyed + target,
+        )).adaptedTo(target)
+        assertTrue(FleetBalance.windowsFor(home, target, state.research, state.ships).isEmpty())
+        var dispatches = 0
+
+        galaxyScreen(state = state, onDispatchRun = { _, _, _, _ ->
+            dispatches++
+            true
+        }) {
+            openStep(SkyDepth.UNIVERSE)
+            tapGalaxy(farGalaxy)
+            tapGalaxy(farGalaxy)
+            walkTo(SystemAddress.of(target))
+            assertTheCaptionReads("units out")
+            tapStar(SystemAddress.of(target))
+            tapWorld(target)
+            tapWorld(target)
+            takeTheCaptionsVerb()
+            assertTheSheetReads("Too far for any window.")
+            assertTheSheetReads("Propulsion is what shortens the trip.")
+            assertOffersNoRun()
+            assertTheSheetHasNoBell()
+        }
+
+        assertEquals(0, dispatches)
+    }
+
+    @Test
+    fun `a blocked planet explains its adaptation requirements without offering a harvesting run`() {
+        val target = testGameState.galaxy.surveyed.first { at ->
+            verdictFor(checkNotNull(worldAt(testGameState.galaxy.seed, at)), testGameState) is WorldVerdict.Blocked
+        }
+        val blocked = assertIs<WorldVerdict.Blocked>(verdictFor(checkNotNull(worldAt(testGameState.galaxy.seed, target)), testGameState))
+
+        galaxyScreen(state = testGameState) {
+            openStep(SkyDepth.SYSTEM)
+            tapWorld(target)
+            tapWorld(target)
+            assertTheCountReads("Blocked")
+            assertTheCaptionOffersNoVerb()
+            assertTheCaptionFullyDisplays("Requires")
+            listOf(ResourceKind.METAL, ResourceKind.CRYSTAL).forEach { resource ->
+                val cap = requireNotNull(testGameState.galaxy.depositCap(target, resource))
+                val reading = Strings.resourceReading(resource, Strings.depositFraction(cap.groupedByThousands(), cap.groupedByThousands()))
+                assertTheCaptionFullyDisplays(English.resolve(reading))
+            }
+            blocked.failures.forEach { failure ->
+                assertTheCaptionReads(English.resolve(Strings.namedLevel(Strings.adaptationName(failure.axis.adaptation), failure.closedAtLevel)))
+            }
+        }
+    }
 
     @Test
     fun `the caption sends the probe to the star under the selection and not to home`() {
@@ -175,14 +295,14 @@ class GalaxyFromStateBehaviourTest {
         // ask, and the figure under it is `FleetBalance.cargo` for that ask — read off the mapper
         // rather than typed, so this is a claim about the screen and not about the balance.
         val onCrystal = assertIs<DispatchUiState.Offer>(
-            testGameState.toDispatchUiState(
+            testGameState.adaptedTo(RUNNABLE).toDispatchUiState(
                 selection = DispatchSelection(at = RUNNABLE, gathering = ResourceKind.CRYSTAL, ships = null, window = null),
                 probe = null,
                 now = FIXTURE_NOW,
             ),
         )
 
-        galaxyScreen(state = testGameState) {
+        galaxyScreen(state = testGameState.adaptedTo(RUNNABLE)) {
             openStep(SkyDepth.SYSTEM)
             tapWorld(RUNNABLE)
             tapWorld(RUNNABLE)

@@ -30,6 +30,8 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.World
+import dev.fardavide.oltre.core.WorldVerdict
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.time.Duration
@@ -130,6 +132,20 @@ fun GameState.toDispatchUiState(
                     refusal = refusal,
                 )
             },
+        )
+    }
+
+    val verdict = verdictFor(world, this)
+    if (verdict is WorldVerdict.Blocked) {
+        return DispatchUiState.Refuse(
+            name = name,
+            head = address,
+            compactHead = address,
+            title = Strings.verdictWordBlocked(),
+            note = Strings.requires(Strings.clauses(verdict.failures.map { failure ->
+                Strings.namedLevel(Strings.adaptationName(failure.axis.adaptation), failure.closedAtLevel)
+            })),
+            action = null,
         )
     }
 

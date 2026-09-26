@@ -114,7 +114,7 @@ class FleetsSheetScreenshotTest {
         // colony asks about alerts by kind and the sheet then carries no bell at all — so left
         // inherited, `fleets_dispatch_announced`, which exists to photograph the bell *lit*, would
         // have become a picture of no bell.
-        val idle: GameState = GameState.initial(SEED).copy(
+        val idle: GameState = GameState.initial(SEED).adaptedTo(worked).copy(
             ships = Ships.of(ShipType.SKIFF, 1),
             eventLog = landings,
             alerts = AlertSettings.CARRIED_FORWARD,

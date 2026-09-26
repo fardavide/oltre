@@ -21,6 +21,52 @@ import kotlin.time.Instant
 class OverflowSafetyTest {
 
     @Test
+    fun `a divided product keeps the exact floor when its numerator exceeds Long`() {
+        assertEquals(
+            2_305_843_009_213_693_952L,
+            checkedProductDivided(listOf(1L shl 62, 1L shl 62), Long.MAX_VALUE) { "large fraction" },
+        )
+        assertEquals(
+            Long.MAX_VALUE - 2,
+            checkedProductDivided(listOf(Long.MAX_VALUE - 1, Long.MAX_VALUE - 1), Long.MAX_VALUE) { "near limit" },
+        )
+        assertEquals(
+            2_305_843_009_213_693_951L,
+            checkedProductDivided(listOf(Long.MAX_VALUE / 2, Long.MAX_VALUE / 2), Long.MAX_VALUE) { "fraction floor" },
+        )
+        assertEquals(
+            6_148_914_691_236_517_204L,
+            checkedProductDivided(listOf(Long.MAX_VALUE, 2), 3) { "whole and fraction" },
+        )
+    }
+
+    @Test
+    fun `a divided product returns zero when any factor is zero`() {
+        assertEquals(0L, checkedProductDivided(listOf(Long.MAX_VALUE, Long.MAX_VALUE, 0), 1) { "zero" })
+    }
+
+    @Test
+    fun `a divided product rejects a quotient that cannot fit in Long`() {
+        assertFailsWith<IllegalArgumentException> {
+            checkedProductDivided(listOf(Long.MAX_VALUE, 2), 1) { "too large" }
+        }
+    }
+
+    @Test
+    fun `a divided product carries every fractional remainder until the final floor`() {
+        for (first in 1L..30L) {
+            for (second in 1L..30L) {
+                for (divisor in 1L..30L) {
+                    assertEquals(
+                        first * second * 17 / divisor,
+                        checkedProductDivided(listOf(first, second, 17), divisor) { "small product" },
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun `every building cost is computable and positive at every level the game defines`() {
         for (building in BuildingType.entries) {
             for (level in 1..MAX_BUILDING_LEVEL) {

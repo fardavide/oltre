@@ -115,7 +115,7 @@ class FleetsFromStateBehaviourTest {
         // **Issue #62 in one assertion.** The ledger stops being a receipt and becomes a door back to
         // a world you liked — and the sheet it opens is the one the Galaxy tab raises, at its own
         // defaults rather than pre-filled from the run that was tapped.
-        val state = GameState.initial(SEED).copy(
+        val state = GameState.initial(SEED).adaptedTo(worked).copy(
             ships = Ships.of(ShipType.SKIFF, 1),
             eventLog = listOf(landing(Resources.of(metal = 132), from = worked)),
         )
@@ -151,6 +151,22 @@ class FleetsFromStateBehaviourTest {
             homeIn(6.hours)
             assertTrue(sent.isEmpty(), "a control is a choice, not a commitment")
             assertTheSheetIsUp()
+        }
+    }
+
+    @Test
+    fun `a previously worked planet cannot bypass missing adaptation through the fleets tab`() {
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.of(ShipType.SKIFF, 1),
+            eventLog = listOf(landing(Resources.of(metal = 132))),
+        )
+
+        fleetsScreen(state = state) {
+            tapTheWorld(worked)
+            assertTheSheetIsUp()
+            assertTheSheetReads("Blocked")
+            assertTheSheetReads("Requires")
+            assertOffersNoRun()
         }
     }
 
@@ -255,7 +271,7 @@ class FleetsFromStateBehaviourTest {
         // **The state a player reading this list is usually in**, which is Design's sixth point and
         // the strongest argument for the row's quiet: had the row been a button, four times out of
         // five it would open a countdown.
-        val state = GameState.initial(SEED).copy(
+        val state = GameState.initial(SEED).adaptedTo(worked).copy(
             ships = Ships.NONE,
             eventLog = listOf(landing(Resources.of(metal = 132))),
         )
@@ -277,7 +293,7 @@ class FleetsFromStateBehaviourTest {
         // The other side of the refusal's split, through the screen: something *is* out, so the
         // sentence is about the run and the footer counts the first hull home. Until 0.15.2 both
         // states shared one sentence, and the one they shared was true of only this one.
-        val state = GameState.initial(SEED).copy(
+        val state = GameState.initial(SEED).adaptedTo(worked).copy(
             ships = Ships.NONE,
             // The row is drawn from the log, so the colony has worked this world before; the run is
             // what makes the refusal say "away" rather than "nothing here can gather".
@@ -309,7 +325,7 @@ class FleetsFromStateBehaviourTest {
         // The 0.15 first check-in, through the screen: a scout charts a world and gathers nothing, so
         // the gathering pool is empty while a hull sits idle at home. The old sentence claimed both
         // that every hull was away and that nothing was idle.
-        val state = GameState.initial(SEED).copy(
+        val state = GameState.initial(SEED).adaptedTo(worked).copy(
             ships = Ships.of(ShipType.SCOUT, 1),
             eventLog = listOf(landing(Resources.of(metal = 132))),
         )
@@ -388,7 +404,7 @@ class FleetsFromStateBehaviourTest {
     // `By category` a run is announced by its kind, so the control has nothing left to decide and
     // this app draws none — which would make the two tests below assertions about a control that no
     // longer exists rather than about the door they are named for.
-    private fun colonyWithARun(): GameState = GameState.initial(SEED).copy(
+    private fun colonyWithARun(): GameState = GameState.initial(SEED).adaptedTo(worked).copy(
         ships = Ships.of(ShipType.SKIFF, 1),
         eventLog = listOf(landing(Resources.of(metal = 132))),
         alerts = AlertSettings.CARRIED_FORWARD,
@@ -399,7 +415,7 @@ class FleetsFromStateBehaviourTest {
         val target = state.galaxy.surveyed.filter { it != state.galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")
         return assertIs<StartRunResult.Started>(
-            startRun(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), 3.hours, EPOCH),
+            startRun(state.adaptedTo(target), target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), 3.hours, EPOCH),
         ).state
     }
 

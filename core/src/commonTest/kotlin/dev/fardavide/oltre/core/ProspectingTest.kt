@@ -151,7 +151,7 @@ class ProspectingTest {
 
     private fun started(state: GameState, target: GalaxyCoordinate): GameState {
         val result = startRun(
-            state = state,
+            state = state.adaptedForHarvesting(target),
             target = target,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 1),

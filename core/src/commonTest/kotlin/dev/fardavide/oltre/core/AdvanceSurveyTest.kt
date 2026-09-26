@@ -13,6 +13,25 @@ class AdvanceSurveyTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)
 
+    @Test
+    fun `a saved probe keeps its original landing time after the clock changes`() {
+        val state = rich()
+        val to = target(state, systemsAway = 1)
+        val original = SurveyJob(target = to, startedAt = t0, completesAt = t0 + 31.minutes, announced = true)
+        val dispatched = state.copy(ships = Ships.of(ShipType.SCOUT, 3), surveys = listOf(original))
+        val loaded = assertIs<DecodeResult.Success>(GameSave.decode(
+            GameSave.encode(GameSnapshot(lastUpdatedAt = t0, state = dispatched)),
+        )).snapshot
+        assertEquals(original, loaded.state.surveys.single())
+        val waiting = advance(loaded.state, from = t0, to = t0 + 30.minutes)
+        assertEquals(listOf(original), waiting.surveys)
+        val landed = advance(waiting, from = t0 + 30.minutes, to = original.completesAt)
+        assertTrue(landed.surveys.isEmpty())
+        assertEquals(4, landed.ships.countOf(ShipType.SCOUT))
+        assertEquals(original.completesAt, landed.eventLog.filterIsInstance<Event.SurveyCompleted>().single().at)
+        assertTrue(landed.galaxy.surveyed.containsAll(GalaxyState.occupiedWorldsIn(state.galaxy.seed, to)))
+    }
+
     private fun rich(): GameState = GameState.initial().copy(
         resources = Resources.of(metal = 100_000, crystal = 10_000, deuterium = 10_000),
         ships = Ships.of(ShipType.SCOUT, 4),
@@ -120,8 +139,9 @@ class AdvanceSurveyTest {
         val dispatched = state.dispatch(first).dispatch(target(state, systemsAway = 90))
 
         // when
-        val afterFirst = advance(dispatched, from = t0, to = t0 + 1.hours)
-        val afterBoth = advance(afterFirst, from = t0 + 1.hours, to = t0 + 1.days)
+        val afterFirst = advance(dispatched, from = t0, to = t0 + 2.hours)
+        val afterBoth = advance(afterFirst, from = t0 + 2.hours, to = t0 + 1.days)
+        assertEquals(1, afterFirst.surveys.size)
 
         // then
         assertTrue(afterBoth.galaxy.surveyed.containsAll(afterFirst.galaxy.surveyed))
@@ -136,7 +156,7 @@ class AdvanceSurveyTest {
 
         // when
         val whole = advance(state, from = t0, to = end)
-        val split = advance(advance(state, from = t0, to = t0 + 1.hours), from = t0 + 1.hours, to = end)
+        val split = advance(advance(state, from = t0, to = t0 + 2.hours), from = t0 + 2.hours, to = end)
 
         // then
         assertEquals(whole, split)

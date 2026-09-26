@@ -62,7 +62,7 @@ class AdvanceDepositTest {
         val target = state.galaxy.surveyed.filter { it != state.galaxy.home }.minByOrNull { it.slot }!!
         return assertIs<StartRunResult.Started>(
             startRun(
-                state = state,
+                state = state.adaptedForHarvesting(target),
                 target = target,
                 gathering = ResourceKind.METAL,
                 ships = Ships.of(ShipType.SKIFF, 8),

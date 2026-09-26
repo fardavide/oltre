@@ -35,13 +35,14 @@ class SurveyBalanceTest {
         // between check-ins, and a player who cannot reach that range has bought nothing.
         val home = at(2, 125)
 
-        assertEquals(31.minutes, SurveyBalance.duration(home, at(2, 126)))
-        assertEquals(40.minutes, SurveyBalance.duration(home, at(2, 135)))
-        assertEquals(80.minutes, SurveyBalance.duration(home, at(2, 175)))
-        assertEquals(154.minutes, SurveyBalance.duration(home, at(2, 249)))
-        assertEquals(280.minutes, SurveyBalance.duration(home, at(3, 125)))
-        assertEquals(404.minutes, SurveyBalance.duration(home, at(3, 249)))
-        assertEquals(654.minutes, SurveyBalance.duration(home, at(4, 1)))
+        assertEquals(62.minutes, SurveyBalance.duration(home, at(2, 126)))
+        assertEquals(80.minutes, SurveyBalance.duration(home, at(2, 135)))
+        assertEquals(120.minutes, SurveyBalance.duration(home, at(2, 155)))
+        assertEquals(160.minutes, SurveyBalance.duration(home, at(2, 175)))
+        assertEquals(308.minutes, SurveyBalance.duration(home, at(2, 249)))
+        assertEquals(560.minutes, SurveyBalance.duration(home, at(3, 125)))
+        assertEquals(808.minutes, SurveyBalance.duration(home, at(3, 249)))
+        assertEquals(1308.minutes, SurveyBalance.duration(home, at(4, 1)))
     }
 
     @Test
@@ -75,7 +76,7 @@ class SurveyBalanceTest {
         // being honest about distance rather than the verb misbehaving: nothing makes the ninth
         // galaxy worth probing from the first, and the caption prices it before the tap.
         val corner = SurveyBalance.duration(at(1, 1), at(GalaxyBalance.GALAXIES, GalaxyBalance.SYSTEMS_PER_GALAXY))
-        assertEquals((30 + 250 * (GalaxyBalance.GALAXIES - 1) + 249).minutes, corner)
+        assertEquals((60 + 2 * (250 * (GalaxyBalance.GALAXIES - 1) + 249)).minutes, corner)
     }
 
     @Test

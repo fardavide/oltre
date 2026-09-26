@@ -230,13 +230,12 @@ class FleetsUiStateTest {
     private fun dispatch(window: kotlin.time.Duration, hulls: Int = 1): GameState =
         fleetOf(hulls).dispatchWith(hulls = hulls, window = window)
 
-    // Genesis surveys the home system, so its other worlds are legal targets on turn one. Lowest
-    // slot first, which keeps the choice stable for a given seed.
+    // Satisfy the target's adaptation so the fixture tests the travelling fleet.
     private fun GameState.dispatchWith(hulls: Int, window: kotlin.time.Duration): GameState {
         val target = galaxy.surveyed.filter { it != galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")
         return assertIs<StartRunResult.Started>(
-            startRun(this, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), window, EPOCH),
+            startRun(adaptedTo(target), target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), window, EPOCH),
         ).state
     }
 

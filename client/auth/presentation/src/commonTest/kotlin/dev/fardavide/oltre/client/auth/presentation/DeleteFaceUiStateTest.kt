@@ -8,6 +8,8 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
@@ -17,6 +19,8 @@ import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.core.axisValue
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.protocol.AuthProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -215,12 +219,16 @@ class DeleteFaceUiStateTest {
 
     private fun colony(): GameState = GameState.initial(GalaxySeed(SEED))
 
-    // Genesis surveys the home system, so a neighbour of home is a legal target on turn one.
+    // Grant this target's adaptation so the fixture is about counting travelling hulls.
     private fun GameState.dispatchOne(): GameState {
         val target = galaxy.surveyed.filter { it != galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")
+        val world = checkNotNull(worldAt(galaxy.seed, target))
+        val adapted = copy(research = HostilityAxis.entries.fold(research) { learned, axis ->
+            learned.withLevel(axis.adaptation, TechLevel(GalaxyBalance.levelThatTolerates(axis, world.traits.axisValue(axis))))
+        })
         return assertIs<StartRunResult.Started>(
-            startRun(this, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
+            startRun(adapted, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
         ).state
     }
 }

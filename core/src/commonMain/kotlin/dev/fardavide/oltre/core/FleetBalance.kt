@@ -372,10 +372,8 @@ object FleetBalance {
     // a number the player was shown before they committed. It is the same discipline `advance` already
     // applies to accrual, and the reason a 3h run next door reads 132 and not 133.
     //
-    // Every term is bounded — at most a few hulls, a 1,440-minute window, richness under 1.6e6 and a
-    // percentage — so the numerator stays five orders of magnitude inside a Long. It goes through
-    // `checkedTimes` anyway, because a curve in this codebase that multiplies directly is how a
-    // negative cost got shipped once already.
+    // Large fleets and adaptation rewards can overflow the numerator while the quotient still fits.
+    // Carry whole units and the fractional remainder through each checked multiplication.
     fun cargo(
         world: World,
         gathering: ResourceKind,
@@ -393,15 +391,21 @@ object FleetBalance {
         val carrying = berths(ships)
         if (stationMinutes <= 0 || carrying <= 0) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(carrying.toLong(), extractionPerHour(research)) { "cargo berths" }
-        numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
-        numerator = checkedTimes(numerator, gathered.richnessOf(world).perMillion.toLong()) { "cargo richness" }
-        numerator = checkedTimes(numerator, paid) { "cargo danger" }
         val denominator = MINUTES_PER_HOUR *
             GalaxyBalance.RICHNESS_BASIS *
             PERCENT *
-            gathered.pricePerUnit
-        return gathered.holding(numerator / denominator)
+            gathered.pricePerUnit *
+            DepositBalance.ADAPTATION_REWARD_DENOMINATOR
+        return gathered.holding(
+            checkedProductDivided(
+                factors = listOf(
+                    carrying.toLong(), extractionPerHour(research), stationMinutes,
+                    gathered.richnessOf(world).perMillion.toLong(), paid, DepositBalance.adaptationRewardNumerator(world),
+                ),
+                divisor = denominator,
+                what = { "cargo" },
+            ),
+        )
     }
 
     // ── The smallest fleet that empties the vein — RETIRED 2026-08-21, REPLACED ──────────────

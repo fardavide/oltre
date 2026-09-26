@@ -55,6 +55,7 @@ import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.math.abs
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -265,22 +266,17 @@ private fun GameState.regionLit(index: Int, region: Int): Boolean {
     return span.lo <= systems.last && span.hi >= systems.first
 }
 
-// **The probe's clock, laid about home.** `SurveyBalance` is thirty minutes plus one a system, so
-// on an index-monotone drawing every whole hour is a ring — which is what retires the reach strip
-// rather than reproducing it.
+// The probe's actual clock, laid about home. Each mark locates a whole hour of flight.
 //
 // Davide's call, 2026-08-15: the probe's and not the run's. Two rulers over one drawing is not
 // survivable, and a probe is the only thing the sky can aim.
 private fun GameState.hourMarksAtHome(): List<SkyHourUiState> {
-    val origin = galaxy.home.system
-    val base = SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = SystemAddress.of(galaxy.home))
-        .inWholeMinutes
     return (1..MARKED_HOURS).flatMap { hour ->
-        val away = (hour * MINUTES_PER_HOUR - base).toInt()
-        if (away < 0) return@flatMap emptyList()
-        listOf(origin - away, origin + away)
-            .distinct()
-            .filter { it in 1..GalaxyBalance.SYSTEMS_PER_GALAXY }
+        (1..GalaxyBalance.SYSTEMS_PER_GALAXY)
+            .filter { system ->
+                system != galaxy.home.system &&
+                    probeTo(SystemAddress(galaxy.home.galaxy, system)) == (hour * MINUTES_PER_HOUR).minutes
+            }
             .map { system -> SkyHourUiState(system = system, label = Strings.durationHours(hour.toLong())) }
     }
 }
@@ -637,9 +633,12 @@ private fun GameState.worldCaption(
             }
 
             else -> Strings.clauses(
-                listOf(
-                    Strings.resourceReading(ResourceKind.METAL, galaxy.depositWord(at, ResourceKind.METAL, now)),
-                    Strings.resourceReading(ResourceKind.CRYSTAL, galaxy.depositWord(at, ResourceKind.CRYSTAL, now)),
+                listOfNotNull(
+                    if (verdict is WorldVerdict.Blocked) Strings.requires(Strings.clauses(verdict.failures.map { failure ->
+                        Strings.namedLevel(Strings.adaptationName(failure.axis.adaptation), failure.closedAtLevel)
+                    })) else null,
+                    Strings.resourceReading(ResourceKind.METAL, galaxy.depositWord(at, ResourceKind.METAL, now, verdict is WorldVerdict.Blocked)),
+                    Strings.resourceReading(ResourceKind.CRYSTAL, galaxy.depositWord(at, ResourceKind.CRYSTAL, now, verdict is WorldVerdict.Blocked)),
                     trip,
                 ),
             )
@@ -657,8 +656,8 @@ private fun GameState.worldCaption(
 // because a hold cannot be priced from a world nobody has looked at, and absent on `Home` and
 // `Occupied` because a run there is refused outright.
 private fun WorldVerdict.pricesAHold(): Boolean = when (this) {
-    WorldVerdict.Home, is WorldVerdict.Occupied, WorldVerdict.Unsurveyed -> false
-    is WorldVerdict.Blocked, WorldVerdict.Barren, is WorldVerdict.Settleable -> true
+    WorldVerdict.Home, is WorldVerdict.Occupied, WorldVerdict.Unsurveyed, is WorldVerdict.Blocked -> false
+    WorldVerdict.Barren, is WorldVerdict.Settleable -> true
 }
 
 // `metal full`, `metal 174/819`, `metal empty` — a word at each end because neither end poses any
@@ -666,12 +665,17 @@ private fun WorldVerdict.pricesAHold(): Boolean = when (this) {
 // the same target. **Never the words this design refused**: no *left*, no *deposit*, no rate of
 // refill. With no noun the line asserts nothing about who took what, which is what lets `full` be
 // the honest reading of the ~98% of worlds nobody has ever worked.
-private fun GalaxyState.depositWord(at: GalaxyCoordinate, gathering: ResourceKind, now: Instant): TextRes {
+private fun GalaxyState.depositWord(
+    at: GalaxyCoordinate,
+    gathering: ResourceKind,
+    now: Instant,
+    showFullAmount: Boolean = false,
+): TextRes {
     val cap = depositCap(at, gathering)
     val remaining = if (cap == null) 0 else remaining(at, gathering, now)
     return when {
         cap == null || remaining <= 0 -> Strings.depositEmptyWord()
-        remaining >= cap -> Strings.depositFullWord()
+        remaining >= cap && !showFullAmount -> Strings.depositFullWord()
         else -> Strings.depositFraction(remaining.groupedByThousands(), cap.groupedByThousands())
     }
 }
@@ -787,7 +791,6 @@ private fun WorldTraits.yieldLabel(): TextRes = GalaxyBalance.yieldScore(this).p
 
 private fun worthItThreshold(): TextRes = GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()
 
-// The design drew four rings and at home four is what fits: the fourth is 210 systems out, which is
-// off the edge from any home the generator places.
+// Mark flights through four hours, omitting any zero-radius mark at home.
 private const val MARKED_HOURS: Int = 4
 private const val MINUTES_PER_HOUR: Int = 60

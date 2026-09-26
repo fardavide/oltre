@@ -11,9 +11,6 @@ sealed interface StartRunResult {
     // second-order payoff that does not run out the way verdicts do.
     data object Unsurveyed : StartRunResult
 
-    // Home, an empty slot, or a world somebody else holds. Note what is deliberately **not** here:
-    // failing your tolerance bands. Hostility gates settling, not gathering — that is the whole
-    // mechanic, and it is why 98% of the map stops being a wall.
     data object NotAValidTarget : StartRunResult
 
     data object NoSuchShips : StartRunResult
@@ -52,11 +49,6 @@ sealed interface StartRunResult {
 // decisions about different things, and a verb that took them one at a time would need a
 // partial-commitment state that nothing in this game has.
 //
-// Nothing gates it — no Robotics requirement, no research, no building. `startSurvey`'s reason
-// transfers with more force: the verb whose whole job is to exist at hour zero cannot sit behind a
-// building, and this one exists specifically to fix an opening that is empty 95.83% of its first 48
-// hours. Gating the cure behind Robotics 1 at hour 6 would put it behind the disease.
-//
 // **Several runs may target one world.** No `distinctBy` rule, unlike `surveys`, and the reason is
 // not convenience: a one-per-target rule would make the size of your surveyed map the fleet's
 // ceiling, and then every probe would deliver ~4.75 guaranteed dispatch slots for 150 metal.
@@ -79,6 +71,7 @@ fun startRun(
     if (holder != null) return StartRunResult.NotAValidTarget
     val world = worldAt(state.galaxy.seed, target) ?: return StartRunResult.NotAValidTarget
     if (target !in state.galaxy.surveyed) return StartRunResult.Unsurveyed
+    if (verdictFor(world, state) is WorldVerdict.Blocked) return StartRunResult.NotAValidTarget
 
     val home = state.galaxy.home
     val station = FleetBalance.stationFor(

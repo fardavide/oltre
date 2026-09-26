@@ -98,7 +98,7 @@ class RefusedAppBehaviourTest {
         state = seeded.copy(
             resources = Resources.of(metal = 10_000, crystal = 10_000),
             ships = Ships.of(ShipType.SKIFF, 2),
-        ),
+        ).adaptedForHarvesting(runnable),
     )
 
     private companion object {

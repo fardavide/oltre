@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.2", "2026-09-26", "I mondi difficili rendono di più",
+            "Più adattamento: più risorse, raccolta più rapida. Il solo Gravitico 12 rende 13×.",
+            "Servono tutti gli adattamenti. I mondi bloccati mostrano le risorse che puoi ottenere.",
+            "Le sonde impiegano il doppio. L’area nota resta uguale; le ore seguono i nuovi voli.",
+        ),
+        release(
             "0.29.1", "2026-09-26", "Il pizzico resta fluido",
             "Un pizzico nel buio oltre la stella dava uno strattone. Ora zoom e scorrimento sono uno.",
             "Su desktop una tacca della rotella scivola al suo zoom invece di saltarci.",

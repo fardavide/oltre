@@ -146,14 +146,12 @@ class GalaxyChartedTest {
     }
 
     @Test
-    fun `the grace is one hour of the probe's own clock`() {
-        // The whole justification for the constant, pinned so the two cannot drift: a probe is 30
-        // minutes of base plus a minute a system, so an hour of flight reaches exactly this far. If
-        // the probe's clock is ever rebalanced this test says which way the map moved with it.
+    fun `the charted radius stays thirty systems when probes slow down`() {
         val home = SystemAddress(galaxy = 1, system = 100)
-        val anHourOut = SystemAddress(galaxy = 1, system = home.system + SurveyBalance.GRACE_SYSTEMS)
+        val edge = SystemAddress(galaxy = 1, system = home.system + SurveyBalance.GRACE_SYSTEMS)
 
-        assertEquals(60.minutes, SurveyBalance.duration(from = home, to = anHourOut))
+        assertEquals(30, SurveyBalance.GRACE_SYSTEMS)
+        assertEquals(120.minutes, SurveyBalance.duration(from = home, to = edge))
     }
 
     @Test

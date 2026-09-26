@@ -49,7 +49,7 @@ class StartSurveyTest {
         assertEquals(10_000 - SurveyBalance.COST_METAL, started.resources.metal)
         assertEquals(1, started.surveys.size)
         assertEquals(target, started.surveys.single().target)
-        assertEquals(t0 + 40.minutes, started.surveys.single().completesAt)
+        assertEquals(t0 + 80.minutes, started.surveys.single().completesAt)
     }
 
     @Test

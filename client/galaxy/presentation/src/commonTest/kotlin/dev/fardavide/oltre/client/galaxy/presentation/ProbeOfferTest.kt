@@ -38,17 +38,17 @@ class ProbeOfferTest {
         val dispatch = assertNotNull(offer)
         assertEquals("Dispatch probe", English.resolve(dispatch.label))
         assertEquals("${SurveyBalance.COST_METAL}", English.resolve(dispatch.cost))
-        assertEquals("flight 1h 22m", English.resolve(dispatch.flight))
+        assertEquals("flight 2h 44m", English.resolve(dispatch.flight))
     }
 
     @Test
     fun `the flight is the distance the player is actually buying`() {
-        // given 30 minutes plus a minute a system, which is the whole of what a dispatch decides
+        // given 60 minutes plus two minutes a system
         val state = wealthy()
 
         // then
-        assertEquals("flight 31m", English.resolve(offerAt(state, systemsAway = 1).flight))
-        assertEquals("flight 1h 00m", English.resolve(offerAt(state, systemsAway = 30).flight))
+        assertEquals("flight 1h 02m", English.resolve(offerAt(state, systemsAway = 1).flight))
+        assertEquals("flight 2h 00m", English.resolve(offerAt(state, systemsAway = 30).flight))
     }
 
     @Test

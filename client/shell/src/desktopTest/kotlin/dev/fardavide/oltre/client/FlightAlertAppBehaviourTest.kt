@@ -101,6 +101,8 @@ class FlightAlertAppBehaviourTest {
     // run costs nothing per flight — the hull was the price and it was paid at the Shipyard.
     private fun withHulls(): GameState = seeded
         .copy(resources = Resources.of(metal = 10_000, crystal = 10_000), ships = Ships.of(ShipType.SKIFF, 2))
+        .adaptedForHarvesting(runnable)
+        .adaptedForHarvesting(alsoRunnable)
 
     private fun snapshot(state: GameState): GameSnapshot = GameSnapshot(lastUpdatedAt = TEST_NOW, state = state)
 
