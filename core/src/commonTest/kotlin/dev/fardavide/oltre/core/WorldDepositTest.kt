@@ -116,14 +116,14 @@ class WorldDepositTest {
     // ── Refill, and the prune that bounds the save ───────────────────────────────────────────
 
     @Test
-    fun `a worked world comes back at five percent a day`() {
+    fun `a worked world comes back over seven days`() {
         val at = aNeighbour()
         val full = galaxy.remaining(at, ResourceKind.METAL, origin)
         val stripped = galaxy.withTaken(at, ResourceKind.METAL, taken = full, at = origin)
 
         assertEquals(0, stripped.remaining(at, ResourceKind.METAL, origin))
-        assertEquals(full * 5 / 100, stripped.remaining(at, ResourceKind.METAL, origin + 1.days))
-        assertEquals(full, stripped.remaining(at, ResourceKind.METAL, origin + 20.days))
+        assertEquals(full / 7, stripped.remaining(at, ResourceKind.METAL, origin + 1.days))
+        assertEquals(full, stripped.remaining(at, ResourceKind.METAL, origin + 7.days))
     }
 
     @Test
@@ -133,8 +133,8 @@ class WorldDepositTest {
         val stripped = galaxy.withTaken(at, ResourceKind.METAL, taken = full, at = origin)
 
         assertEquals(1, stripped.deposits.size)
-        assertEquals(1, stripped.prunedFull(origin + 19.days).deposits.size)
-        assertTrue(stripped.prunedFull(origin + 20.days).deposits.isEmpty())
+        assertEquals(1, stripped.prunedFull(origin + 6.days).deposits.size)
+        assertTrue(stripped.prunedFull(origin + 7.days).deposits.isEmpty())
     }
 
     @Test

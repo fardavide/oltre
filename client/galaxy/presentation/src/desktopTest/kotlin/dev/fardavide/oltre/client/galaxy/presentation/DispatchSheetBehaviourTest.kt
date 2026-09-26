@@ -448,8 +448,7 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `the working leg is the clamp, so it is absent when nothing clamps`() {
-        // The invariant made visible with no copy at all: because the vein and the rate carry one
-        // multiplier, this segment reads the same on the doorstep as in the next galaxy.
+        // Larger adaptation deposits need more working time at the same fleet extraction rate.
         //
         // **Its presence *is* the clamp** — Design: *"the working leg keeps its 0.9 rule… its
         // absence needs no words."* On a run nothing stops, the fleet works the whole station and the
@@ -659,13 +658,13 @@ class DispatchSheetBehaviourTest {
     @Test
     fun `the sheet opens on the fleet that empties the vein rather than on every hull you own`() {
         // **A suggestion rather than a cap**, which is what the pool line beside the label is for:
-        // the number opens where the arithmetic is and the `+` still reaches all 55.
+        // the number opens where the arithmetic is and the `+` still reaches all 550.
         galaxyScreen(state = bigFleetState) {
             raiseTheSheetOn(RUNNABLE)
 
             assertTheSheetReads(English.resolve(suggestionFor().ships))
-            assertTheSheetReads("of 55 idle")
-            assertTheSheetDoesNotRead("55 skiffs")
+            assertTheSheetReads("of 550 idle")
+            assertTheSheetDoesNotRead("550 skiffs")
         }
     }
 
@@ -738,8 +737,8 @@ class DispatchSheetBehaviourTest {
     private companion object {
 
         // Big enough that the vein is what stops the run, which is the state the default was wrong
-        // in: 55 idle hulls at a world three of them can empty.
-        val bigFleetState: GameState = testGameState.adaptedTo(RUNNABLE).copy(ships = Ships.of(ShipType.SKIFF, 55))
+        // in: an idle pool larger than the fleet needed to empty the adaptation deposit.
+        val bigFleetState: GameState = testGameState.adaptedTo(RUNNABLE).copy(ships = Ships.of(ShipType.SKIFF, 550))
 
         // What the mapper would suggest, read off the mapper rather than written down — the number
         // is `FleetBalance.hullsToLift` to the hull, and a figure typed here would be this test

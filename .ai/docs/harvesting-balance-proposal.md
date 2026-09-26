@@ -1,5 +1,18 @@
 # Adaptation harvesting: verification and proposed balance
 
+## Approved follow-up after 0.29.2
+
+Davide's play feedback, 2026-09-26: difficult planets now feel worthwhile, but ships bring back too
+much and managing 20–30 destinations still takes too many actions. His targets are one destination
+early, two or three mid-game, and at most a dozen late-game. Every emptied planet should refill
+within a week regardless of its capacity. He approved option A: larger reserves, the previous
+per-ship extraction curve, and a seven-day refill, without a new simultaneous-mission limit.
+
+The first round below multiplied both capacity and extraction, preserving depletion time. That
+increased income without improving how many ships a world can occupy. The follow-up separates
+those two curves and measures distinct destinations as well as fleet income. The destination
+targets remain hypotheses to test across seeds and progression, not results guaranteed by tuning.
+
 2026-09-26. Davide approved the numerical proposal with "lets try". The gating correction and
 the tuning below are implemented on the branch based on 0.29.1. Measured results and remaining
 play questions are recorded in balance-log.md, round 36.

@@ -48,9 +48,9 @@ class StartRunDepositTest {
 
     @Test
     fun `a fleet that could lift more than the world holds brings the world and no more`() {
-        val state = fleetOf(8)
+        val state = fleetOf(16)
         val target = neighbourOfHome(state)
-        val ships = Ships.of(ShipType.SKIFF, 8)
+        val ships = Ships.of(ShipType.SKIFF, 16)
         val vein = state.galaxy.remaining(target, ResourceKind.METAL, t0)
 
         // given a fleet whose unclamped lift is bigger than the vein
@@ -89,17 +89,13 @@ class StartRunDepositTest {
 
     @Test
     fun `the second run of a check-in is clamped by what the first one left`() {
-        // A day's run by the four-hull manifest takes all but a sliver of a full vein — the sizing
-        // rule, in a test — so the run behind it is clamped to the sliver rather than to what its
-        // hulls could lift. **Four hulls, because issue #68 re-derived the rule against a fleet**:
-        // at 5,800 a lone skiff leaves three quarters of the world standing and this would be
-        // measuring the fleet rather than the vein.
-        val state = fleetOf(5)
+        // Nine skiffs leave less than one more skiff can lift on this adapted world.
+        val state = fleetOf(10)
         val target = neighbourOfHome(state)
 
-        val first = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 4), window = 24.hours)
+        val first = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 9), window = 24.hours)
         val leftOver = first.galaxy.remaining(target, ResourceKind.METAL, t0)
-        assertTrue(leftOver > 0, "four hulls cannot quite strip a full world in a day")
+        assertTrue(leftOver > 0, "nine hulls cannot quite strip this adapted world in a day")
 
         // The second run gets a window big enough to over-lift the sliver, so what this measures is
         // the clamp and not the hold. It used to be the 3h rung, and the drive's halved base speed
@@ -113,9 +109,9 @@ class StartRunDepositTest {
 
     @Test
     fun `a world with nothing left in the asked-for resource refuses`() {
-        val state = fleetOf(8)
+        val state = fleetOf(16)
         val target = neighbourOfHome(state)
-        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 8), window = 24.hours)
+        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 16), window = 24.hours)
 
         val again = startRun(
             state = stripped.copy(ships = Ships.of(ShipType.SKIFF, 1)),
@@ -133,9 +129,9 @@ class StartRunDepositTest {
     fun `a world whose metal is gone still sells the crystal run`() {
         // Design's third row state — "metal empty · crystal full is a world with a full run still in
         // it" — and the reason the two deposits are separate stocks rather than one.
-        val state = fleetOf(8)
+        val state = fleetOf(16)
         val target = neighbourOfHome(state)
-        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 8), window = 24.hours)
+        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 16), window = 24.hours)
 
         val crystal = startRun(
             state = stripped.copy(ships = Ships.of(ShipType.SKIFF, 1)),
@@ -152,9 +148,9 @@ class StartRunDepositTest {
 
     @Test
     fun `a stripped world is worth a run again once it has put something back`() {
-        val state = fleetOf(8)
+        val state = fleetOf(16)
         val target = neighbourOfHome(state)
-        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 8), window = 24.hours)
+        val stripped = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 16), window = 24.hours)
         val later = t0 + 1.days
 
         val again = startRun(

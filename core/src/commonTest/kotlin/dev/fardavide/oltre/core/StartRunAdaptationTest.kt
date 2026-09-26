@@ -153,8 +153,8 @@ class StartRunAdaptationTest {
         val cap = requireNotNull(restored.galaxy.depositCap(world.at, ResourceKind.METAL))
 
         assertEquals(200, restored.galaxy.remaining(world.at, ResourceKind.METAL, at))
-        assertEquals(200 + cap / 20, restored.galaxy.remaining(world.at, ResourceKind.METAL, at + 1.days))
-        assertEquals(cap, restored.galaxy.remaining(world.at, ResourceKind.METAL, at + 20.days))
+        assertEquals(200 + cap / 7, restored.galaxy.remaining(world.at, ResourceKind.METAL, at + 1.days))
+        assertEquals(cap, restored.galaxy.remaining(world.at, ResourceKind.METAL, at + 7.days))
     }
 
     @Test

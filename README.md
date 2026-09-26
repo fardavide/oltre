@@ -235,6 +235,13 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.29.3 — 2026-09-26
+
+- **Rich planets support larger fleets.** Difficult worlds keep their deeper deposits, while each
+  ship harvests at its previous rate. Send more ships together or return to the same world.
+- **Deposits refill within a week.** An empty deposit refills over seven days, whatever its size.
+  Cargo and return times of ships already in flight stay unchanged.
+
 ### 0.29.2 — 2026-09-26
 
 - **Difficult worlds pay for the research.** Planets that need more adaptation now hold far more

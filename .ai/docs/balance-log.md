@@ -4210,3 +4210,68 @@ Building curves did not change in this round. This refresh supersedes the old 0.
 
 Daily metal at levels 1, 5, 10, 15: 2,160, 5,232, 15,912, 48,480.
 Starting stock: 500 metal, 300 crystal.
+
+## Round 37 — larger fleets on fewer worlds (2026-09-26, 0.29.3)
+
+Follow-up to the merged 0.29.2 round. Davide's play feedback:
+
+> "The change feels way, way better. The difficult planets give you a lot of resources, but it also seems like my ships can hold way more resources, and it feels unbalanced."
+>
+> "The idea of increasing the resources that a planet can give you was not mostly to gather more resources, but to be able to open the game and send ships on a few planets."
+>
+> "I open the game, and I'm still able to deploy ships to 20 to 30 planets, and I don't like the process. I want the users to be able to manage fewer planets."
+>
+> "I would imagine any planet to be refilled within a week, maybe, no matter how many resources it has in total."
+
+He clarified the mid-game target as "2 or 3 planets" and approved option A: keep larger reserves,
+remove the adaptation multiplier from extraction, refill within seven days, and measure fleet
+concentration without imposing a mission limit. Targets per check-in: one planet early, two or
+three mid-game, at most about twelve late-game.
+
+Round 36 multiplied both capacity and extraction. Their ratio stayed fixed, so a small fleet could
+empty a difficult world as quickly as an easy world. This round retains
+`1 + (T² + G² + A²) / 12` on capacity only. Richness, danger and Prospecting keep their existing
+extraction effects. A Gravitic-12 world at richness 1 and danger 0 still holds 75,400 metal, but one
+basic skiff extracts 60 metal per station-hour rather than 780. Four basic skiffs take 18,850
+station-minutes to empty it instead of 1,450. Dispatch already suggests enough ships to empty the
+deposit, or the available fleet when it cannot.
+
+Refill changes from 5% of capacity per day (twenty days to full) to capacity divided by seven days,
+linear and rounded once in fine units. It reaches full at seven days even when capacity is not
+divisible by seven. Partial deposits keep their stored amounts and refill against the same cap;
+flights already dispatched keep their recorded cargo and deadlines. Gates and probe timings stay
+as in round 36. No fleet-size, mission-count or income target is enforced by a hidden cap.
+
+The expected feel is that a few worthwhile planets occupy the fleet and remain useful on later
+check-ins. The destination targets are acceptance goals for play, not guaranteed counts for every
+fleet size, research mix and surveyed map.
+
+### Measured concentration
+
+From `./gradlew :sim:run --quiet`, 2026-09-26, successful exit. Three fixed galaxy seeds,
+four check-ins per day, fourteen days. Both policies use the same cheapest-first progression,
+probing and purchasing. The control sends one skiff per dispatch; the grouped policy uses the
+dispatch sheet's real rule: the fewest available hulls that empty the chosen planet, or every
+available hull when none can. Counts include check-ins with no dispatch.
+
+| Policy | Bot age | planets/check-in median · max | dispatches median · max | metal returned | crystal returned |
+|---|---|---|---|---|---|
+| one hull per dispatch | days 1–3 | 0 · 1 | 0 · 1 | 3,089 | 0 |
+| one hull per dispatch | days 4–7 | 1 · 3 | 4 · 30 | 88,958 | 38,063 |
+| one hull per dispatch | days 8–14 | 10 · 58 | 155 · 510 | 5,772,638 | 1,970,882 |
+| fewest hulls that empty one planet | days 1–3 | 0 · 1 | 0 · 1 | 3,089 | 0 |
+| fewest hulls that empty one planet | days 4–7 | 1 · 3 | 1 · 3 | 89,463 | 37,665 |
+| fewest hulls that empty one planet | days 8–14 | 10 · 54 | 10 · 54 | 5,225,929 | 2,088,535 |
+
+Option A meets the typical target in this run: no more than one destination early, one at the
+middle band, and ten in the last band. It also removes the hundreds of repeated one-hull dispatches.
+It does not guarantee the target at every check-in: the last band's maximum is 54 destinations.
+The existing flat hull price lets this bot own about 400 skiffs by day 14, so the worst row is also
+evidence that deposit tuning alone cannot bound a runaway fleet. This round deliberately adds no
+mission cap or hull-price change; play should decide whether the typical improvement is enough.
+
+Verification: full `./gradlew build --quiet`, unfiltered `./gradlew verifyRoborazziDesktop --quiet`
+and `./gradlew :sim:run --quiet` passed. Twenty-nine changed tuning and changelog frames were reviewed
+before recording, including the 393dp mixed-fleet clamp. The five-pass local coverage job passed
+against merged `main`: all ten gated line and branch values held or improved; unit branch moved from
+89.13% to 89.16% and behaviour branch from 74.61% to 74.62%.

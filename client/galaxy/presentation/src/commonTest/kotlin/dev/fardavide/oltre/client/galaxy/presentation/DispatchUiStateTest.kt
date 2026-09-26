@@ -610,7 +610,7 @@ class DispatchUiStateTest {
         val state = withFleet(haulers = 1, skiffs = 2)
         val whole = state.galaxy.remaining(target, ResourceKind.METAL, EPOCH)
         val worked = state.copy(
-            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, whole - whole / 12, EPOCH),
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, whole - 500, EPOCH),
         )
 
         val offer = assertIs<DispatchUiState.Offer>(
@@ -687,8 +687,7 @@ class DispatchUiStateTest {
 
     @Test
     fun `the working leg is the clamp and is absent when nothing clamps`() {
-        // The invariant made visible with no copy at all — `working` reads the same everywhere on the
-        // map, because the vein and the rate carry one multiplier.
+        // Larger adaptation deposits need more working time at the same fleet extraction rate.
         //
         // **Its presence is the clamp**, which is Design's own rule for it and was not what this
         // test asserted: it asked for the leg on an *unclamped* run, and got it because the leg used
@@ -697,7 +696,7 @@ class DispatchUiStateTest {
         val target = runnable()
         val unclamped = assertIs<DispatchUiState.Offer>(dispatchAt(target))
         val clamped = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(40), selection = selection(target).copy(ships = 40, window = 24.hours)),
         )
 
         assertTrue(!English.resolve(unclamped.legs).contains("· working "), English.resolve(unclamped.legs))
@@ -712,7 +711,7 @@ class DispatchUiStateTest {
         // the count blank would be asserting about the suggestion instead of about the clamp.
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(40), selection = selection(target).copy(ships = 40, window = 24.hours)),
         )
 
         assertEquals("the whole deposit", English.resolve(checkNotNull(offer.vein)))
@@ -724,7 +723,7 @@ class DispatchUiStateTest {
     fun `a clamped run names the hulls that bring nothing`() {
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(40), selection = selection(target).copy(ships = 40, window = 24.hours)),
         )
 
         val note = assertNotNull(offer.clampNote)
@@ -797,7 +796,7 @@ class DispatchUiStateTest {
         val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
         val stripped = state.copy(
-            ships = Ships.of(ShipType.SKIFF, 8),
+            ships = Ships.of(ShipType.SKIFF, 40),
             galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH),
         )
 
@@ -805,7 +804,7 @@ class DispatchUiStateTest {
             dispatchAt(
                 target,
                 state = stripped,
-                selection = selection(target).copy(gathering = ResourceKind.METAL, ships = 8, window = 24.hours),
+                selection = selection(target).copy(gathering = ResourceKind.METAL, ships = 40, window = 24.hours),
             ),
         )
         val small = assertIs<DispatchUiState.Waiting>(
@@ -827,10 +826,10 @@ class DispatchUiStateTest {
         // suffix wrong. Two hulls at a world one can empty is the smallest state that reaches it.
         val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
-        // A world holding just over what one hull lifts on this window, so the second is the spare.
+        // Five hundred metal fits in one hull on this window, so the second is the spare.
         val nearlyEmptied = state.copy(
             ships = Ships.of(ShipType.SKIFF, 2),
-            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap - cap / 8, at = EPOCH),
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap - 500, at = EPOCH),
         )
 
         val offer = assertIs<DispatchUiState.Offer>(

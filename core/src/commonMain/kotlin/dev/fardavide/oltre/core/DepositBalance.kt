@@ -1,17 +1,12 @@
 package dev.fardavide.oltre.core
 
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
-// How deep a world is, and how slowly it comes back. `.ai/docs/deposit-sheet.md` is the design;
-// this is its arithmetic.
-//
-// **Its own object rather than a section of `FleetBalance`, and that is not tidiness.** The hull
-// prices in that file are another session's subject, and two sessions editing one object is a merge
-// nobody needs. The split also states the shape of the mechanic: `FleetBalance` answers *how fast a
-// fleet lifts*, this answers *how much there is to lift*, and the whole design turns on those two
-// carrying the same multiplier.
+// Planet capacity and refill. FleetBalance determines extraction; adaptation deepens a planet
+// without making a ship extract faster. See `.ai/docs/deposit-sheet.md` for the design.
 object DepositBalance {
 
     // ── The cap ──────────────────────────────────────────────────────────────────────────────
@@ -58,24 +53,16 @@ object DepositBalance {
     const val ADAPTATION_REWARD_DENOMINATOR: Long = 12
 
     // The world's absolute requirements price the reward, even after the player unlocks it.
-    // Cap and extraction share this rational multiplier and round only at the end.
+    // This multiplier deepens deposits; it does not change extraction speed.
     fun adaptationRewardNumerator(world: World): Long = ADAPTATION_REWARD_DENOMINATOR +
         HostilityAxis.entries.sumOf { axis ->
             val level = GalaxyBalance.levelThatTolerates(axis, world.traits.axisValue(axis)).toLong()
             checkedTimes(level, level) { "adaptation reward" }
         }
 
-    // **The cap carries the multiplier the rate carries, and that is the load-bearing line of the
-    // whole design.** Time to strip a world is `cap / rate`; give the two different multipliers and
-    // that ratio becomes a function of where the world is, so how long a planet lasts would depend on
-    // where you are standing. With them matched it is the same everywhere on the map — which is what
-    // lets the dispatch sheet teach the rule off its own legs line instead of out of a tooltip.
-    //
-    // It costs one thing, named in the sheet's 11 and accepted knowingly: `danger` contains
-    // `distanceBand`, which is measured from *your* home, so two players sharing a world would
-    // disagree about how much is in it. That is a multiplayer-day problem and the fix is to freeze
-    // the band against something intrinsic. **Do not "tidy" this to hazards alone** — uniformity of
-    // strip time is what pays for it.
+    // Richness and danger still affect both capacity and extraction. Adaptation affects only
+    // capacity, so demanding worlds support larger fleets or repeated visits.
+    // Danger includes distance from home: observer-relative capacity remains multiplayer debt.
     fun cap(world: World, gathering: ResourceKind, danger: Int): Long {
         require(gathering != ResourceKind.DEUTERIUM) { "a world holds no deuterium deposit" }
         require(danger >= 0) { "danger cannot be negative, was $danger" }
@@ -95,10 +82,8 @@ object DepositBalance {
 
     // ── Working time: the fourth segment of the legs line ─────────────────────────────────────
     //
-    // The first minute at which this fleet has lifted everything that is there. Design put it on the
-    // dispatch sheet — `out 10m · on station 11h 40m · working 6h 03m · home 10m` — because it is the
-    // invariant made visible with no copy at all: `working` reads the same on the doorstep as in the
-    // next galaxy, so the rule teaches itself.
+    // The first minute at which this fleet has lifted everything that remains, shown on the
+    // dispatch sheet alongside flight and station time.
     //
     // Search `cargo`'s own whole-minute curve so the displayed time and lifted amount agree.
     // A separate inverse rate would duplicate its rounding and overflow for large fleets.
@@ -136,11 +121,8 @@ object DepositBalance {
 
     // ── Refill ───────────────────────────────────────────────────────────────────────────────
     //
-    // Davide's number — *"perhaps 5% of the total per day"* — so twenty days from empty to full.
-    // Slow on purpose: the point is that going back to the same world soon is never the answer.
-    const val REFILL_PERCENT_PER_DAY: Long = 5
-
-    private const val MILLISECONDS_PER_DAY: Long = 86_400_000
+    // Every deposit returns from empty to full in the same time, whatever its capacity.
+    val REFILL_DURATION: Duration = 7.days
 
     // What a deposit holds now, given what was stored and how long ago. **Computed, never ticked** —
     // `advance` reads nothing here and writes nothing except the prune, so a deposit moves only when
@@ -159,11 +141,8 @@ object DepositBalance {
     // How long until this world holds what is being asked of it — **null when it never will**,
     // because the ask is bigger than the world.
     //
-    // That null is not an edge case, it is the finding Claude Design built the waiting state around:
-    // the vein and the rate carry one multiplier, so a full fleet's lift is about the size of a vein,
-    // and "four skiffs at 6h" is routinely an ask no world can ever satisfy. **The countdown is only
-    // honest because the offer above it can move** — shrink the ask to one skiff at 3h and the same
-    // world is worth visiting in days rather than never.
+    // An oversized fleet can ask for more than a full deposit. A smaller manifest or shorter
+    // window can make that same planet worth waiting for.
     //
     // Find the first millisecond the refill covers the ask. Searching the bounded refill span
     // avoids multiplying a large fine-unit stock by a day's milliseconds.
@@ -172,11 +151,8 @@ object DepositBalance {
         val wantedFine = wanted * Resources.FINE_PER_UNIT
         if (storedFine >= wantedFine) return Duration.ZERO
         if (wantedFine > capFine) return null
-        val perDayFine = capFine / PERCENT * REFILL_PERCENT_PER_DAY
-        if (perDayFine <= 0) return null
-        val shortBy = wantedFine - storedFine
         var low = 0L
-        var high = ((shortBy - 1) / perDayFine + 1) * MILLISECONDS_PER_DAY
+        var high = REFILL_DURATION.inWholeMilliseconds
         while (low < high) {
             val middle = low + (high - low) / 2
             if (regenerated(storedFine, capFine, middle.milliseconds) >= wantedFine) {
@@ -194,18 +170,13 @@ object DepositBalance {
         if (storedFine >= capFine) return capFine
         val elapsedMilliseconds = elapsed.inWholeMilliseconds
         if (elapsedMilliseconds <= 0) return storedFine
-        // Exact: `capFine` is a whole number of units and a unit is 3,600,000 fine, so five hundredths
-        // of it is `units x 180,000` with nothing left over.
-        val perDayFine = capFine / PERCENT * REFILL_PERCENT_PER_DAY
-        if (perDayFine <= 0) return capFine
+        val refillMilliseconds = REFILL_DURATION.inWholeMilliseconds
+        val effective = minOf(elapsedMilliseconds, refillMilliseconds)
         val headroom = capFine - storedFine
-        val millisecondsToFill = headroom / perDayFine * MILLISECONDS_PER_DAY + MILLISECONDS_PER_DAY
-        val effective = minOf(elapsedMilliseconds, millisecondsToFill)
-        // Divide the daily rate first, carrying its remainder through the single final floor.
-        // Multiplying the entire rate by twenty days overflows for adaptation-sized deposits.
-        val whole = checkedTimes(perDayFine / MILLISECONDS_PER_DAY, effective) { "refill whole" }
-        val fraction = checkedTimes(perDayFine % MILLISECONDS_PER_DAY, effective) { "refill fraction" } /
-            MILLISECONDS_PER_DAY
-        return minOf(capFine, storedFine + whole + fraction)
+        // Divide first, carrying the remainder through the final floor without overflowing.
+        val whole = checkedTimes(capFine / refillMilliseconds, effective) { "refill whole" }
+        val fraction = checkedTimes(capFine % refillMilliseconds, effective) { "refill fraction" } /
+            refillMilliseconds
+        return storedFine + minOf(headroom, whole + fraction)
     }
 }
