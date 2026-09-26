@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<!--
+  The privacy policy at https://oltre.space/privacy.html, which both App Store Connect and Play
+  Console link to. Static: copied verbatim by `.github/scripts/build_site.py`, never templated.
+
+  Every sentence here is a claim about what the server and the app actually do. Change the code
+  and this page in the same pull request — the App Privacy label and Play's Data Safety form are
+  filed from it, and a policy that describes a different app is a false label on both stores.
+  `server/src/main/resources/schema.sql` is the list of what is stored.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#05070D">
+    <title>Privacy — Oltre</title>
+    <meta name="description" content="What Oltre stores about you, where, for how long, and how to delete it.">
+    <link rel="canonical" href="https://oltre.space/privacy.html">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: #05070D;
+        --surface: #0A0E18;
+        --text: #E9EDF5;
+        --text-secondary: #8B94A8;
+        --text-tertiary: #5C6478;
+        --accent: #4C8DFF;
+        --edge: rgba(233, 237, 245, 0.08);
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--text-secondary);
+        font: 400 16px/1.7 var(--sans);
+      }
+      main { max-width: 44rem; margin: 0 auto; padding: clamp(2.5rem, 8vw, 5rem) clamp(1.25rem, 5vw, 2.5rem) 5rem; }
+      .home { font: 600 0.8125rem/1 var(--mono); letter-spacing: 0.06em; color: var(--accent); text-decoration: none; }
+      h1 { font: 700 clamp(2rem, 7vw, 2.75rem)/1.1 var(--mono); color: var(--text); margin: 2rem 0 0.5rem; letter-spacing: -0.01em; }
+      .updated { font: 400 0.8125rem/1 var(--mono); letter-spacing: 0.08em; color: var(--text-tertiary); margin: 0 0 2.5rem; }
+      h2 { font: 600 0.8125rem/1.2 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text); margin: 3rem 0 1rem; }
+      p, li { font-size: 0.9375rem; }
+      strong { color: var(--text); font-weight: 600; }
+      ul { padding-left: 1.25rem; }
+      li { margin: 0.5rem 0; }
+      a { color: var(--accent); }
+      code { font: 400 0.875em/1 var(--mono); color: var(--text); }
+      footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--edge); font: 400 0.75rem/1.6 var(--mono); color: var(--text-tertiary); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <a class="home" href="index.html">← Oltre</a>
+      <h1>Privacy</h1>
+      <p class="updated">Last updated 26 September 2026</p>
+
+      <p>
+        Oltre is a game, and it keeps only what it needs to run your colony while you are away. No
+        analytics, no advertising, no tracking, and nothing is sold or shared for anyone's
+        marketing. This page says exactly what is stored, where, and for how long.
+      </p>
+
+      <h2>Who is responsible</h2>
+      <p>
+        Oltre is made by Davide Farella, who is the controller of the data described here. Write to
+        <a href="mailto:oltre@fardavide.dev">oltre@fardavide.dev</a> about anything on this page.
+      </p>
+
+      <h2>What is stored, and why</h2>
+      <ul>
+        <li>
+          <strong>An account identifier from Apple or Google.</strong> Signing in with Apple or
+          Google gives Oltre an opaque identifier that stands for your account with that provider,
+          and that identifier is what brings you back to the same colony on any device. Oltre does
+          not ask for your name. Your email address may travel inside the sign-in token; it is
+          checked and then discarded, never stored.
+        </li>
+        <li>
+          <strong>Your colony.</strong> The state of the game — facilities, research, ships,
+          fleets, resources, experience, and when each of them last changed — so it keeps
+          progressing while the app is closed and survives a new phone.
+        </li>
+        <li>
+          <strong>The commander name and mark you choose.</strong> Optional. They are shown to the
+          other members of an alliance you join or ask to join.
+        </li>
+        <li>
+          <strong>Alliances.</strong> The name and tag of an alliance you found, your seat and role
+          in one, when you joined, what you contributed to its treasury, and any request to join
+          that is still waiting. Other members see the roster; anyone can find an alliance by its
+          name.
+        </li>
+        <li>
+          <strong>Retry records.</strong> A short-lived note of each command already applied, so
+          one sent twice over a bad connection is not applied twice. They are pruned by age.
+        </li>
+        <li>
+          <strong>Server logs.</strong> The hosting provider records each request's IP address,
+          time, the address requested and the app's user agent. They are used only to keep the
+          service running and to defend it from abuse.
+        </li>
+      </ul>
+      <p>
+        On your device, the app keeps a copy of your colony and the session that keeps you signed
+        in. Notifications about fleets and probes are scheduled on the device itself; nothing is
+        sent to a push service.
+      </p>
+
+      <h2>The legal basis</h2>
+      <p>
+        Everything above except the server logs is processed because it is necessary to provide
+        the game you signed up for. The logs are kept on the basis of a legitimate interest in
+        running a service that stays up and is not abused.
+      </p>
+
+      <h2>Where it lives</h2>
+      <ul>
+        <li>The server runs on <strong>Google Cloud Run</strong> in Belgium (<code>europe-west1</code>), and its logs are kept by Google Cloud.</li>
+        <li>The database is <strong>Neon</strong>, a Postgres host, on AWS in Frankfurt (<code>eu-central-1</code>).</li>
+        <li>Signing in is handled by <strong>Apple</strong> or <strong>Google</strong>, under their own privacy policies.</li>
+      </ul>
+      <p>
+        These providers process data on Oltre's behalf and for no purpose of their own. Nothing is
+        shared with anyone else.
+      </p>
+
+      <h2>How long it is kept</h2>
+      <ul>
+        <li>Your account, colony, profile and alliance seat: until you delete your account.</li>
+        <li>The database keeps six hours of restore history, so deleted data is fully gone six hours after you delete it.</li>
+        <li>Server logs: 30 days.</li>
+      </ul>
+
+      <h2>Your rights</h2>
+      <p>
+        You can see and change your commander name in the app at any time, and
+        <a href="delete-account.html">delete your account</a> from the app's settings, which
+        removes everything above that belongs to you. You can also ask for a copy of your data, ask
+        for it to be corrected or erased, or object to how it is used, by writing to
+        <a href="mailto:oltre@fardavide.dev">oltre@fardavide.dev</a>. If you think your data has
+        been mishandled, you can complain to the data protection authority where you live.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        Oltre is not directed at children under 13 and does not knowingly hold data about them
+        beyond what is described here.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If this page changes, the date at the top changes with it, and the previous versions stay
+        in the project's history.
+      </p>
+
+      <footer>Oltre — all rights reserved.</footer>
+    </main>
+  </body>
+</html>
