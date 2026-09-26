@@ -1,12 +1,15 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.galaxy.ui.DESTINATION_HEIGHT
+import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
 import dev.fardavide.oltre.client.galaxy.ui.SkyGeometry
 import dev.fardavide.oltre.client.galaxy.ui.SkyScene
 import dev.fardavide.oltre.client.galaxy.ui.SkySelection
 import dev.fardavide.oltre.client.galaxy.ui.SkyUiState
 import dev.fardavide.oltre.client.galaxy.ui.SkyView
+import dev.fardavide.oltre.client.galaxy.ui.SkyViewport
 import dev.fardavide.oltre.client.galaxy.ui.landing
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -86,6 +89,21 @@ internal val galaxyFrame: SkyFrame = frame(
 internal val regionFrame: SkyFrame = frame()
 
 internal val systemFrame: SkyFrame = frame(depth = SkyDepth.SYSTEM)
+
+// The home system as one step of a pinch into the dark leaves it: the eye panned past the star
+// until nothing of the system was on a phone's screen, then pinched about the middle of it. The
+// view is `zoomedAt`'s own answer rather than a hand-placed eye, because the rule is the picture —
+// the step's zoom, and the nearest body pulled back to the edge of the reach in the same motion.
+internal val pulledFrame: SkyFrame = systemFrame.let { frame ->
+    val viewport = SkyViewport(PHONE_WIDTH.toFloat(), DESTINATION_HEIGHT.toFloat())
+    val dark = frame.view.copy(centreX = frame.view.centreX + PAST_THE_EDGE_PX / frame.view.ppu)
+    SkyFrame(frame.uiState, SkyScene(frame.uiState).zoomedAt(dark, viewport.width / 2f, viewport.height / 2f, PINCH_STEP, viewport))
+}
+
+// How far past the middle the star is put before the pinch — off the left edge of a 393dp phone —
+// and the step of zoom the pinch makes, a big one so the pull it carries is plain in one frame.
+private const val PAST_THE_EDGE_PX: Float = 270f
+private const val PINCH_STEP: Float = 1.3f
 
 internal val worldFrame: SkyFrame = frame(selection = SkySelection.World(frameState.galaxy.home), depth = SkyDepth.WORLD)
 
