@@ -235,6 +235,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.29.1 — 2026-09-26
+
+- **The pinch stays smooth.** Pinching into the dark past your star — with the star off the edge of
+  the screen — used to jolt: the sky slid the star back into view first and only then zoomed. Now it
+  zooms and pans in one motion, and a pinch with the star in front of you is a plain zoom under your
+  fingers.
+- **On the desktop a notch of the wheel glides to its zoom** instead of jumping there, and a burst of
+  notches lands exactly where the same number of single notches would.
+
 ### 0.29.0 — 2026-09-25
 
 - **The Galaxy tab is one sky.** The map, the four-disc universe, the system page and the worlds
