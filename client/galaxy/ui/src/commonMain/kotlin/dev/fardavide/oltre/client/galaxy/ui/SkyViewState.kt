@@ -20,24 +20,41 @@ class SkyViewState(initial: SkyView) {
 
     var view: SkyView by mutableStateOf(initial)
 
+    // Where a flight in progress is going, and the view itself when none is: what a notch of the
+    // wheel zooms from, so a burst of notches compounds towards one target rather than each one
+    // restarting from wherever the last one's easing had got to.
+    var heading: SkyView by mutableStateOf(initial)
+        private set
+
     private val flights = MutatorMutex()
 
     // A flight: 420ms from here to there, easing out, the zoom in log space and the centre in a
     // straight line. A new flight replaces one in progress; a gesture interrupts one — the finger
-    // moved the view, so the flight would be flying from somewhere it no longer is.
-    suspend fun fly(target: SkyView) = flights.mutate {
+    // moved the view, so the flight would be flying from somewhere it no longer is. A wheel's notch
+    // is the same flight over 120ms: a step of zoom with no in-between read as a jolt.
+    suspend fun fly(target: SkyView, millis: Int = FLIGHT_MILLIS) = flights.mutate {
         val from = view
         var expected = from
-        Animatable(0f).animateTo(1f, tween(FLIGHT_MILLIS, easing = EaseOutCubic)) {
-            if (view != expected) throw CancellationException("a gesture moved the view mid-flight")
-            expected = from.towards(target, value)
-            view = expected
+        heading = target
+        try {
+            Animatable(0f).animateTo(1f, tween(millis, easing = EaseOutCubic)) {
+                if (view != expected) throw CancellationException("a gesture moved the view mid-flight")
+                expected = from.towards(target, value)
+                view = expected
+            }
+            view = target
+        } finally {
+            heading = view
         }
-        view = target
     }
 
     companion object {
         const val FLIGHT_MILLIS: Int = 420
+
+        // The wheel: how long a notch takes to land, and what a pixel of it is worth in zoom — a
+        // notch of 120 on the desktop is a fifth more.
+        const val WHEEL_MILLIS: Int = 120
+        const val WHEEL_STEP: Float = 0.0015f
 
         // The design's one-shot: `1 − (1 − t)³`.
         val EaseOutCubic: Easing = Easing { t -> 1f - (1f - t).pow(3) }

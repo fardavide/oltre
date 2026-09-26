@@ -183,16 +183,40 @@ class SkyViewTest {
     }
 
     @Test
-    fun `a pinch into the dark past the system depth pans towards the nearest body before it zooms`() {
-        // A zoom about a point can never bring a body that is off the screen back onto it, so while
-        // no body of the system is in view the zoom holds and the centre halves its distance.
+    fun `a pinch into the dark past the system depth zooms and pulls the nearest body back into view`() {
+        // A zoom about a point can never bring a body that is off the screen back onto it, so a
+        // pinch into the dark pans as it zooms. **Both at once, every step**: a pinch that held the
+        // zoom while it panned, and zoomed once the body was in view, read as a lurch under the
+        // fingers — the frame the rule switched was the frame the picture changed speed.
         val view = scene.flightTo(home(), SkyDepth.SYSTEM)
         val far = view.copy(centreX = view.centreX + 40f, centreY = view.centreY)
+        val star = scene.positionOf(SystemAddress.of(HOME))
+        val before = far.screenOf(star, viewport)
 
         val pinched = scene.zoomedAt(far, viewport.width / 2f, viewport.height / 2f, factor = 1.3f, viewport = viewport)
 
-        assertEquals(far.ppu, pinched.ppu, "the zoom must hold while nothing is in view")
+        val after = pinched.screenOf(star, viewport)
+        assertEquals(far.ppu * 1.3f, pinched.ppu, absoluteTolerance = 0.001f, "the pinch must zoom")
         assertTrue(abs(pinched.centreX - view.centreX) < abs(far.centreX - view.centreX), "the centre did not come back")
+        assertTrue(
+            distance(after, viewport.width / 2f, viewport.height / 2f) < distance(before, viewport.width / 2f, viewport.height / 2f),
+            "the star went further off screen, from $before to $after",
+        )
+    }
+
+    @Test
+    fun `a pinch with the star in front of you is a zoom about the fingers and nothing else`() {
+        // The pull is for a body that is off the screen; a body in front of you must not creep
+        // towards the middle under a pinch, or the point under the fingers would not stay put.
+        val view = scene.flightTo(home(), SkyDepth.SYSTEM)
+        val finger = SkyPoint(x = 40f, y = 40f)
+        val before = view.skyOf(finger.x, finger.y, viewport)
+
+        val zoomed = scene.zoomedAt(view, finger.x, finger.y, factor = 1.5f, viewport = viewport)
+
+        val after = zoomed.screenOf(before, viewport)
+        assertTrue(hypot(after.x - finger.x, after.y - finger.y) < 0.01f, "the fixed point moved to $after")
+        assertEquals(view.ppu * 1.5f, zoomed.ppu, absoluteTolerance = 0.001f)
     }
 
     @Test
@@ -223,6 +247,8 @@ class SkyViewTest {
         centreY = 0f,
         selection = SkySelection.System(SystemAddress.of(HOME)),
     )
+
+    private fun distance(point: SkyPoint, x: Float, y: Float): Float = hypot(point.x - x, point.y - y)
 
     private companion object {
         val HOME = GalaxyCoordinate(galaxy = 2, system = 125, slot = 1)

@@ -123,7 +123,9 @@ fun UniverseCanvas(
                         if (move.flown) scope.launch { viewState.fly(move.view) } else viewState.view = move.view
                     }
                 }
-                // The wheel, for the desktop loop: a notch is a step of zoom about the pointer.
+                // The wheel, for the desktop loop: a notch is a step of zoom about the pointer, flown
+                // rather than stepped — a wheel has no in-between, so the sky supplies one. Each notch
+                // zooms from where the last one was heading, so a burst of them compounds.
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
@@ -131,9 +133,9 @@ fun UniverseCanvas(
                             if (event.type != PointerEventType.Scroll) continue
                             val change = event.changes.firstOrNull() ?: continue
                             val vp = SkyViewport(size.width.toFloat(), size.height.toFloat())
-                            val factor = exp(-change.scrollDelta.y * WHEEL_STEP)
-                            val next = latestScene.zoomedAt(viewState.view, change.position.x, change.position.y, factor, vp)
-                            viewState.view = latestScene.settled(next, vp)
+                            val factor = exp(-change.scrollDelta.y * SkyViewState.WHEEL_STEP)
+                            val next = latestScene.zoomedAt(viewState.heading, change.position.x, change.position.y, factor, vp)
+                            scope.launch { viewState.fly(latestScene.settled(next, vp), millis = SkyViewState.WHEEL_MILLIS) }
                             change.consume()
                         }
                     }
@@ -951,9 +953,6 @@ class SkyPaint(
         const val DEPOSIT_WORDS_FROM: Float = 40f
     }
 }
-
-// A notch of the wheel is a step of zoom about the pointer, small enough to be walked.
-private const val WHEEL_STEP: Float = 0.0015f
 
 // Every word the canvas sets, at every depth, fits in here; past it the measurer measures again.
 private const val LABEL_CACHE: Int = 256

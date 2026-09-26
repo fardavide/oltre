@@ -11,6 +11,7 @@ import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 
 // **What is selected, at whichever depth.** One value for the four things a tap can land on, so
@@ -209,31 +210,41 @@ class SkyScene(private val state: SkyUiState) {
     fun zoomedAt(view: SkyView, sx: Float, sy: Float, factor: Float, viewport: SkyViewport): SkyView {
         var fx = sx
         var fy = sy
+        var target: SkyPoint? = null
         val system = view.selection.system
         if (view.ppu >= SETTLE_FROM && system != null && factor > 1f) {
             val body = nearestBody(view, system, sx, sy, viewport)
-            val target = body?.let { worldPositionOf(it.first) } ?: positionOf(system)
-            val q = view.screenOf(target, viewport)
+            target = body?.let { worldPositionOf(it.first) } ?: positionOf(system)
             if (body != null && body.second < SNAP_PX) {
+                val q = view.screenOf(target, viewport)
                 fx = q.x
                 fy = q.y
-            }
-            // a zoom about a point can never bring a body that is off the screen back onto it, so a
-            // pinch into the dark first pans: while no body of the system is in view the zoom holds
-            // and the centre halves its distance to the nearest body each step
-            if (distance(q, viewport.width / 2f, viewport.height / 2f) > IN_FRONT * min(viewport.width, viewport.height)) {
-                return view.copy(
-                    centreX = view.centreX + (target.x - view.centreX) * 0.5f,
-                    centreY = view.centreY + (target.y - view.centreY) * 0.5f,
-                )
             }
         }
         val ppu = SkyGeometry.clampPpu(view.ppu * factor)
         val fixed = view.skyOf(fx, fy, viewport)
-        return view.copy(
+        val zoomed = view.copy(
             ppu = ppu,
             centreX = fixed.x - (fx - viewport.width / 2f) / ppu,
             centreY = fixed.y - (fy - viewport.height / 2f) / ppu,
+        )
+        if (target == null) return zoomed
+        // A zoom about a point can never bring a body that is off the screen back onto it, so a
+        // pinch into the dark pans as it zooms — **and never instead of zooming**: a rule that held
+        // the zoom while it panned and let go once the body was in view changed speed on the frame
+        // it switched, which is the lurch a pinch at the system depth used to have. The pull is a
+        // share of the step's zoom, so it is nothing for a body in front of you, fades in across a
+        // tenth of the reach so a body at the edge neither jumps nor drifts, and past that closes on
+        // the body at three times the pace of the zoom: a body two screens away is half a screen
+        // away by the time the zoom has doubled.
+        val reach = IN_FRONT * min(viewport.width, viewport.height)
+        val q = zoomed.screenOf(target, viewport)
+        val pull = ((distance(q, viewport.width / 2f, viewport.height / 2f) - reach) / (reach * PULL_FADE)).coerceIn(0f, 1f)
+        if (pull == 0f) return zoomed
+        val share = 1f - factor.pow(-PULL_PACE * pull)
+        return zoomed.copy(
+            centreX = zoomed.centreX + (target.x - zoomed.centreX) * share,
+            centreY = zoomed.centreY + (target.y - zoomed.centreY) * share,
         )
     }
 
@@ -332,6 +343,11 @@ class SkyScene(private val state: SkyUiState) {
 
         // How much of the shorter side a body may be off centre and still count as in front of you.
         private const val IN_FRONT: Float = 0.45f
+
+        // How much faster than the zoom a pinch closes on a body that is off the screen, and the
+        // width of the band past the reach over which that pull fades in, as a share of the reach.
+        private const val PULL_PACE: Float = 3f
+        private const val PULL_FADE: Float = 0.1f
 
         // A thumb, the fraction of the zoom a body's reach grows by, the distance under which a pinch
         // snaps its fixed point to a body, and how far off screen a star may sit and still be tapped.
