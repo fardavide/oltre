@@ -16,6 +16,11 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.1", "2026-09-26", "The pinch stays smooth",
+            "A pinch into the dark past your star used to jolt. Now it zooms and pans in one motion.",
+            "On the desktop a notch of the wheel glides to its zoom instead of jumping there.",
+        ),
+        release(
             "0.29.0", "2026-09-25", "One sky",
             "The Galaxy tab is one drawing now: pinch from nine galaxies down to a single world.",
             "Tap a thing to select it, tap it again to dive; the bar at the top spells where you are.",

@@ -16,6 +16,7 @@ import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipe
@@ -27,12 +28,17 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.SystemAddress
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.Duration
 
 const val PHONE_WIDTH = 393
 const val SLIDE_OVER_WIDTH = 320
+
+// What one notch of a wheel scrolls, in the pixels the desktop reports it in — and so, through
+// `SkyViewState.WHEEL_STEP`, what one notch is worth in zoom.
+const val WHEEL_NOTCH = 120f
 
 // Measured off the shipped 0.12.0 screenshot rather than computed: an iPhone at 852dp leaves a
 // destination about 650dp once the rail, the tab bar and the safe areas are paid for. Every frame and
@@ -211,6 +217,46 @@ class GalaxyRobot(private val test: ComposeUiTest, private val viewState: SkyVie
         test.waitForIdle()
     }
 
+    // A notch of the wheel over the middle of the sky, and `notches` above zero zooms in. **The clock
+    // stops being run out**: a notch asks for a zoom and the sky eases to it, so what the eye is
+    // doing a few frames later is the whole point of driving it — and every node query waits for
+    // idle first, which on an automatic clock would land the flight before a second notch could
+    // catch it in the air. From the first notch on, `after` moves the clock by hand.
+    fun turnTheWheel(notches: Int) = apply {
+        test.mainClock.autoAdvance = false
+        test.onNodeWithTag(GalaxyTestTags.SKY).performMouseInput {
+            moveTo(center)
+            scroll(-notches * WHEEL_NOTCH)
+        }
+    }
+
+    fun after(millis: Long) = apply {
+        test.mainClock.advanceTimeBy(millis)
+    }
+
+    // Two readings of the zoom a frame apart: on its way in, or arrived.
+    fun assertTheZoomIsStillClimbing() = apply {
+        val before = eye().ppu
+        test.mainClock.advanceTimeByFrame()
+        check(eye().ppu > before) { "the zoom is not climbing: it read $before and then ${eye().ppu}" }
+    }
+
+    fun assertTheZoomHasSettled() = apply {
+        val before = eye().ppu
+        test.mainClock.advanceTimeByFrame()
+        check(eye().ppu == before) { "the zoom is still moving: it read $before and then ${eye().ppu}" }
+    }
+
+    fun assertTheEyeIsCloserThan(view: SkyView) = apply {
+        check(eye().ppu > view.ppu) { "the eye is at ${eye().ppu} pixels a unit, no closer than ${view.ppu}" }
+    }
+
+    // To a tenth of a percent: a flight lands exactly where it was sent, and a zoom is a product of
+    // floats.
+    fun assertTheZoomIs(ppu: Float) = apply {
+        check(abs(eye().ppu - ppu) <= ppu * 0.001f) { "the eye is at ${eye().ppu} pixels a unit, not $ppu" }
+    }
+
     // ── The bar and the count ────────────────────────────────────────────────────────────────
 
     fun openStep(depth: SkyDepth) = apply {
@@ -235,14 +281,17 @@ class GalaxyRobot(private val test: ComposeUiTest, private val viewState: SkyVie
     // **Read off the eye rather than off a colour**: which step is lit is a weight and a tint, and
     // neither is a semantic. The depth is derived from the zoom, so this is the same fact.
     fun assertTheDepthIs(depth: SkyDepth) = apply {
-        val view = checkNotNull(viewState) { "the stateful screen holds its own eye; assert the bar or the caption" }.view
+        val view = eye()
         check(view.depth == depth) { "the eye is at ${view.depth} (ppu ${view.ppu}), not $depth" }
     }
 
     fun assertTheSelectionIs(selection: SkySelection) = apply {
-        val view = checkNotNull(viewState) { "the stateful screen holds its own eye; assert the bar or the caption" }.view
+        val view = eye()
         check(view.selection == selection) { "the selection is ${view.selection}, not $selection" }
     }
+
+    private fun eye(): SkyView =
+        checkNotNull(viewState) { "the stateful screen holds its own eye; assert the bar or the caption" }.view
 
     fun assertTheCountReads(text: String) = apply {
         test.onNodeWithTag(GalaxyTestTags.COUNT).assert(containing(text))

@@ -128,6 +128,15 @@ class GalaxyScreenshotTest {
         capture(frame = regionFrame, name = "galaxy_region_diving", dive = true)
     }
 
+    // **One step of a pinch into the dark**, the other motion rule no settled frame can show: the
+    // eye had been panned past the star so nothing of the system was in view, and the step zooms
+    // *and* pulls the nearest body back to the edge of the reach in one motion — the rule that
+    // replaced a zoom which held still while it panned, and lurched when it let go.
+    @Test
+    fun `the system after a pinch into the dark`() {
+        capture(frame = pulledFrame, name = "galaxy_system_pulled")
+    }
+
     // ── The slide-over width ─────────────────────────────────────────────────────────────────
 
     @Test

@@ -4,11 +4,14 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.galaxy.ui.SkyDepth
 import dev.fardavide.oltre.client.galaxy.ui.SkyGeometry
 import dev.fardavide.oltre.client.galaxy.ui.SkySelection
+import dev.fardavide.oltre.client.galaxy.ui.SkyViewState
+import dev.fardavide.oltre.client.galaxy.ui.WHEEL_NOTCH
 import dev.fardavide.oltre.client.galaxy.ui.galaxyPage
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.SystemAddress
 import kotlin.test.assertEquals
+import kotlin.math.exp
 import org.junit.Test
 
 // **One sky, five zooms of it.** The tab used to be three pages and a switch; it is one drawing now,
@@ -201,6 +204,35 @@ class GalaxyPageBehaviourTest {
         galaxyPage(uiState = regionFrame.uiState, view = regionFrame.view) {
             pinch(factor = 0.5f)
             assertTheDepthIs(SkyDepth.GALAXY)
+        }
+    }
+
+    @Test
+    fun `a notch of the wheel eases the zoom in rather than stepping it`() {
+        // The desktop's pinch is the wheel, and a wheel has no in-between: a notch that landed its
+        // whole step on one frame read as a jolt. So a notch is a short flight — halfway through it
+        // the zoom is still on its way, and when it is over the eye is closer and holding still.
+        galaxyPage(uiState = regionFrame.uiState, view = regionFrame.view) {
+            turnTheWheel(notches = 1)
+            after(millis = SkyViewState.WHEEL_MILLIS / 2L)
+            assertTheZoomIsStillClimbing()
+            after(millis = SkyViewState.WHEEL_MILLIS.toLong())
+            assertTheEyeIsCloserThan(regionFrame.view)
+            assertTheZoomHasSettled()
+        }
+    }
+
+    @Test
+    fun `a second notch before the first has landed compounds rather than restarts`() {
+        // A wheel is turned in bursts, and a burst is one zoom: each notch zooms from where the
+        // last one was *heading*, not from wherever its easing had got to, so two notches land at
+        // two notches' worth and the wheel never feels as if it were losing steps to the flight.
+        galaxyPage(uiState = regionFrame.uiState, view = regionFrame.view) {
+            turnTheWheel(notches = 1)
+            after(millis = SkyViewState.WHEEL_MILLIS / 2L)
+            turnTheWheel(notches = 1)
+            after(millis = SkyViewState.WHEEL_MILLIS * 2L)
+            assertTheZoomIs(regionFrame.view.ppu * exp(2 * WHEEL_NOTCH * SkyViewState.WHEEL_STEP))
         }
     }
 

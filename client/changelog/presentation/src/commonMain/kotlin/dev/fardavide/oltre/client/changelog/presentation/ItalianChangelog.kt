@@ -15,6 +15,11 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.1", "2026-09-26", "Il pizzico resta fluido",
+            "Un pizzico nel buio oltre la stella dava uno strattone. Ora zoom e scorrimento sono uno.",
+            "Su desktop una tacca della rotella scivola al suo zoom invece di saltarci.",
+        ),
+        release(
             "0.29.0", "2026-09-25", "Un solo cielo",
             "La scheda Galassia è un disegno solo: dalle nove galassie fino a un singolo mondo.",
             "Tocca una cosa per sceglierla, toccala di nuovo per entrarci; la barra dice dove sei.",
