@@ -118,6 +118,16 @@ class GalaxyScreenshotTest {
         capture(frame = runnableWorldFrame, name = "galaxy_world_run")
     }
 
+    @Test
+    fun `a blocked world names its adaptations without offering a run`() {
+        capture(frame = blockedWorldFrame, name = "galaxy_world_blocked")
+    }
+
+    @Test
+    fun `a blocked world in a slide-over in Italian`() {
+        capture(width = SLIDE_OVER_WIDTH, frame = blockedWorldFrame, name = "galaxy_world_blocked_slide_over_it", translations = Italian)
+    }
+
     // **Halfway through the dive from the region to home**, the one frame that shows the flight
     // the design specified: 420ms, easing out, the zoom in log space and the centre in a straight
     // line, with the bar and the count line already saying where it is going. A settled frame of

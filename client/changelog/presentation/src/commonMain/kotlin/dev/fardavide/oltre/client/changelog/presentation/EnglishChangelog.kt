@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.2", "2026-09-26", "Difficult worlds pay more",
+            "More adaptation means deeper deposits and faster harvesting. Gravitic 12 alone pays 13×.",
+            "Meet every adaptation requirement to harvest. Locked worlds show what you can gain.",
+            "Probes take twice as long. The charted area stays the same; hour marks follow the clock.",
+        ),
+        release(
             "0.29.1", "2026-09-26", "The pinch stays smooth",
             "A pinch into the dark past your star used to jolt. Now it zooms and pans in one motion.",
             "On the desktop a notch of the wheel glides to its zoom instead of jumping there.",

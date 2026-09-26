@@ -10,8 +10,8 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-// Every branch of `StartRunResult`, against the real generated galaxy — genesis surveys the home
-// system, so a neighbour of home is a legal target from hour zero and no test has to fake a survey.
+// Every branch of `StartRunResult`, against the real generated galaxy. Dispatch fixtures satisfy
+// the target's adaptation requirements so these tests isolate the other admission rules.
 class StartRunTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)
@@ -55,17 +55,9 @@ class StartRunTest {
     }
 
     @Test
-    fun `a new colony can send its first skiff at hour zero`() {
-        // The verb that exists to fix an empty opening cannot sit behind a building — `startSurvey`'s
-        // argument, with more force.
-        //
-        // **The hull is now bought rather than granted, and the assertion is unchanged on purpose.**
-        // What this pins is that *dispatch* has no requirement in front of it, which was true when
-        // genesis handed a colony a skiff and has to stay true now that it earns one: a player whose
-        // first hull leaves the slipway at hour zero must be able to send it at hour zero. The wait
-        // that removing the grant added belongs to the yard and to the price, and `OpeningBalanceTest`
-        // is where it is measured — putting it here would turn a test about a gate into a test about
-        // a clock.
+    fun `a colony meeting adaptation can send its first skiff without a facility gate`() {
+        // Buying the hull and meeting the planet's adaptation are enough to dispatch.
+        // No facility level or elapsed-time gate belongs in front of the run itself.
         val state = fleetOf(1)
         assertIs<StartRunResult.Started>(
             startRun(
@@ -308,7 +300,7 @@ class StartRunTest {
     @Test
     fun `surveying that world is what makes it a legal target`() {
         // given the same world with the same everything else — only the chart changed
-        val state = fleetOf(1)
+        val state = fleetOf(1).let { it.adaptedForHarvesting(unsurveyedWorld(it)) }
         val target = unsurveyedWorld(state)
         val charted = state.copy(galaxy = state.galaxy.copy(surveyed = state.galaxy.surveyed + target))
 
@@ -413,6 +405,7 @@ class StartRunTest {
 
     private fun fleetOf(hulls: Int): GameState =
         GameState.initial().let { it.copy(ships = Ships.of(ShipType.SKIFF, hulls)) }
+            .let { it.adaptedForHarvesting(neighbourOfHome(it)) }
 
     private fun dispatch(
         state: GameState,
@@ -424,8 +417,7 @@ class StartRunTest {
         startRun(state = state, target = target, gathering = gathering, ships = ships, window = window, at = t0),
     ).state
 
-    // Genesis surveys the whole home system, so its other worlds are legal targets on turn one.
-    // Lowest slot first, which keeps the choice stable for a given seed.
+    // Lowest surveyed non-home slot keeps the choice stable for a given seed.
     private fun neighbourOfHome(state: GameState): GalaxyCoordinate =
         state.galaxy.surveyed.filter { it != state.galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")

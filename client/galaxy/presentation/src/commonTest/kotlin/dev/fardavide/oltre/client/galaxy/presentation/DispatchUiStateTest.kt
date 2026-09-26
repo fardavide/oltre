@@ -17,6 +17,8 @@ import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.Research
+import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
@@ -649,7 +651,11 @@ class DispatchUiStateTest {
     // A scout in the pool, because the sheet's *refusal* offers a probe as the way out of it — and
     // an offer it cannot honour is the dead control this whole layer exists to prevent.
     private val state: GameState =
-        GameState.initial(seed).copy(galaxy = galaxy, ships = Ships.of(ShipType.SCOUT, 1))
+        GameState.initial(seed).copy(
+            galaxy = galaxy,
+            ships = Ships.of(ShipType.SCOUT, 1),
+            research = Research.initial().copy(thermal = TechLevel(30), gravitic = TechLevel(30), atmospheric = TechLevel(30)),
+        )
     private val homeSelection = SystemAddress(galaxy = home.galaxy, system = home.system)
 
     // ── The vein, which is where this sheet's mechanic actually lives ────────────────────────

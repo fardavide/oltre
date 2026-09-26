@@ -9,6 +9,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.milliseconds
 
 // The vein's two curves — how deep a world is and how fast it comes back — pinned value by value.
 // Worlds are **constructed** here for `FleetBalanceTest`'s reason: the generator's distributions are
@@ -19,6 +20,121 @@ class DepositBalanceTest {
         GalaxyCoordinate(galaxy = galaxy, system = system, slot = slot)
 
     // ── The cap ──────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `large fleets retain fractional richness without overflowing cargo arithmetic`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 1_600_001)
+        val demanding = plain.copy(traits = plain.traits.copy(
+            temperature = Temperature(-260), gravity = Gravity(2_750), pressure = Pressure(12_000),
+        ))
+        val research = Research.initial().withLevel(Technology.PROSPECTING, TechLevel(TechLevel.MAX))
+
+        assertEquals(255_590_620_342, FleetBalance.cargo(
+            demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 30_001), 1_439.minutes, 10, research,
+        ).metal)
+    }
+
+    @Test
+    fun `ten thousand haulers finish a difficult deposit within the first minute`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 1_600_000)
+        val demanding = plain.copy(traits = plain.traits.copy(
+            temperature = Temperature(-260), gravity = Gravity(2_750), pressure = Pressure(12_000),
+        ))
+        val research = Research.initial().withLevel(Technology.PROSPECTING, TechLevel(TechLevel.MAX))
+
+        assertEquals(1.minutes, DepositBalance.workingTime(
+            demanding, ResourceKind.METAL, Ships.of(ShipType.HAULER, 10_000), 10,
+            DepositBalance.cap(demanding, ResourceKind.METAL, 10), research,
+        ))
+    }
+
+    @Test
+    fun `large late game fleets can price difficult worlds without overflow`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 1_600_000)
+        val demanding = plain.copy(traits = plain.traits.copy(
+            temperature = Temperature(-260), gravity = Gravity(2_750), pressure = Pressure(12_000),
+        ))
+        val research = Research.initial().withLevel(Technology.PROSPECTING, TechLevel(TechLevel.MAX))
+        val oneShip = FleetBalance.cargo(demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 24.hours, 10, research)
+        val fleet = FleetBalance.cargo(demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 10_000), 24.hours, 10, research)
+
+        assertTrue(fleet.metal >= oneShip.metal * 10_000)
+        assertTrue(fleet.metal < (oneShip.metal + 1) * 10_000)
+    }
+
+    @Test
+    fun `waiting for a large deposit is the first millisecond that covers the ask`() {
+        val cap = 1_900_000L
+        val capFine = cap * Resources.FINE_PER_UNIT
+        val storedFine = 13L
+        val wanted = 1_234_567L
+        val wait = kotlin.test.assertNotNull(DepositBalance.timeUntil(storedFine, capFine, wanted))
+
+        assertTrue(wait > 12.days && wait < 14.days, "the deposit refills five percent per day: $wait")
+        assertTrue(DepositBalance.regenerated(storedFine, capFine, wait) >= wanted * Resources.FINE_PER_UNIT)
+        assertTrue(DepositBalance.regenerated(storedFine, capFine, wait - 1.milliseconds) < wanted * Resources.FINE_PER_UNIT)
+    }
+
+    @Test
+    fun `large adaptation deposits refill to their new cap without overflow`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet())
+        val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
+        val capFine = DepositBalance.cap(demanding, ResourceKind.METAL, 0) * Resources.FINE_PER_UNIT
+
+        assertEquals(capFine, DepositBalance.regenerated(0, capFine, 20.days))
+    }
+
+    @Test
+    fun `a difficult full deposit takes the same working time as an easy one`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet())
+        val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
+
+        assertEquals(
+            1_450.minutes,
+            DepositBalance.workingTime(
+                demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 4), 0,
+                DepositBalance.cap(demanding, ResourceKind.METAL, 0), Research.initial(),
+            ),
+        )
+    }
+
+    @Test
+    fun `gravitic twelve increases extraction by the same thirteen times`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet())
+        val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
+        val cargo = FleetBalance.cargo(
+            demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 60.minutes, 0, Research.initial(),
+        )
+
+        assertEquals(780, cargo.metal)
+    }
+
+    @Test
+    fun `gravitic twelve makes a deposit thirteen times deeper`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet())
+        val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
+
+        assertEquals(12, GalaxyBalance.levelThatTolerates(HostilityAxis.GRAVITY, 2_750))
+        assertEquals(75_400, DepositBalance.cap(demanding, ResourceKind.METAL, danger = 0))
+        assertEquals(37_700, DepositBalance.cap(demanding, ResourceKind.CRYSTAL, danger = 0))
+    }
+
+    @Test
+    fun `each required adaptation axis adds its squared reward without early rounding`() {
+        val plain = world(at = at(2, 125, 8), hazards = emptySet())
+        // Thermal 3, Gravitic 6 and Atmospheric 9, singly and together.
+        val cases = listOf(
+            plain.traits.copy(temperature = Temperature(87)) to 10_150L,
+            plain.traits.copy(gravity = Gravity(2_120)) to 23_200L,
+            plain.traits.copy(pressure = Pressure(10_700)) to 44_950L,
+            plain.traits.copy(temperature = Temperature(87), gravity = Gravity(2_120), pressure = Pressure(10_700)) to 66_700L,
+            plain.traits.copy(temperature = Temperature(46)) to 6_283L,
+        )
+
+        for ((traits, expectedMetal) in cases) {
+            assertEquals(expectedMetal, DepositBalance.cap(plain.copy(traits = traits), ResourceKind.METAL, 0))
+        }
+    }
 
     @Test
     fun `a plain doorstep world holds the base cap in metal and half of it in crystal`() {

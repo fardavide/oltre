@@ -1,7 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
@@ -13,8 +15,11 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.assertEquals
@@ -30,6 +35,31 @@ import org.junit.Test
 // Driven through the Robot, never through a raw node query — the shape `ResearchRobot` set.
 @OptIn(ExperimentalTestApi::class)
 class GalaxyFromStateBehaviourTest {
+
+    @Test
+    fun `a blocked planet explains its adaptation requirements without offering a harvesting run`() {
+        val target = testGameState.galaxy.surveyed.first { at ->
+            verdictFor(checkNotNull(worldAt(testGameState.galaxy.seed, at)), testGameState) is WorldVerdict.Blocked
+        }
+        val blocked = assertIs<WorldVerdict.Blocked>(verdictFor(checkNotNull(worldAt(testGameState.galaxy.seed, target)), testGameState))
+
+        galaxyScreen(state = testGameState) {
+            openStep(SkyDepth.SYSTEM)
+            tapWorld(target)
+            tapWorld(target)
+            assertTheCountReads("Blocked")
+            assertTheCaptionOffersNoVerb()
+            assertTheCaptionFullyDisplays("Requires")
+            listOf(ResourceKind.METAL, ResourceKind.CRYSTAL).forEach { resource ->
+                val cap = requireNotNull(testGameState.galaxy.depositCap(target, resource))
+                val reading = Strings.resourceReading(resource, Strings.depositFraction(cap.groupedByThousands(), cap.groupedByThousands()))
+                assertTheCaptionFullyDisplays(English.resolve(reading))
+            }
+            blocked.failures.forEach { failure ->
+                assertTheCaptionReads(English.resolve(Strings.namedLevel(Strings.adaptationName(failure.axis.adaptation), failure.closedAtLevel)))
+            }
+        }
+    }
 
     @Test
     fun `the caption sends the probe to the star under the selection and not to home`() {
@@ -175,14 +205,14 @@ class GalaxyFromStateBehaviourTest {
         // ask, and the figure under it is `FleetBalance.cargo` for that ask — read off the mapper
         // rather than typed, so this is a claim about the screen and not about the balance.
         val onCrystal = assertIs<DispatchUiState.Offer>(
-            testGameState.toDispatchUiState(
+            testGameState.adaptedTo(RUNNABLE).toDispatchUiState(
                 selection = DispatchSelection(at = RUNNABLE, gathering = ResourceKind.CRYSTAL, ships = null, window = null),
                 probe = null,
                 now = FIXTURE_NOW,
             ),
         )
 
-        galaxyScreen(state = testGameState) {
+        galaxyScreen(state = testGameState.adaptedTo(RUNNABLE)) {
             openStep(SkyDepth.SYSTEM)
             tapWorld(RUNNABLE)
             tapWorld(RUNNABLE)

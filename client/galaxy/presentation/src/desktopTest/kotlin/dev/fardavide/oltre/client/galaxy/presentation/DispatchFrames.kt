@@ -46,7 +46,7 @@ private fun sheet(
     ships: Int? = null,
     window: Duration? = null,
 ): SkyFrame = frame(
-    state = state,
+    state = state.adaptedTo(target),
     selection = SkySelection.World(target),
     depth = depth,
     dispatch = DispatchSelection(at = target, gathering = gathering, ships = ships, window = window),
@@ -78,7 +78,7 @@ internal val dispatchUnsurveyedFrame: SkyFrame = sheet(target = UNSURVEYED, dept
 internal val dispatchNoShipsFrame: SkyFrame = frameState.let { state ->
     val away = assertIs<StartRunResult.Started>(
         startRun(
-            state = state,
+            state = state.adaptedTo(RUNNABLE),
             target = RUNNABLE,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, state.ships.countOf(ShipType.SKIFF)),
@@ -193,7 +193,7 @@ internal val dispatchFarFrame: SkyFrame = frameState.let { state ->
 internal val TWO_HULL_STATE: GameState = frameState.copy(
     ships = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)),
     research = frameState.research.withLevel(Technology.PROPULSION, TechLevel(1)),
-)
+).adaptedTo(RUNNABLE)
 
 // **a · the default, at the doorstep.** Six berths is the whole idle pool, because no manifest
 // empties a full vein inside 3h — so the stepper opens at the top of its range and the `+` dims.

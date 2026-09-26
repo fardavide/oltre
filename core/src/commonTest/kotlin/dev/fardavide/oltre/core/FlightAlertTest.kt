@@ -152,6 +152,7 @@ class FlightAlertTest {
 
     private fun fleetOf(hulls: Int): GameState =
         GameState.initial().copy(ships = Ships.of(ShipType.SKIFF, hulls))
+            .let { it.adaptedForHarvesting(neighbourOfHome(it)) }
 
     private fun scouted(): GameState = GameState.initial().copy(
         ships = Ships.of(ShipType.SCOUT, 2),
@@ -173,7 +174,7 @@ class FlightAlertTest {
         startSurvey(state, unsurveyedSystem(state), at = EPOCH),
     ).state
 
-    // Genesis surveys the whole home system, so its other worlds are legal targets on turn one.
+    // The fleet fixture meets this surveyed neighbour's adaptation requirements.
     private fun neighbourOfHome(state: GameState): GalaxyCoordinate =
         state.galaxy.surveyed.filter { it != state.galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")

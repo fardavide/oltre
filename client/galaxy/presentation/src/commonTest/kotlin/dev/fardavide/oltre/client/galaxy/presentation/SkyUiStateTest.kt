@@ -217,7 +217,7 @@ class SkyUiStateTest {
         val socket = fresh().sky(SkySelection.System(at), SkyDepth.SYSTEM).galaxies[HOME_GALAXY - 1].stars[159].worlds.first()
 
         assertEquals(
-            "unsurveyed · slot ${socket.slot} · probe 53m",
+            "unsurveyed · slot ${socket.slot} · probe 1h 46m",
             English.resolve(fresh().sky(SkySelection.World(GalaxyCoordinate(HOME_GALAXY, 160, socket.slot)), SkyDepth.WORLD).count),
         )
     }
@@ -293,7 +293,7 @@ class SkyUiStateTest {
         assertEquals("Galaxy 7", English.resolve(caption.system))
         assertEquals("250 units out", English.resolve(caption.coordinate))
         // 250 units of hop plus the flat half hour.
-        assertEquals("uncharted · probe 4h 40m", English.resolve(caption.meta))
+        assertEquals("uncharted · probe 9h 20m", English.resolve(caption.meta))
         assertEquals(MapCaptionTrailingUiState.Open(Strings.openWord()), caption.trailing)
     }
 
@@ -311,7 +311,7 @@ class SkyUiStateTest {
         // hour, is 2h 23m.
         val dark = fresh().sky(SkySelection.Region(HOME_GALAXY, 10), SkyDepth.GALAXY).caption
         assertEquals("226–250", English.resolve(dark.system))
-        assertEquals("25 systems · uncharted · 2h 23m to its edge", English.resolve(dark.meta))
+        assertEquals("25 systems · uncharted · 4h 46m to its edge", English.resolve(dark.meta))
     }
 
     @Test
@@ -320,7 +320,7 @@ class SkyUiStateTest {
         // the half hour reads 2h 46m — the longest probe the region can ask for.
         val caption = fresh().sky(SkySelection.Region(HOME_GALAXY, 1), SkyDepth.GALAXY).caption
 
-        assertEquals("25 systems · uncharted · 2h 46m to its edge", English.resolve(caption.meta))
+        assertEquals("25 systems · uncharted · 5h 32m to its edge", English.resolve(caption.meta))
     }
 
     @Test
@@ -343,7 +343,7 @@ class SkyUiStateTest {
         // systems it did not hold.
         assertEquals("uncharted · charts 83 systems", English.resolve(caption.meta))
         assertEquals(
-            MapCaptionTrailingUiState.Dispatch(Strings.probeFlight(Strings.durationHoursMinutes(2, 13))),
+            MapCaptionTrailingUiState.Dispatch(Strings.probeFlight(Strings.durationHoursMinutes(4, 26))),
             caption.trailing,
         )
     }
@@ -355,7 +355,7 @@ class SkyUiStateTest {
 
         assertNull(caption.trailing)
         // The flight is still printed, so nothing is hidden — only the verb is withheld.
-        assertEquals("probe 2h 13m", English.resolve(requireNotNull(caption.detail)))
+        assertEquals("probe 4h 26m", English.resolve(requireNotNull(caption.detail)))
     }
 
     @Test
@@ -365,7 +365,7 @@ class SkyUiStateTest {
         val caption = out.sky(SkySelection.System(TARGET), SkyDepth.REGION).caption
 
         assertNull(caption.trailing)
-        assertEquals("probe lands in 1h 10m", English.resolve(requireNotNull(caption.detail)))
+        assertEquals("probe lands in 2h 20m", English.resolve(requireNotNull(caption.detail)))
         assertEquals(listOf(SkyFlightUiState(from = HOME.system, to = TARGET.system)), out.sky(SkySelection.System(TARGET), SkyDepth.REGION).galaxies[HOME_GALAXY - 1].flights)
     }
 
@@ -418,7 +418,7 @@ class SkyUiStateTest {
         val caption = out.sky(SkySelection.World(GalaxyCoordinate(HOME_GALAXY, 160, socket.slot)), SkyDepth.SYSTEM).caption
 
         assertNull(caption.trailing)
-        assertEquals("probe lands in 53m", English.resolve(requireNotNull(caption.detail)))
+        assertEquals("probe lands in 1h 46m", English.resolve(requireNotNull(caption.detail)))
     }
 
     @Test
@@ -431,7 +431,7 @@ class SkyUiStateTest {
 
         assertNull(caption.trailing)
         // The flight is still printed, so nothing is hidden — only the verb is withheld.
-        assertEquals("probe 53m", English.resolve(requireNotNull(caption.detail)))
+        assertEquals("probe 1h 46m", English.resolve(requireNotNull(caption.detail)))
     }
 
     @Test
@@ -439,7 +439,7 @@ class SkyUiStateTest {
         val landed = surveyed(TARGET)
         val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
 
-        val caption = landed.sky(SkySelection.World(world), SkyDepth.WORLD, now = LANDED).caption
+        val caption = landed.adaptedTo(world).sky(SkySelection.World(world), SkyDepth.WORLD, now = LANDED).caption
 
         assertEquals(MapCaptionTrailingUiState.Run(Strings.runVerb()), caption.trailing)
         assertTrue(English.resolve(requireNotNull(caption.detail)).startsWith("metal full"), English.resolve(caption.detail!!))
@@ -461,11 +461,41 @@ class SkyUiStateTest {
     }
 
     @Test
+    fun `a blocked world shows resource quantities beside its requirements before adaptation is researched`() {
+        val (state, target) = firstSurveyedWorldWhere { it is WorldVerdict.Blocked }
+
+        val caption = state.sky(SkySelection.World(target), SkyDepth.WORLD).caption
+
+        val detail = English.resolve(requireNotNull(caption.detail))
+        listOf(ResourceKind.METAL, ResourceKind.CRYSTAL).forEach { resource ->
+            val cap = requireNotNull(state.galaxy.depositCap(target, resource))
+            val reading = Strings.resourceReading(resource, Strings.depositFraction(cap.groupedByThousands(), cap.groupedByThousands()))
+            assertTrue(detail.contains(English.resolve(reading)), detail)
+        }
+        assertTrue(detail.contains("Requires"), detail)
+        assertNull(caption.trailing)
+    }
+
+    @Test
+    fun `a legacy run to a blocked world still shows its return time`() {
+        val (state, target) = firstSurveyedWorldWhere { it is WorldVerdict.Blocked }
+        val equipped = state.adaptedTo(target).copy(ships = Ships.of(ShipType.SKIFF, 1))
+        val out = assertIs<StartRunResult.Started>(
+            startRun(equipped, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 12.hours, at = EPOCH),
+        ).state.copy(research = state.research)
+
+        val caption = out.sky(SkySelection.World(target), SkyDepth.WORLD).caption
+
+        assertEquals("your run · home 12:00", English.resolve(requireNotNull(caption.detail)))
+        assertNull(caption.trailing)
+    }
+
+    @Test
     fun `the caption on a world your fleet is bound for says when it is home`() {
         val landed = surveyed(TARGET).copy(ships = Ships.of(ShipType.SKIFF, 1))
         val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
         val out = assertIs<StartRunResult.Started>(
-            startRun(landed, world, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 12.hours, at = LANDED),
+            startRun(landed.adaptedTo(world), world, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 12.hours, at = LANDED),
         ).state
 
         val caption = out.sky(SkySelection.World(world), SkyDepth.WORLD, now = LANDED).caption
@@ -480,7 +510,7 @@ class SkyUiStateTest {
         val landed = surveyed(TARGET)
         val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
         val cap = requireNotNull(landed.galaxy.depositCap(world, ResourceKind.METAL))
-        val worked = landed.copy(
+        val worked = landed.adaptedTo(world).copy(
             galaxy = landed.galaxy.withTaken(target = world, gathering = ResourceKind.METAL, taken = 1, at = LANDED),
         )
 
@@ -507,10 +537,12 @@ class SkyUiStateTest {
 
         assertEquals(
             listOf(
-                SkyHourUiState(system = 107, label = Strings.durationHours(1)),
-                SkyHourUiState(system = 167, label = Strings.durationHours(1)),
-                SkyHourUiState(system = 47, label = Strings.durationHours(2)),
-                SkyHourUiState(system = 227, label = Strings.durationHours(2)),
+                SkyHourUiState(system = 107, label = Strings.durationHours(2)),
+                SkyHourUiState(system = 167, label = Strings.durationHours(2)),
+                SkyHourUiState(system = 77, label = Strings.durationHours(3)),
+                SkyHourUiState(system = 197, label = Strings.durationHours(3)),
+                SkyHourUiState(system = 47, label = Strings.durationHours(4)),
+                SkyHourUiState(system = 227, label = Strings.durationHours(4)),
             ),
             sky.galaxies[HOME_GALAXY - 1].hours,
         )
@@ -533,7 +565,7 @@ class SkyUiStateTest {
         val landed = surveyed(TARGET).copy(ships = Ships(mapOf(ShipType.SKIFF to 1, ShipType.SCOUT to 1)))
         val world = landed.galaxy.surveyed.first { it.system == TARGET.system }
 
-        val sky = landed.sky(
+        val sky = landed.adaptedTo(world).sky(
             SkySelection.World(world),
             SkyDepth.WORLD,
             now = LANDED,

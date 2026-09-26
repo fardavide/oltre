@@ -54,7 +54,16 @@ object DepositBalance {
 
     private const val PERCENT: Long = 100
     private const val DANGER_BONUS_PERCENT: Long = 35
-    private const val MINUTES_PER_HOUR: Long = 60
+
+    const val ADAPTATION_REWARD_DENOMINATOR: Long = 12
+
+    // The world's absolute requirements price the reward, even after the player unlocks it.
+    // Cap and extraction share this rational multiplier and round only at the end.
+    fun adaptationRewardNumerator(world: World): Long = ADAPTATION_REWARD_DENOMINATOR +
+        HostilityAxis.entries.sumOf { axis ->
+            val level = GalaxyBalance.levelThatTolerates(axis, world.traits.axisValue(axis)).toLong()
+            checkedTimes(level, level) { "adaptation reward" }
+        }
 
     // **The cap carries the multiplier the rate carries, and that is the load-bearing line of the
     // whole design.** Time to strip a world is `cap / rate`; give the two different multipliers and
@@ -73,7 +82,9 @@ object DepositBalance {
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger
         var numerator = checkedTimes(BASE_PRICED, richnessOf(world, gathering).perMillion.toLong()) { "cap richness" }
         numerator = checkedTimes(numerator, paid) { "cap danger" }
-        return numerator / (GalaxyBalance.RICHNESS_BASIS.toLong() * PERCENT * pricePerUnit(gathering))
+        numerator = checkedTimes(numerator, adaptationRewardNumerator(world)) { "cap adaptation" }
+        return numerator / (GalaxyBalance.RICHNESS_BASIS.toLong() * PERCENT * pricePerUnit(gathering) *
+            ADAPTATION_REWARD_DENOMINATOR)
     }
 
     private fun richnessOf(world: World, gathering: ResourceKind): Richness = when (gathering) {
@@ -89,10 +100,8 @@ object DepositBalance {
     // invariant made visible with no copy at all: `working` reads the same on the doorstep as in the
     // next galaxy, so the rule teaches itself.
     //
-    // **Derived from `cargo`'s own expression rather than from a second rate.** `cargo(m)` is
-    // `floor(m x K)`, so `cargo(m) >= remaining` for an integer `remaining` exactly when `m >= r / K`
-    // — one ceiling division, and the two can never disagree about a minute. A second rate constant
-    // here would be a second rounding convention, which is the defect `Curves.kt` exists to prevent.
+    // Search `cargo`'s own whole-minute curve so the displayed time and lifted amount agree.
+    // A separate inverse rate would duplicate its rounding and overflow for large fleets.
     fun workingTime(
         world: World,
         gathering: ResourceKind,
@@ -104,29 +113,25 @@ object DepositBalance {
         require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
         require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
         if (remaining == 0L || FleetBalance.berths(ships) == 0) return Duration.ZERO
-        val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        // No zero guard on the rate: `extractionPerHour` is 60 multiplied by a technology multiplier
-        // that starts at 1, so it cannot reach zero — and a branch that cannot be taken is a branch
-        // no test can ever justify.
-        val rate = FleetBalance.extractionPerHour(research)
-        var numerator = checkedTimes(remaining, GalaxyBalance.RICHNESS_BASIS.toLong()) { "working remaining" }
-        numerator = checkedTimes(numerator, PERCENT * pricePerUnit(gathering)) { "working price" }
-        numerator = checkedTimes(numerator, MINUTES_PER_HOUR) { "working hour" }
-        // **Berths, not hulls — the same unit `cargo` spends.** These two are inverses of one
-        // expression: `cargo` is how much a fleet lifts in a given time and this is how long a fleet
-        // takes to lift a given amount, so a denominator that disagreed with `cargo`'s would make the
-        // sheet contradict itself about one run. It did, briefly: `cargo` moved to berths with the
-        // hauler and this did not, so a manifest of one hauler and two skiffs — three hulls, six
-        // berths — reported *twice* the working time it really needs, and the legs line read
-        // "on station 2h 24m · working 4h 48m" about a run that cannot work longer than it stays.
-        var denominator = checkedTimes(
-            FleetBalance.berths(ships).toLong(),
-            richnessOf(world, gathering).perMillion.toLong(),
-        ) { "working fleet" }
-        denominator = checkedTimes(denominator, paid) { "working danger" }
-        denominator = checkedTimes(denominator, rate) { "working rate" }
-        // Ceiled: a partial minute is still a minute the fleet is on the surface.
-        return ((numerator + denominator - 1) / denominator).minutes
+        // Search cargo's own whole-minute curve: multiplying the inverse rate denominator can
+        // overflow for a large fleet even when it needs just one minute to finish this deposit.
+        fun covers(minutes: Long): Boolean {
+            val cargo = FleetBalance.cargo(world, gathering, ships, minutes.minutes, danger, research)
+            val lifted = when (gathering) {
+                ResourceKind.METAL -> cargo.metal
+                ResourceKind.CRYSTAL -> cargo.crystal
+                ResourceKind.DEUTERIUM -> error("unreachable — guarded by workingTime()")
+            }
+            return lifted >= remaining
+        }
+        var high = 1L
+        while (!covers(high)) high = checkedTimes(high, 2) { "working time bound" }
+        var low = 1L
+        while (low < high) {
+            val middle = low + (high - low) / 2
+            if (covers(middle)) high = middle else low = middle + 1
+        }
+        return low.minutes
     }
 
     // ── Refill ───────────────────────────────────────────────────────────────────────────────
@@ -160,8 +165,8 @@ object DepositBalance {
     // honest because the offer above it can move** — shrink the ask to one skiff at 3h and the same
     // world is worth visiting in days rather than never.
     //
-    // Ceiled to the millisecond, so the answer is the first instant the ask is covered rather than
-    // the last instant it is not.
+    // Find the first millisecond the refill covers the ask. Searching the bounded refill span
+    // avoids multiplying a large fine-unit stock by a day's milliseconds.
     fun timeUntil(storedFine: Long, capFine: Long, wanted: Long): Duration? {
         require(wanted >= 0) { "an ask cannot be negative, was $wanted" }
         val wantedFine = wanted * Resources.FINE_PER_UNIT
@@ -170,7 +175,17 @@ object DepositBalance {
         val perDayFine = capFine / PERCENT * REFILL_PERCENT_PER_DAY
         if (perDayFine <= 0) return null
         val shortBy = wantedFine - storedFine
-        return ((shortBy * MILLISECONDS_PER_DAY + perDayFine - 1) / perDayFine).milliseconds
+        var low = 0L
+        var high = ((shortBy - 1) / perDayFine + 1) * MILLISECONDS_PER_DAY
+        while (low < high) {
+            val middle = low + (high - low) / 2
+            if (regenerated(storedFine, capFine, middle.milliseconds) >= wantedFine) {
+                high = middle
+            } else {
+                low = middle + 1
+            }
+        }
+        return low.milliseconds
     }
 
     fun regenerated(storedFine: Long, capFine: Long, elapsed: Duration): Long {
@@ -186,6 +201,11 @@ object DepositBalance {
         val headroom = capFine - storedFine
         val millisecondsToFill = headroom / perDayFine * MILLISECONDS_PER_DAY + MILLISECONDS_PER_DAY
         val effective = minOf(elapsedMilliseconds, millisecondsToFill)
-        return minOf(capFine, storedFine + checkedTimes(perDayFine, effective) { "refill" } / MILLISECONDS_PER_DAY)
+        // Divide the daily rate first, carrying its remainder through the single final floor.
+        // Multiplying the entire rate by twenty days overflows for adaptation-sized deposits.
+        val whole = checkedTimes(perDayFine / MILLISECONDS_PER_DAY, effective) { "refill whole" }
+        val fraction = checkedTimes(perDayFine % MILLISECONDS_PER_DAY, effective) { "refill fraction" } /
+            MILLISECONDS_PER_DAY
+        return minOf(capFine, storedFine + whole + fraction)
     }
 }

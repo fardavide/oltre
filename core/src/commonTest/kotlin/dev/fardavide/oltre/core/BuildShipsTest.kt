@@ -181,7 +181,7 @@ class BuildShipsTest {
         val state = wealthy(GameState.initial()).copy(ships = Ships.of(ShipType.SKIFF, 1))
         val target = state.galaxy.surveyed.first { it != state.galaxy.home }
         val away = assertIs<StartRunResult.Started>(
-            startRun(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
+            startRun(state.adaptedForHarvesting(target), target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
         ).state
         assertTrue(away.ships.isEmpty)
 

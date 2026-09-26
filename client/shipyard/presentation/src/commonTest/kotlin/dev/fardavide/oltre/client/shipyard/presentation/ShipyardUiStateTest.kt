@@ -17,6 +17,11 @@ import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.HostilityAxis
+import dev.fardavide.oltre.core.TechLevel
+import dev.fardavide.oltre.core.axisValue
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
@@ -462,12 +467,17 @@ class ShipyardUiStateTest {
         alerts = AlertSettings.CARRIED_FORWARD,
     )
 
-    // Genesis surveys the home system, so a neighbour of home is a legal target on turn one.
+    // Satisfy the target's adaptation so these assertions can count a travelling fleet.
     private fun GameState.dispatchOne(): GameState {
         val target = galaxy.surveyed.filter { it != galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")
+        val world = checkNotNull(worldAt(galaxy.seed, target))
+        val adapted = HostilityAxis.entries.fold(research) { levels, axis ->
+            val required = GalaxyBalance.levelThatTolerates(axis, world.traits.axisValue(axis))
+            levels.withLevel(axis.adaptation, TechLevel(maxOf(levels.levelOf(axis.adaptation).value, required)))
+        }
         return assertIs<StartRunResult.Started>(
-            startRun(this, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
+            startRun(copy(research = adapted), target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),
         ).state
     }
 

@@ -70,7 +70,14 @@ class ShipyardAppBehaviourTest {
             ?: error("the test seed's home system holds no world but home")
         val now = TEST_NOW
         val dispatched = assertIs<StartRunResult.Started>(
-            startRun(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, at = now),
+            startRun(
+                state.adaptedForHarvesting(target),
+                target,
+                ResourceKind.METAL,
+                Ships.of(ShipType.SKIFF, 1),
+                3.hours,
+                at = now,
+            ),
         ).state
 
         app(saved = GameSnapshot(lastUpdatedAt = now, state = dispatched)) {

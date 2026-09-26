@@ -187,7 +187,8 @@ class WorldDepositTest {
     @Test
     fun `a partly drained world is still carried`() {
         val at = aNeighbour()
-        val stripped = galaxy.withTaken(at, ResourceKind.METAL, taken = 100, at = origin)
+        val full = galaxy.remaining(at, ResourceKind.METAL, origin)
+        val stripped = galaxy.withTaken(at, ResourceKind.METAL, taken = full / 2, at = origin)
 
         assertEquals(1, stripped.prunedFull(origin + 1.hours).deposits.size)
     }

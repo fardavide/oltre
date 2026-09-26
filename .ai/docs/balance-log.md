@@ -4130,3 +4130,83 @@ neighbour, is a deliberate overnight flight and not an accident.
 had a reason to; if the far galaxies turn out to be where people want to go, the hop is the dial and
 the width is its floor. And the shared universe has no arrival yet: the first time two colonies sit
 in one galaxy is the first time the occupancy rates in `GalaxyBalance` mean anything beyond a seed.
+
+
+## Round 36 — adaptation buys larger hauls and probes take twice as long (2026-09-26)
+
+Implemented on the branch based on 0.29.1; not yet released. Davide's feedback:
+
+> "If they need so much adaptation, they should give you way, way, way more resources."
+>
+> "You should upgrade your stuff to be able to farm from planets that are more challenging and give you a lot of resources."
+
+Davide approved the concrete proposal with "lets try". All required adaptation axes gate harvesting.
+The previous bypass existed in 0.28 as well as 0.29; adaptation-sheet.md records the corrected rule.
+
+For required absolute levels T, G and A, both deposit cap and extraction carry
+`1 + (T² + G² + A²) / 12`. Easy worlds remain at 1x; Gravitic 12 alone carries 13x.
+Richness and danger still apply. Current player research never changes that planet multiplier.
+Matching cap and rate preserves full-deposit working time while making each trip pay more.
+
+New probes change from 30m + 1m per distance unit to 60m + 2m per unit: next system 1h02m,
+thirty systems 2h, same system number one galaxy over 9h20m. Charted radius stays thirty systems;
+map hour marks read the actual clock. Costs, hull requirements and 5% daily refill stay unchanged.
+Locked worlds show numeric full deposits before the player buys adaptation.
+
+Existing flights retain their saved cargo and deadlines. Stored depleted worlds keep absolute stock
+and refill against the new cap; absent deposit entries read as full at that cap. Regression tests
+cover saved flights/deposits, all gates, reward values, large fleets, refill overflow and the first
+millisecond at which a refilling deposit covers an ask.
+
+Verification: full `./gradlew build --quiet`, `./gradlew verifyRoborazziDesktop --quiet` and
+`./gradlew :sim:run --quiet` passed. All 40 changed tuning frames were reviewed before recording,
+including numeric locked-world deposits at 320dp in Italian. Large-fleet regressions also exposed
+intermediate multiplication overflow; quotient/remainder arithmetic now preserves the exact final
+floor, and working time searches that same cargo curve.
+
+### Measured first reading
+
+From `./gradlew :sim:run --quiet`, 2026-09-26, successful exit. Fourteen days, seed 20260807,
+four check-ins per day, one skiff per dispatch to the best remaining legal target; a world may receive
+several runs. Both policies probe and buy buildings/applied research
+cheapest-first; only the investment policy buys adaptation. Fleet cargo is the fortnight total.
+Colony production columns are final-day rates. Neither policy is an optimal strategy.
+
+| Adaptation | T/G/A | spent priced | fleet metal | fleet crystal | worlds | systems | colony metal/day | colony crystal/day |
+|---|---|---|---|---|---|---|---|---|
+| no investment | 0/0/0 | 0 | 21,559 | 0 | 2 | 56 | 83,064 | 32,736 |
+| cheapest-first investment | 6/5/6 | 263,611 | 1,930,962 | 847,914 | 64 | 56 | 234,696 | 92,376 |
+
+This comparison includes the corrected gate as well as the reward curve. Both policies probe
+equally often; it does not prove doubling the clock halves exploration. The income gap is large
+and may be too generous; play must decide. The simulator now filters blocked worlds in all four
+selection/census paths and checks sweep arithmetic against core at the shipped tuning.
+
+Opening census across 1,000 seeds: 355 (35.5%) have an immediately tolerable non-home planet in
+the home system; 645 (64.5%) need one adaptation level before local harvesting. Generation is
+unchanged. Every cheapest neighbour needs at most one level on one ladder. The report's median
+18-minute research time assumes Robotics 4; the branch itself opens at Robotics 2.
+
+Watch whether difficult targets feel worth unlocking, whether fleet income accelerates progression
+too much, and whether the longer cross-galaxy probes remain useful. No additional tuning is inferred
+from one simulated seed.
+
+### Current building curves, regenerated with this run
+
+Building curves did not change in this round. This refresh supersedes the old 0.2.4 table above.
+
+| Level | metal/h | crystal/h | deut/h | metal mine cost (m/c) | payback of the next level |
+|---|---|---|---|---|---|
+| 1 | 90 | 36 | 15 | 6 / 1 | 0h |
+| 2 | 112 | 45 | 18 | 19 / 4 | 1h |
+| 3 | 140 | 56 | 22 | 43 / 10 | 2h |
+| 5 | 218 | 87 | 33 | 166 / 40 | 5h |
+| 8 | 425 | 168 | 63 | 906 / 216 | 14h |
+| 10 | 663 | 262 | 97 | 2,296 / 549 | 20h |
+| 12 | 1,035 | 408 | 151 | 5,166 / 1,234 | 30h |
+| 15 | 2,020 | 796 | 293 | 17,434 / 4,164 | 51h |
+| 18 | 3,945 | 1,553 | 571 | 58,839 / 14,053 | 89h |
+| 20 | 6,163 | 2,426 | 891 | 132,387 / 31,618 | 128h |
+
+Daily metal at levels 1, 5, 10, 15: 2,160, 5,232, 15,912, 48,480.
+Starting stock: 500 metal, 300 crystal.

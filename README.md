@@ -235,6 +235,16 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.29.2 — 2026-09-26
+
+- **Difficult worlds pay for the research.** Planets that need more adaptation now hold far more
+  metal and crystal and let your ships gather it faster. A world needing Gravitic 12 alone pays
+  thirteen times as much; a world needing no adaptation keeps its old reward.
+- **Blocked means blocked.** Harvesting requires every adaptation level the planet asks for, and
+  the galaxy shows its resource amounts before you unlock it. Flights already sent still finish.
+- **Probes take twice as long.** The next system takes 1h 02m. The charted area stays the same,
+  and the map's hour marks follow the new flight times.
+
 ### 0.29.1 — 2026-09-26
 
 - **The pinch stays smooth.** Pinching into the dark past your star — with the star off the edge of

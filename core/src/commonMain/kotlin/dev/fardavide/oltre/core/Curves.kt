@@ -28,6 +28,59 @@ internal fun checkedTimes(a: Long, b: Long, what: () -> String): Long {
     return product
 }
 
+// Carry quotient and remainder separately, so every factor contributes before the final floor.
+// A representable cargo must not fail just because its fractional numerator exceeds Long.
+internal fun checkedProductDivided(factors: List<Long>, divisor: Long, what: () -> String): Long {
+    require(divisor > 0 && factors.all { it >= 0 }) { "a curve ratio must be non-negative with a positive divisor" }
+    if (factors.any { it == 0L }) return 0
+    var whole = 1L / divisor
+    var remainder = 1L % divisor
+    for (factor in factors) {
+        val integral = checkedTimes(whole, factor, what)
+        val (fraction, nextRemainder) = fractionTimes(remainder, factor, divisor)
+        require(integral <= Long.MAX_VALUE - fraction) { "${what()}: quotient overflows a 64-bit integer" }
+        whole = integral + fraction
+        remainder = nextRemainder
+    }
+    return whole
+}
+
+// numerator < divisor, so the quotient cannot exceed multiplier. Most products fit directly;
+// binary doubling handles the rare larger one without losing the remainder or needing floats.
+private fun fractionTimes(numerator: Long, multiplier: Long, divisor: Long): Pair<Long, Long> {
+    if (numerator <= Long.MAX_VALUE / multiplier) {
+        val product = checkedTimes(numerator, multiplier) { "fraction" }
+        return product / divisor to product % divisor
+    }
+    var bits = multiplier
+    var partWhole = 0L
+    var partRemainder = numerator
+    var whole = 0L
+    var remainder = 0L
+    while (bits > 0) {
+        if (bits and 1L != 0L) {
+            whole += partWhole
+            if (remainder >= divisor - partRemainder) {
+                remainder -= divisor - partRemainder
+                whole++
+            } else {
+                remainder += partRemainder
+            }
+        }
+        bits = bits ushr 1
+        if (bits > 0) {
+            partWhole = checkedTimes(partWhole, 2) { "fraction doubling" }
+            if (partRemainder >= divisor - partRemainder) {
+                partRemainder -= divisor - partRemainder
+                partWhole++
+            } else {
+                partRemainder += partRemainder
+            }
+        }
+    }
+    return whole to remainder
+}
+
 // Geometric growth floored at every step rather than once at the end. Per-step flooring is the
 // rule, not an approximation of one: an hourly rate has to be a whole number of units for
 // fine-unit accrual to stay exact. It is also the only form that survives an unbounded number of

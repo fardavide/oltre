@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +51,7 @@ internal fun MapCaption(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize()
             .heightIn(min = TOUCH_MINIMUM)
             // Ahead of the border and the fill, as everywhere else: declared after them the press
             // scaled the caption's text and left the card it is written on standing still.
@@ -116,8 +118,6 @@ internal fun MapCaption(
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

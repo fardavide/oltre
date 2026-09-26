@@ -3,6 +3,14 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.HostilityAxis
+import dev.fardavide.oltre.core.TechLevel
+import dev.fardavide.oltre.core.WorldVerdict
+import dev.fardavide.oltre.core.axisValue
+import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
@@ -44,6 +52,8 @@ import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
+import dev.fardavide.oltre.protocol.RejectionReason
+import dev.fardavide.oltre.protocol.VerbRefusal
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -189,8 +199,35 @@ class OltreServerIntegrationTest {
     }
 
     @Test
+    fun `a blocked harvesting request over HTTP is refused without spending ships or creating a run`() = testApplication {
+        val initial = freshColony()
+        val clock = server(colony = initial.copy(state = initial.state.copy(ships = Ships.of(ShipType.SKIFF, 1))))
+        val before = post("/v1/colony", sync()).syncResponse().snapshot.state
+        val target = before.galaxy.surveyed.first {
+            verdictFor(checkNotNull(worldAt(before.galaxy.seed, it)), before) is WorldVerdict.Blocked
+        }
+
+        val response = post("/v1/sync", sync(envelope(
+            ClientVerb.StartRun(target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 12.hours),
+            at = clock.now(), key = "blocked-run",
+        ))).syncResponse()
+
+        assertEquals(emptySet(), response.applied)
+        assertEquals(RejectionReason.Refused(VerbRefusal.NOT_A_VALID_TARGET), response.rejected.single().reason)
+        assertEquals(before, response.snapshot.state)
+    }
+
+    @Test
     fun `a fleet bought over HTTP flies from the colony the server holds and comes home`() = testApplication {
-        val clock = server()
+        val initial = freshColony()
+        val target = initial.state.galaxy.surveyed.first { it != initial.state.galaxy.home }
+        val world = checkNotNull(worldAt(initial.state.galaxy.seed, target))
+        val adapted = initial.copy(state = initial.state.copy(
+            research = HostilityAxis.entries.fold(initial.state.research) { research, axis ->
+                research.withLevel(axis.adaptation, TechLevel(GalaxyBalance.levelThatTolerates(axis, world.traits.axisValue(axis))))
+            },
+        ))
+        val clock = server(colony = adapted)
         val colony = post("/v1/colony", sync()).syncResponse().snapshot
         // A day's mining first — the opening stock is 500 metal and a skiff is 800, so the first
         // hull is a purchase the colony has to grow into.
@@ -201,7 +238,7 @@ class OltreServerIntegrationTest {
         )
 
         clock.advanceBy(1.days)
-        val target = colony.state.galaxy.surveyed.first { it != colony.state.galaxy.home }
+        assertEquals(adapted.state.galaxy.seed, colony.state.galaxy.seed)
         val dispatched = post(
             "/v1/sync",
             sync(
@@ -700,12 +737,17 @@ class OltreServerIntegrationTest {
         // that: `POST /v1/colony` mints a *fresh* colony, and a fresh colony holds 1,800 metal
         // against a 200,000 charter. A test that founds says who can afford to.
         solvent: List<String> = emptyList(),
+        colony: GameSnapshot? = null,
     ): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
         val alliances = InMemoryAllianceRepository(colonies)
         val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
         val authenticator = HeaderAuthenticator(players)
+        if (colony != null) {
+            val player = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "davide"))).player
+            colonies.found(player, colony)
+        }
         for (header in solvent) {
             val player = assertIs<Caller.Known>(authenticator.identify(Credentials(null, header))).player
             colonies.found(player, establishedColony())

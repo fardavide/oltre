@@ -159,7 +159,7 @@ internal val socketFrame: SkyFrame = frame(state = wealthyState, selection = Sky
 
 // A world in the home system a run may actually be sent to. Read off the seed rather than written
 // down: a run's legality is `startRun`'s rule and not this file's guess — home is refused and so is
-// a world somebody holds, so it is whichever world is neither.
+// a world somebody holds. Fixtures granting its adaptation requirements make it harvestable.
 internal val RUNNABLE: GalaxyCoordinate = frameState.let { state ->
     val home = state.galaxy.home
     (1..GalaxyBalance.SLOTS_PER_SYSTEM)
@@ -171,7 +171,16 @@ internal val RUNNABLE: GalaxyCoordinate = frameState.let { state ->
 }
 
 // In front of a world you may run to: the one frame whose caption carries the run verb.
-internal val runnableWorldFrame: SkyFrame = frame(selection = SkySelection.World(RUNNABLE), depth = SkyDepth.WORLD)
+internal val runnableWorldFrame: SkyFrame = frame(
+    state = frameState.adaptedTo(RUNNABLE),
+    selection = SkySelection.World(RUNNABLE),
+    depth = SkyDepth.WORLD,
+)
+
+internal val blockedWorldFrame: SkyFrame = frame(
+    selection = SkySelection.World(RUNNABLE),
+    depth = SkyDepth.WORLD,
+)
 
 // Surveys the systems at the given offsets from home, which is what a fortnight of probes buys.
 private fun GameState.surveying(systems: List<Int>): GameState {

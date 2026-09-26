@@ -77,6 +77,7 @@ fun main() {
     printOpeningReport()
     printFleetReport()
     printDepositReport()
+    printHarvestingStrategyComparison()
     printCheckInPressureReport()
     printInteractionCensus()
     printGateClock()
@@ -1466,9 +1467,14 @@ private fun cargoAt(
     val rate = tuning.extractionPerHour *
         ResearchBalance.multiplier(Technology.PROSPECTING, research.levelOf(Technology.PROSPECTING)) /
         ResearchBalance.MULTIPLIER_BASIS
-    val numerator = ships.total.toLong() * rate * stationMinutes *
-        richness.perMillion.toLong() * paid
-    val whole = numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit)
+    // JVM BigInteger keeps the tuning sweep exact even when a large fleet's intermediate
+    // product outgrows Long. The final hold must still fit the core resource type.
+    val numerator = listOf(
+        FleetBalance.berths(ships).toLong(), rate, stationMinutes,
+        richness.perMillion.toLong(), paid, DepositBalance.adaptationRewardNumerator(world),
+    ).fold(java.math.BigInteger.ONE) { product, factor -> product * factor.toBigInteger() }
+    val whole = (numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit *
+        DepositBalance.ADAPTATION_REWARD_DENOMINATOR).toBigInteger()).longValueExact()
     val cargo = when (gathering) {
         ResourceKind.METAL -> Resources.of(metal = whole)
         ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
@@ -1637,10 +1643,8 @@ private fun bestDispatch(
 ): Dispatch? {
     val home = state.galaxy.home
     var best: Dispatch? = null
-    val candidates = state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))
-    for (target in candidates) {
-        if (target == home || state.galaxy.holderOf(target) != null) continue
-        val world = worldAt(state.galaxy.seed, target) ?: continue
+    for (world in harvestCandidates(state)) {
+        val target = world.at
         val offered = FleetBalance.windowsFor(home, target, state.research, FleetBalance.FASTEST_HULL)
         // A target that cannot be reached inside the chosen absence is simply not on the list, which
         // is what the narrowing ladder says on the screen.
@@ -2726,14 +2730,11 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
     // the oldest: a dispatch is one decision with a different number on each world, so counting the
     // surveyed set would make "buy another probe" read as "add more to do".
     //
-    // A gather is never refused for a **price** — the hull is the cost and it was paid once — so the
-    // barrier it can carry is a **slot**, meaning every hull is away. That is the single most
-    // informative thing this census says about the mechanic.
+    // Gathering needs a legal adapted target and an idle hull. Missing adaptation is a gate;
+    // an otherwise legal dispatch whose hulls are all away is a slot barrier.
     if (fleet != null) {
-        val reachable = state.galaxy.surveyed.any { at ->
-            at != state.galaxy.home &&
-                state.galaxy.holderOf(at) == null &&
-                FleetBalance.windowsFor(state.galaxy.home, at, state.research, FleetBalance.FASTEST_HULL).isNotEmpty()
+        val reachable = harvestCandidates(state).any { world ->
+            FleetBalance.windowsFor(state.galaxy.home, world.at, state.research, FleetBalance.FASTEST_HULL).isNotEmpty()
         }
         census.add("gather", when {
             !reachable -> Barrier.GATE
@@ -3313,8 +3314,11 @@ private fun capAt(tuning: DepositTuning, world: World, gathering: ResourceKind, 
         ResourceKind.DEUTERIUM -> error("a world holds no deuterium deposit")
     }
     val price = if (gathering == ResourceKind.METAL) 1L else 2L
-    val cap = tuning.basePriced * richness.perMillion.toLong() * (100L + 35L * danger) /
-        (GalaxyBalance.RICHNESS_BASIS.toLong() * 100L * price)
+    var numerator = Math.multiplyExact(tuning.basePriced, richness.perMillion.toLong())
+    numerator = Math.multiplyExact(numerator, 100L + 35L * danger)
+    numerator = Math.multiplyExact(numerator, DepositBalance.adaptationRewardNumerator(world))
+    val cap = numerator / (GalaxyBalance.RICHNESS_BASIS.toLong() * 100L * price *
+        DepositBalance.ADAPTATION_REWARD_DENOMINATOR)
     if (tuning.isShipped) {
         check(cap == DepositBalance.cap(world, gathering, danger)) {
             "the harness's cap replica disagrees with DepositBalance.cap: $cap"
@@ -3381,6 +3385,7 @@ private class Standing(
 )
 
 private class DepositOutcome(
+    val finalState: GameState,
     val days: List<DepositDay>,
     val entriesHeld: Int,
     val systemsSurveyed: Int,
@@ -3398,6 +3403,7 @@ private fun depositRun(
     days: Int = 14,
     checkInHours: List<Int> = CHECK_IN_HOURS,
     spread: Boolean = true,
+    withAdaptation: Boolean = true,
     // Null is the adaptive rule — crystal while the colony is short of it, metal otherwise — which is
     // what a player does and what every row above uses. Forcing one is the only way to get a crystal
     // reading at all: at four check-ins a day this colony is rarely crystal-short, so the adaptive bot
@@ -3438,7 +3444,8 @@ private fun depositRun(
         if (hour !in checkIns) continue
         val gapMinutes = ((offsets.firstOrNull { it > hour } ?: (days * 24)) - hour) * 60L
         val visible = optionsFor(state, FULL_PLAN, withProjects = true)
-        shortOfCrystal = (visible.buildings + visible.projects)
+        val wantedProjects = visible.projects.filter { withAdaptation || it.first !is AdaptationTechnology }
+        shortOfCrystal = (visible.buildings + wantedProjects)
             .any { Blocker.CRYSTAL in shortagesOf(it.second, state.resources) }
 
         probeTargetFor(state, gapMinutes)?.let { target ->
@@ -3451,6 +3458,7 @@ private fun depositRun(
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
         for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
+            if (!withAdaptation && project is AdaptationTechnology) continue
             if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
@@ -3498,6 +3506,7 @@ private fun depositRun(
         ledger[day].crystal += event.cargo.crystal
     }
     return DepositOutcome(
+        finalState = state,
         days = ledger,
         entriesHeld = veins.touched,
         systemsSurveyed = state.galaxy.surveyed.map { it.galaxy to it.system }.distinct().size,
@@ -3529,9 +3538,8 @@ private fun standingAt(
     var worthIt = 0
     var hullsFed = 0
     var pricedStanding = 0L
-    for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
-        if (target == home || state.galaxy.holderOf(target) != null) continue
-        val world = worldAt(state.galaxy.seed, target) ?: continue
+    for (world in harvestCandidates(state)) {
+        val target = world.at
         if (window !in FleetBalance.windowsFor(home, target, state.research, FleetBalance.FASTEST_HULL)) continue
         reachable++
         val station = FleetBalance.stationFor(home, target, window, state.research, FleetBalance.FASTEST_HULL)
@@ -3579,9 +3587,8 @@ private fun bestVein(
 ): VeinChoice? {
     val home = state.galaxy.home
     var best: VeinChoice? = null
-    for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
-        if (target == home || state.galaxy.holderOf(target) != null) continue
-        val world = worldAt(state.galaxy.seed, target) ?: continue
+    for (world in harvestCandidates(state)) {
+        val target = world.at
         if (window !in FleetBalance.windowsFor(home, target, state.research, FleetBalance.FASTEST_HULL)) continue
         val station = FleetBalance.stationFor(home, target, window, state.research, FleetBalance.FASTEST_HULL)
         val lift = cargoAt(
@@ -3612,6 +3619,60 @@ private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal
     ResourceKind.CRYSTAL -> crystal
     ResourceKind.DEUTERIUM -> deuterium
+}
+
+internal data class HarvestStrategyOutcome(
+    val withAdaptation: Boolean,
+    val adaptationLevels: AdaptationLevels,
+    val adaptationSpendPriced: Long,
+    val fleetMetal: Long,
+    val fleetCrystal: Long,
+    val worldsReached: Int,
+    val systemsSurveyed: Int,
+    val colonyMetalPerDay: Long,
+    val colonyCrystalPerDay: Long,
+)
+
+internal fun harvestingStrategyComparison(): List<HarvestStrategyOutcome> = listOf(false, true).map { withAdaptation ->
+    val outcome = depositRun(
+        DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_PERCENT_PER_DAY),
+        withAdaptation = withAdaptation,
+    )
+    HarvestStrategyOutcome(
+        withAdaptation = withAdaptation,
+        adaptationLevels = outcome.finalState.research.adaptationLevels(),
+        adaptationSpendPriced = outcome.finalState.eventLog.filterIsInstance<Event.AdaptationStarted>()
+            .sumOf { priced(AdaptationBalance.adaptationCost(it.technology, it.toLevel)) },
+        fleetMetal = outcome.days.sumOf { it.metal },
+        fleetCrystal = outcome.days.sumOf { it.crystal },
+        worldsReached = outcome.targetsReached,
+        systemsSurveyed = outcome.systemsSurveyed,
+        colonyMetalPerDay = outcome.colonyMetalPerDay,
+        colonyCrystalPerDay = outcome.colonyCrystalPerDay,
+    )
+}
+
+private fun printHarvestingStrategyComparison() {
+    println("## Harvesting with and without adaptation investment")
+    println()
+    println("Fourteen days, seed $SIM_GALAXY_SEED, four check-ins per day, one skiff per dispatch.")
+    println("Each dispatch chooses the best remaining legal target; a world can receive several runs.")
+    println("Both policies probe and buy buildings and applied research by the existing cheapest-first rule.")
+    println("The investment policy also buys adaptation by that rule; these are two simple policies, not optimal play.")
+    println("Fleet cargo is the total returned over the fortnight; colony rates are the final day's rates.")
+    println()
+    println("| Adaptation | T/G/A | spent priced | fleet metal | fleet crystal | worlds | systems | colony metal/day | colony crystal/day |")
+    println("|---|---|---|---|---|---|---|---|---|")
+    for (row in harvestingStrategyComparison()) {
+        val levels = row.adaptationLevels
+        println(
+            "| ${if (row.withAdaptation) "cheapest-first investment" else "no investment"} | " +
+                "${levels.thermal}/${levels.gravitic}/${levels.atmospheric} | ${row.adaptationSpendPriced.grouped()} | " +
+                "${row.fleetMetal.grouped()} | ${row.fleetCrystal.grouped()} | ${row.worldsReached} | " +
+                "${row.systemsSurveyed} | ${row.colonyMetalPerDay.grouped()} | ${row.colonyCrystalPerDay.grouped()} |",
+        )
+    }
+    println()
 }
 
 // **The reading issue #68 says decides the cap**, printed first because it is the one the decision
@@ -3747,16 +3808,12 @@ private fun printDepositReport() {
         )
     }
     println()
-    println("**The first run of this table found the mirror of the failure it was built to catch.** The")
-    println("sheet's §9 asks whether the *absent* player is taxed. They are not — they are paid roughly")
-    println("fifty times over, and the `worlds reached` column says why: the window rung decides how far")
-    println("a run can go, reach decides how many veins you can spread across, and a player confined to")
-    println("the 3h rung is confined to their own doorstep. Six worlds, stripped, living on 5% a day.")
+    println("Read these current rows together: a longer window changes reach and station time, while")
+    println("adaptation limits which surveyed worlds can be worked. The worlds reached and clamped")
+    println("columns show how that policy's income is constrained by its available deposits.")
     println()
-    println("So depletion makes the long window strictly better, where the fleet sheet measured every")
-    println("cadence inside 4% of each other. That is a design call rather than a constant: the answer")
-    println("if it is unwanted is to make the frontier reachable at a shorter window — which is what")
-    println("the drive technology was always for — and not to move the cap or the refill.")
+    println("These results describe the simulated policies and seed. They do not establish which")
+    println("cadence is optimal for a player who invests differently or opens on another system.")
 
     println()
     println("### The trap — the same player concentrating instead of spreading")

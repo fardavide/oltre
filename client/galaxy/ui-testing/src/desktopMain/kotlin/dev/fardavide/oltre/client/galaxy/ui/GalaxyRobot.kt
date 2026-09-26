@@ -3,6 +3,8 @@ package dev.fardavide.oltre.client.galaxy.ui
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -11,12 +13,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.down
 import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipe
@@ -307,6 +312,16 @@ class GalaxyRobot(private val test: ComposeUiTest, private val viewState: SkyVie
 
     fun assertTheCaptionReads(text: String) = apply {
         test.onNodeWithTag(GalaxyTestTags.CAPTION).assert(containing(text))
+    }
+
+    fun assertTheCaptionFullyDisplays(text: String) = apply {
+        val layouts = mutableListOf<TextLayoutResult>()
+        test.onNode(
+            hasText(text, substring = true) and hasAnyAncestor(hasTestTag(GalaxyTestTags.CAPTION)),
+            useUnmergedTree = true,
+        ).assertIsDisplayed().performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        check(layouts.isNotEmpty()) { "the caption returned no text layout" }
+        check(layouts.none { it.hasVisualOverflow }) { "the caption truncates $text" }
     }
 
     fun assertTheCaptionDoesNotRead(text: String) = apply {
