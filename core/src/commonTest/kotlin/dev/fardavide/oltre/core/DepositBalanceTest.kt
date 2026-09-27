@@ -16,6 +16,16 @@ import kotlin.time.Duration.Companion.milliseconds
 // another test's subject and a balance test that read them would move every time one did.
 class DepositBalanceTest {
 
+    @Test
+    fun `every deposit refills from empty in seven days regardless of capacity`() {
+        for (cap in listOf(1L, 5_800L, 75_400L, 1_900_001L)) {
+            val capFine = cap * Resources.FINE_PER_UNIT
+
+            assertEquals(capFine, DepositBalance.regenerated(0, capFine, 7.days), "capacity $cap")
+            assertTrue(DepositBalance.regenerated(0, capFine, 7.days - 1.milliseconds) < capFine)
+        }
+    }
+
     private fun at(galaxy: Int, system: Int, slot: Int): GalaxyCoordinate =
         GalaxyCoordinate(galaxy = galaxy, system = system, slot = slot)
 
@@ -29,7 +39,7 @@ class DepositBalanceTest {
         ))
         val research = Research.initial().withLevel(Technology.PROSPECTING, TechLevel(TechLevel.MAX))
 
-        assertEquals(255_590_620_342, FleetBalance.cargo(
+        assertEquals(5_418_882_410, FleetBalance.cargo(
             demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 30_001), 1_439.minutes, 10, research,
         ).metal)
     }
@@ -70,7 +80,7 @@ class DepositBalanceTest {
         val wanted = 1_234_567L
         val wait = kotlin.test.assertNotNull(DepositBalance.timeUntil(storedFine, capFine, wanted))
 
-        assertTrue(wait > 12.days && wait < 14.days, "the deposit refills five percent per day: $wait")
+        assertTrue(wait > 4.days && wait < 5.days, "the deposit refills in seven days: $wait")
         assertTrue(DepositBalance.regenerated(storedFine, capFine, wait) >= wanted * Resources.FINE_PER_UNIT)
         assertTrue(DepositBalance.regenerated(storedFine, capFine, wait - 1.milliseconds) < wanted * Resources.FINE_PER_UNIT)
     }
@@ -81,16 +91,16 @@ class DepositBalanceTest {
         val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
         val capFine = DepositBalance.cap(demanding, ResourceKind.METAL, 0) * Resources.FINE_PER_UNIT
 
-        assertEquals(capFine, DepositBalance.regenerated(0, capFine, 20.days))
+        assertEquals(capFine, DepositBalance.regenerated(0, capFine, 7.days))
     }
 
     @Test
-    fun `a difficult full deposit takes the same working time as an easy one`() {
+    fun `a gravitic twelve deposit supports the same fleet for thirteen times longer`() {
         val plain = world(at = at(2, 125, 8), hazards = emptySet())
         val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
 
         assertEquals(
-            1_450.minutes,
+            18_850.minutes,
             DepositBalance.workingTime(
                 demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 4), 0,
                 DepositBalance.cap(demanding, ResourceKind.METAL, 0), Research.initial(),
@@ -99,14 +109,14 @@ class DepositBalanceTest {
     }
 
     @Test
-    fun `gravitic twelve increases extraction by the same thirteen times`() {
+    fun `gravitic twelve deepens the deposit without increasing extraction`() {
         val plain = world(at = at(2, 125, 8), hazards = emptySet())
         val demanding = plain.copy(traits = plain.traits.copy(gravity = Gravity(2_750)))
         val cargo = FleetBalance.cargo(
             demanding, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 60.minutes, 0, Research.initial(),
         )
 
-        assertEquals(780, cargo.metal)
+        assertEquals(60, cargo.metal)
     }
 
     @Test
@@ -299,19 +309,18 @@ class DepositBalanceTest {
     // ── Refill ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a world puts back five percent of its cap a day`() {
+    fun `a world restores one seventh of its cap each day with one final rounding`() {
         val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        // 5% of 5,800 is 290 units a day, and twenty of those days is the whole vein.
-        assertEquals(1_044_000_000, DepositBalance.regenerated(0, capFine, 1.days))
-        assertEquals(5_220_000_000, DepositBalance.regenerated(0, capFine, 5.days))
+        assertEquals(2_982_857_142, DepositBalance.regenerated(0, capFine, 1.days))
+        assertEquals(14_914_285_714, DepositBalance.regenerated(0, capFine, 5.days))
     }
 
     @Test
-    fun `a world is full again after twenty days and never more than full`() {
+    fun `a world is full again after seven days and never more than full`() {
         val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        assertEquals(capFine, DepositBalance.regenerated(0, capFine, 20.days))
+        assertEquals(capFine, DepositBalance.regenerated(0, capFine, 7.days))
         assertEquals(capFine, DepositBalance.regenerated(0, capFine, 200.days))
         assertEquals(capFine, DepositBalance.regenerated(capFine, capFine, 1.days))
     }
@@ -360,9 +369,8 @@ class DepositBalanceTest {
     fun `an emptied world names when it will hold the ask again`() {
         val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        // 5% of 5,800 is 290 a day, so 2,900 units is ten days and 5,800 is twenty.
-        assertEquals(10.days, DepositBalance.timeUntil(0, capFine, wanted = 2_900))
-        assertEquals(20.days, DepositBalance.timeUntil(0, capFine, wanted = 5_800))
+        assertEquals(84.hours, DepositBalance.timeUntil(0, capFine, wanted = 2_900))
+        assertEquals(7.days, DepositBalance.timeUntil(0, capFine, wanted = 5_800))
     }
 
     @Test

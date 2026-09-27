@@ -244,7 +244,7 @@ internal val dispatchPickerClampedFrame: SkyFrame = TWO_HULL_STATE.let { state -
         target = RUNNABLE,
         gathering = ResourceKind.METAL,
         // All but a sliver, so a single hauler's hold is more than the ground can supply.
-        taken = whole - whole / 12,
+        taken = whole - 500,
         at = FIXTURE_NOW,
     )
     sheet(state = state.copy(galaxy = worked), gathering = ResourceKind.METAL)

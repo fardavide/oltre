@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.3", "2026-09-26", "Larger fleets on richer worlds",
+            "Deep deposits stay. Ships harvest at their previous rate: send more together or return.",
+            "Every empty deposit refills in seven days, whatever its size.",
+            "Ships already in flight keep their cargo and return times.",
+        ),
+        release(
             "0.29.2", "2026-09-26", "Difficult worlds pay more",
             "More adaptation means deeper deposits and faster harvesting. Gravitic 12 alone pays 13×.",
             "Meet every adaptation requirement to harvest. Locked worlds show what you can gain.",

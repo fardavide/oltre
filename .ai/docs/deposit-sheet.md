@@ -1,5 +1,21 @@
 # Deposit decision sheet — 0.9
 
+## Current ruling — fleet concentration (2026-09-26)
+
+After playing 0.29.2, Davide clarified the goal: about one harvesting destination per check-in
+early, two or three mid-game, and at most a dozen late-game. More difficult planets should sustain
+larger fleets or repeat visits, rather than multiplying each ship's haul. He approved option A:
+keep the adaptation-scaled deposit capacities, remove adaptation from extraction speed, and refill
+an empty deposit linearly in seven days regardless of capacity. There is no new mission limit.
+
+This supersedes the five-percent daily refill and the claim that all worlds must take the same
+time to empty. Richness and danger still scale both capacity and extraction; adaptation scales
+only capacity. Prospecting still improves extraction. Saved flights keep their recorded cargo and
+return times. The earlier decisions below remain as history; balance-log.md records measurements.
+
+The destination counts are play targets, not enforced caps. Simulation must count distinct
+destinations per check-in, repeated visits and income; dispatch count alone is not that measure.
+
 Written by the build, 2026-08-13, on Davide's report after playing 0.8.0:
 
 > *"I noticed planets never exhaust resources, and that seems like OP, and makes the game boring, as

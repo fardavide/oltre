@@ -54,6 +54,7 @@ import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.YardJob
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -78,6 +79,7 @@ fun main() {
     printFleetReport()
     printDepositReport()
     printHarvestingStrategyComparison()
+    printFleetConcentrationComparison()
     printCheckInPressureReport()
     printInteractionCensus()
     printGateClock()
@@ -1471,10 +1473,10 @@ private fun cargoAt(
     // product outgrows Long. The final hold must still fit the core resource type.
     val numerator = listOf(
         FleetBalance.berths(ships).toLong(), rate, stationMinutes,
-        richness.perMillion.toLong(), paid, DepositBalance.adaptationRewardNumerator(world),
+        richness.perMillion.toLong(), paid,
     ).fold(java.math.BigInteger.ONE) { product, factor -> product * factor.toBigInteger() }
-    val whole = (numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit *
-        DepositBalance.ADAPTATION_REWARD_DENOMINATOR).toBigInteger()).longValueExact()
+    val whole = (numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit)
+        .toBigInteger()).longValueExact()
     val cargo = when (gathering) {
         ResourceKind.METAL -> Resources.of(metal = whole)
         ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
@@ -3286,12 +3288,12 @@ private fun meanRichness(worlds: List<World>, of: (WorldTraits) -> Int): String 
 // `core` what a world holds. The replica is checked against `core` on every call at the shipped
 // values, and the bot's own deposits are the authority — `state.galaxy.deposits` is cleared each
 // check-in so the two cannot both debit the same world.
-private class DepositTuning(val basePriced: Long, val refillPercent: Long) {
+private class DepositTuning(val basePriced: Long, val refillDuration: Duration) {
 
     val isShipped: Boolean
-        get() = basePriced == DepositBalance.BASE_PRICED && refillPercent == DepositBalance.REFILL_PERCENT_PER_DAY
+        get() = basePriced == DepositBalance.BASE_PRICED && refillDuration == DepositBalance.REFILL_DURATION
 
-    val label: String get() = "$basePriced · ${refillPercent}%/day"
+    val label: String get() = "$basePriced · full in ${refillDuration.inWholeDays}d"
 }
 
 // **The ladder is Davide's multiple rather than a geometric series**, and it moved once. Round 24
@@ -3345,9 +3347,12 @@ private class Veins(private val tuning: DepositTuning, private val state: GameSt
             val cap = capAt(tuning, world, gathering, danger)
             Vein(cap = cap, remaining = cap, asOfHour = hour)
         }
-        val perDay = vein.cap * tuning.refillPercent / 100
         val hours = (hour - vein.asOfHour).coerceAtLeast(0)
-        vein.remaining = minOf(vein.cap, vein.remaining + perDay * hours / 24)
+        vein.remaining = DepositBalance.regenerated(
+            vein.remaining,
+            vein.cap,
+            hours.hours * (DepositBalance.REFILL_DURATION / tuning.refillDuration),
+        )
         vein.asOfHour = hour
         return vein.remaining
     }
@@ -3401,6 +3406,9 @@ private class DepositOutcome(
 private fun depositRun(
     tuning: DepositTuning,
     days: Int = 14,
+    seed: GalaxySeed = GalaxySeed(SIM_GALAXY_SEED),
+    coreDeposits: Boolean = false,
+    grouped: Boolean = false,
     checkInHours: List<Int> = CHECK_IN_HOURS,
     spread: Boolean = true,
     withAdaptation: Boolean = true,
@@ -3422,7 +3430,7 @@ private fun depositRun(
     // shows up in the level count rather than hiding behind a full queue.
     hullsFirst: Boolean = false,
 ): DepositOutcome {
-    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    var state = GameState.initial(seed)
     val genesis = Instant.fromEpochMilliseconds(0)
     var now = genesis
     val fleet = SHIPPED_FLEET
@@ -3439,7 +3447,7 @@ private fun depositRun(
         state = advance(state, from = now, to = at)
         now = at
         // The harness owns the vein; `core`'s copy is emptied so the two cannot both debit a world.
-        state = state.copy(galaxy = state.galaxy.copy(deposits = emptyList()))
+        if (!coreDeposits) state = state.copy(galaxy = state.galaxy.copy(deposits = emptyList()))
 
         if (hour !in checkIns) continue
         val gapMinutes = ((offsets.firstOrNull { it > hour } ?: (days * 24)) - hour) * 60L
@@ -3476,6 +3484,10 @@ private fun depositRun(
 
         val gathering = forceGathering ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
         val window = windowFor(WindowPolicy.HOME_WHEN_I_LOOK, gapMinutes)
+        if (coreDeposits) {
+            state = dispatchCoreHarvests(state, window, gathering, now, grouped)
+            continue
+        }
         if (hour == standingAtHour) {
             standing = standingAt(state, window, gathering, fleet, veins, hour)
         }
@@ -3621,6 +3633,125 @@ private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.DEUTERIUM -> deuterium
 }
 
+internal fun concentrationRun(seed: GalaxySeed, days: Int, grouped: Boolean): GameState = depositRun(
+    tuning = DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_DURATION),
+    days = days,
+    seed = seed,
+    coreDeposits = true,
+    grouped = grouped,
+).finalState
+
+private data class ConcentrationPeriod(
+    val label: String,
+    val days: IntRange,
+)
+
+private data class ConcentrationReading(
+    val grouped: Boolean,
+    val period: String,
+    val destinations: List<Int>,
+    val dispatches: List<Int>,
+    val metal: Long,
+    val crystal: Long,
+)
+
+private fun fleetConcentrationComparison(): List<ConcentrationReading> {
+    val seeds = listOf(20_260_807L, 20_260_907L, 20_261_007L).map(::GalaxySeed)
+    val periods = listOf(
+        ConcentrationPeriod("days 1–3", 0..2),
+        ConcentrationPeriod("days 4–7", 3..6),
+        ConcentrationPeriod("days 8–14", 7..13),
+    )
+    return listOf(false, true).flatMap { grouped ->
+        val states = seeds.map { concentrationRun(it, days = 14, grouped = grouped) }
+        periods.map { period ->
+            val destinations = mutableListOf<Int>()
+            val dispatches = mutableListOf<Int>()
+            var metal = 0L
+            var crystal = 0L
+            for (state in states) {
+                val departed = state.eventLog.filterIsInstance<Event.FleetDispatched>().groupBy { it.at }
+                val returned = state.eventLog.filterIsInstance<Event.FleetReturned>()
+                for (day in period.days) {
+                    for (hour in CHECK_IN_HOURS) {
+                        val at = Instant.fromEpochMilliseconds(0) + (day * 24 + hour).hours
+                        val events = departed[at].orEmpty()
+                        destinations += events.map { it.target }.distinct().size
+                        dispatches += events.size
+                    }
+                    returned.filter { (it.at - Instant.fromEpochMilliseconds(0)).inWholeHours / 24 == day.toLong() }
+                        .forEach {
+                            metal += it.cargo.metal
+                            crystal += it.cargo.crystal
+                        }
+                }
+            }
+            ConcentrationReading(grouped, period.label, destinations, dispatches, metal, crystal)
+        }
+    }
+}
+
+private fun printFleetConcentrationComparison() {
+    println("## Fleet concentration across three seeds")
+    println()
+    println("Fourteen simulated days, four check-ins per day. The three age bands describe this")
+    println("progression bot; they are not universal early/mid/late definitions. Zero-destination check-ins count.")
+    println()
+    println("| Dispatch policy | Age | planets / check-in median · max | dispatches median · max | metal | crystal |")
+    println("|---|---|---|---|---|---|")
+    for (reading in fleetConcentrationComparison()) {
+        println(
+            "| ${if (reading.grouped) "fewest hulls that empty one planet" else "one hull per dispatch"} " +
+                "| ${reading.period} | ${reading.destinations.median()} · ${reading.destinations.max()} " +
+                "| ${reading.dispatches.median()} · ${reading.dispatches.max()} | ${reading.metal.grouped()} " +
+                "| ${reading.crystal.grouped()} |",
+        )
+    }
+    println()
+}
+
+private fun dispatchCoreHarvests(
+    initial: GameState,
+    window: Duration,
+    gathering: ResourceKind,
+    at: Instant,
+    grouped: Boolean,
+): GameState {
+    var state = initial
+    while (state.ships.countOf(ShipType.SKIFF) > 0) {
+        val one = Ships.of(ShipType.SKIFF, 1)
+        val best = harvestCandidates(state).mapNotNull { world ->
+            val started = startRun(state, world.at, gathering, one, window, at)
+            if (started !is StartRunResult.Started) return@mapNotNull null
+            val cargo = started.state.runs.last().cargo.of(gathering)
+            if (cargo <= 0) null else Triple(world, cargo, started.state)
+        }.maxByOrNull { it.second } ?: break
+
+        if (!grouped) {
+            state = best.third
+            continue
+        }
+
+        val world = best.first
+        val home = state.galaxy.home
+        val candidates = FleetBalance.reachableManifests(state.ships)
+            .filter { window in FleetBalance.windowsFor(home, world.at, state.research, it.ships) }
+        val chosen = FleetBalance.smallestThatEmpties(
+            candidates = candidates,
+            world = world,
+            gathering = gathering,
+            remaining = state.galaxy.remaining(world.at, gathering, at),
+            station = { FleetBalance.stationFor(home, world.at, window, state.research, it) },
+            danger = FleetBalance.danger(home, world),
+            research = state.research,
+        ) ?: candidates.lastOrNull() ?: break
+        val started = startRun(state, world.at, gathering, chosen.ships, window, at)
+        if (started !is StartRunResult.Started) break
+        state = started.state
+    }
+    return state
+}
+
 internal data class HarvestStrategyOutcome(
     val withAdaptation: Boolean,
     val adaptationLevels: AdaptationLevels,
@@ -3635,7 +3766,7 @@ internal data class HarvestStrategyOutcome(
 
 internal fun harvestingStrategyComparison(): List<HarvestStrategyOutcome> = listOf(false, true).map { withAdaptation ->
     val outcome = depositRun(
-        DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_PERCENT_PER_DAY),
+        DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_DURATION),
         withAdaptation = withAdaptation,
     )
     HarvestStrategyOutcome(
@@ -3691,7 +3822,7 @@ private fun printStandingTable() {
     println("| cap | ×1,450 | hulls | reachable | worth it | hulls fed | priced standing | clamped |")
     println("|---|---|---|---|---|---|---|---|")
     for (base in DEPOSIT_CANDIDATES) {
-        val tuning = DepositTuning(basePriced = base, refillPercent = DepositBalance.REFILL_PERCENT_PER_DAY)
+        val tuning = DepositTuning(basePriced = base, refillDuration = DepositBalance.REFILL_DURATION)
         val out = depositRun(
             tuning,
             days = 3,
@@ -3737,8 +3868,8 @@ private fun printDepositReport() {
     println("| cap · refill | d1 metal | d7 metal | d14 metal | d14 crystal | clamped | veins held | systems |")
     println("|---|---|---|---|---|---|---|---|")
     for (base in DEPOSIT_CANDIDATES) {
-        for (refill in listOf(5L, 10L)) {
-            val tuning = DepositTuning(basePriced = base, refillPercent = refill)
+        for (refill in listOf(20.days, 10.days, DepositBalance.REFILL_DURATION)) {
+            val tuning = DepositTuning(basePriced = base, refillDuration = refill)
             val out = depositRun(tuning)
             val dispatches = out.days.sumOf { it.dispatches }
             val clamped = out.days.sumOf { it.clamped }
@@ -3751,7 +3882,7 @@ private fun printDepositReport() {
         }
     }
 
-    val shipped = DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_PERCENT_PER_DAY)
+    val shipped = DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_DURATION)
     println()
     println("### Veto 1 — does the fleet stay worth owning?")
     println()
@@ -3778,7 +3909,7 @@ private fun printDepositReport() {
     println("| cap · refill | d1 crystal | d7 crystal | d14 crystal | clamped | colony crystal/day |")
     println("|---|---|---|---|---|---|")
     for (base in DEPOSIT_CANDIDATES) {
-        val tuning = DepositTuning(basePriced = base, refillPercent = 5)
+        val tuning = DepositTuning(basePriced = base, refillDuration = DepositBalance.REFILL_DURATION)
         val row = depositRun(tuning, forceGathering = ResourceKind.CRYSTAL)
         val dispatches = row.days.sumOf { it.dispatches }
         val mark = if (tuning.isShipped) " **" else ""

@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.29.3", "2026-09-26", "Flotte più grandi sui mondi ricchi",
+            "Depositi ancora ricchi, raccolta al ritmo precedente: manda più navi insieme o ritorna.",
+            "Ogni deposito vuoto torna pieno in sette giorni, qualunque sia la sua capienza.",
+            "Le navi già in volo mantengono carico e orario di ritorno.",
+        ),
+        release(
             "0.29.2", "2026-09-26", "I mondi difficili rendono di più",
             "Più adattamento: più risorse, raccolta più rapida. Il solo Gravitico 12 rende 13×.",
             "Servono tutti gli adattamenti. I mondi bloccati mostrano le risorse che puoi ottenere.",

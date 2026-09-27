@@ -372,7 +372,7 @@ object FleetBalance {
     // a number the player was shown before they committed. It is the same discipline `advance` already
     // applies to accrual, and the reason a 3h run next door reads 132 and not 133.
     //
-    // Large fleets and adaptation rewards can overflow the numerator while the quotient still fits.
+    // Large fleets can overflow the numerator while the quotient still fits.
     // Carry whole units and the fractional remainder through each checked multiplication.
     fun cargo(
         world: World,
@@ -394,13 +394,12 @@ object FleetBalance {
         val denominator = MINUTES_PER_HOUR *
             GalaxyBalance.RICHNESS_BASIS *
             PERCENT *
-            gathered.pricePerUnit *
-            DepositBalance.ADAPTATION_REWARD_DENOMINATOR
+            gathered.pricePerUnit
         return gathered.holding(
             checkedProductDivided(
                 factors = listOf(
                     carrying.toLong(), extractionPerHour(research), stationMinutes,
-                    gathered.richnessOf(world).perMillion.toLong(), paid, DepositBalance.adaptationRewardNumerator(world),
+                    gathered.richnessOf(world).perMillion.toLong(), paid,
                 ),
                 divisor = denominator,
                 what = { "cargo" },
