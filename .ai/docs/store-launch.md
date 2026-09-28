@@ -116,9 +116,11 @@ Facts read out of the repository on 2026-09-16, so no step below re-establishes 
 
 - [ ] Davide: in App Store Connect, open the existing `dev.fardavide.oltre` record and fill the **App
       Store** tab (TestFlight has never needed it).
-- [ ] Screenshots: **6.9-inch iPhone** (1320×2868) is required, and because
-      `TARGETED_DEVICE_FAMILY` is `"1,2"` a **13-inch iPad** set (2064×2752) is required too. Apple
-      scales these down for every smaller device. Captured from the simulator, not from Roborazzi.
+- [x] Screenshots: one **6.5-inch iPhone** set (1284×2778) — Davide's call on 2026-09-28, after
+      the 6.9-inch set (1320×2868) was rejected by the slot the listing uses; no other iPhone size.
+      Because `TARGETED_DEVICE_FAMILY` is `"1,2"` a **13-inch iPad** set (2064×2752) is required
+      too. Captured from the simulator, not from Roborazzi. Sizes and the resize recipe live in the
+      `store-screenshots` skill.
 - [ ] Name, subtitle, keywords, description, promotional text, category (Games → Strategy), support
       URL, marketing URL, copyright.
   - [x] Name: **Oltre** (reserved with the record).
