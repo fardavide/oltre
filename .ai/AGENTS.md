@@ -37,6 +37,7 @@ description plus Claude's `when_to_use` and `user-invocable: true` metadata.
 | `module-rules` | The eight build-enforced module rules; what a layout/dependency failure means |
 | `versioning` | Version bump + changelog, real file paths |
 | `screenshot-testing` | Roborazzi record/verify workflow, baseline policy |
+| `store-screenshots` | App Store screenshot sizes (iPhone 6.5" only, iPad 13") and the resize recipe |
 | `test-coverage` | The four test kinds, naming convention, per-kind coverage, the PR report and the merge gate |
 
 ## Stack (decided — do not substitute)
