@@ -1,0 +1,32 @@
+name: Refresh Oltre website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - '.github/scripts/android_release.py'
+      - 'art/icon/**'
+      - 'client/**/desktopTest/screenshots/**'
+  # The release is created with GITHUB_TOKEN, which suppresses the release event in Actions.
+  workflow_run:
+    workflows: ['Release Android']
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  refresh:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request a website rebuild
+        env:
+          GH_TOKEN: ${{ secrets.OLTRE_WEBSITE_DISPATCH_TOKEN }}
+        run: >-
+          gh api --method POST repos/fardavide/fardavide.github.io/dispatches
+          -f event_type=oltre-site-refresh
